@@ -1,0 +1,62 @@
+//@version=5
+// ══════════════════════════════════════════════════════════════
+// Nagimi AI — Muros de Strikes (Notional Value)
+// Dibuja líneas horizontales en los strikes de mayor Notional.
+// Rojo = muros CALL (resistencias) · Verde = muros PUT (soportes).
+// Edita los valores desde el Top del panel de Nagimi para cada ticker.
+// Datos por defecto: SPY (spot ~738.93).  Material educativo, no es consejo financiero.
+// ══════════════════════════════════════════════════════════════
+indicator("Nagimi AI — Muros de Strikes", overlay=true, max_lines_count=60, max_labels_count=60)
+
+grpC = "CALLS (resistencias)"
+grpP = "PUTS (soportes)"
+grpX = "Estilo"
+
+// ── Muros CALL: strike + notional (texto libre) ──
+cs1 = input.float(750, "Call 1 · strike", group=grpC),  cn1 = input.string("15.5B", "Call 1 · notional", group=grpC)
+cs2 = input.float(800, "Call 2 · strike", group=grpC),  cn2 = input.string("19.1B", "Call 2 · notional", group=grpC)
+cs3 = input.float(760, "Call 3 · strike", group=grpC),  cn3 = input.string("11.3B", "Call 3 · notional", group=grpC)
+cs4 = input.float(780, "Call 4 · strike", group=grpC),  cn4 = input.string("10.3B", "Call 4 · notional", group=grpC)
+cs5 = input.float(825, "Call 5 · strike", group=grpC),  cn5 = input.string("11.9B", "Call 5 · notional", group=grpC)
+
+// ── Muros PUT: strike + notional ──
+ps1 = input.float(720, "Put 1 · strike", group=grpP),   pn1 = input.string("20.5B", "Put 1 · notional", group=grpP)
+ps2 = input.float(700, "Put 2 · strike", group=grpP),   pn2 = input.string("21.1B", "Put 2 · notional", group=grpP)
+ps3 = input.float(630, "Put 3 · strike", group=grpP),   pn3 = input.string("19.1B", "Put 3 · notional", group=grpP)
+ps4 = input.float(600, "Put 4 · strike", group=grpP),   pn4 = input.string("18.2B", "Put 4 · notional", group=grpP)
+ps5 = input.float(550, "Put 5 · strike", group=grpP),   pn5 = input.string("32.5B", "Put 5 · notional", group=grpP)
+
+callCol = input.color(#ff5d52, "Color calls", group=grpX)
+putCol  = input.color(#2ec77f, "Color puts",  group=grpX)
+back    = input.int(300, "Largo de la línea (barras atrás)", minval=20, group=grpX)
+
+var line[]  Ls = array.new_line()
+var label[] Lb = array.new_label()
+
+draw(price, txt, col) =>
+    array.push(Ls, line.new(bar_index - back, price, bar_index, price, extend=extend.right, color=col, width=2))
+    array.push(Lb, label.new(bar_index, price, txt, style=label.style_label_left, color=color.new(col, 78), textcolor=color.white, size=size.small))
+
+if barstate.islast
+    // limpiar el dibujo anterior para no duplicar en tiempo real
+    if array.size(Ls) > 0
+        for i = 0 to array.size(Ls) - 1
+            line.delete(array.get(Ls, i))
+    if array.size(Lb) > 0
+        for i = 0 to array.size(Lb) - 1
+            label.delete(array.get(Lb, i))
+    array.clear(Ls)
+    array.clear(Lb)
+
+    // CALLS
+    draw(cs1, "CALL " + str.tostring(cs1, "#.##") + " · Not " + cn1, callCol)
+    draw(cs2, "CALL " + str.tostring(cs2, "#.##") + " · Not " + cn2, callCol)
+    draw(cs3, "CALL " + str.tostring(cs3, "#.##") + " · Not " + cn3, callCol)
+    draw(cs4, "CALL " + str.tostring(cs4, "#.##") + " · Not " + cn4, callCol)
+    draw(cs5, "CALL " + str.tostring(cs5, "#.##") + " · Not " + cn5, callCol)
+    // PUTS
+    draw(ps1, "PUT " + str.tostring(ps1, "#.##") + " · Not " + pn1, putCol)
+    draw(ps2, "PUT " + str.tostring(ps2, "#.##") + " · Not " + pn2, putCol)
+    draw(ps3, "PUT " + str.tostring(ps3, "#.##") + " · Not " + pn3, putCol)
+    draw(ps4, "PUT " + str.tostring(ps4, "#.##") + " · Not " + pn4, putCol)
+    draw(ps5, "PUT " + str.tostring(ps5, "#.##") + " · Not " + pn5, putCol)

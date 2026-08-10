@@ -1,0 +1,183 @@
+SUB-AGENTE 2 — TIME & SALES DE CONVICCIÓN
+
+INFUSION & CO. — SISTEMA DE AGENTES DE FLOW v2.0
+
+Sub-Agente 2: Time & Sales de Convicción
+Medición de agresividad y urgencia de ejecución — Peso en score compuesto: 25%
+
+Objetivo
+Leer el Time & Sales para determinar no qué se operó, sino con cuánta urgencia. Quien tiene información paga el spread. Quien tiene paciencia trabaja el mid. La agresividad de ejecución es la huella más limpia de convicción institucional.
+
+1. Spread Bid/Ask
+Definición: (Ask − Bid) / Mid, expresado en porcentaje. Se calcula sobre el spread vigente en el momento de la ejecución, no sobre el spread promedio del día.
+
+Spread
+
+Pts
+
+Lectura
+
+Menos de 2%
+
+10
+
+Contrato líquido. Entrada y salida limpias.
+
+2% – 5%
+
+7
+
+Aceptable. Descontar el costo del objetivo.
+
+5% – 10%
+
+4
+
+Costo de fricción significativo.
+
+10% – 15%
+
+1
+
+Solo aceptable con score compuesto ≥ 85.
+
+Más de 15%
+
+VETO
+
+Score compuesto forzado a 0.
+
+Si el spread supera 10% y la transacción excede $1M, se genera una alerta en la interfaz para revisión manual. Un institucional que cruza un spread ancho por $1M o está muy informado o está cerrando una posición con urgencia — ambos casos merecen análisis humano.
+
+2. Dominancia Ask vs Bid
+Mide qué porcentaje del volumen del contrato se ejecutó de cada lado, en la ventana de la sesión.
+
+Concentración
+
+Pts
+
+90% o más en un lado
+
+10
+
+80% – 89%
+
+9
+
+70% – 79%
+
+8
+
+60% – 69%
+
+6
+
+55% – 59%
+
+4
+
+50% – 54%
+
+2
+
+Sin dominancia
+
+0
+
+Interpretación direccional (etiqueta separada del score): dominancia en Ask = presión compradora; dominancia en Bid = presión vendedora. El score mide fuerza; la etiqueta indica dirección. Nunca se combinan.
+
+Página 1
+
+SUB-AGENTE 2 — TIME & SALES DE CONVICCIÓN
+
+INFUSION & CO. — SISTEMA DE AGENTES DE FLOW v2.0
+
+3. Fuerza de ejecución
+Mide dónde se ejecutó la orden respecto al spread vigente. Es la métrica de agresividad pura.
+
+Nivel de ejecución
+
+Pts
+
+Above Ask / Below Bid
+
+10
+
+At Ask / At Bid
+
+8
+
+Cerca de Ask o Bid (dentro del 20% del spread) 6
+
+Mid
+
+3
+
+Mejor que Mid (hacia el lado contrario)
+
+1
+
+Sin claridad
+
+0
+
+Lectura Máxima agresividad. Barre el libro. Urgencia real. Cruza el spread. Toma liquidez. Ligeramente agresivo. Orden trabajada. Sin urgencia. Provee liquidez. Probablemente market maker. No puntuar.
+
+4. Velocidad de acumulación (nuevo)
+No existía en v1.0. Mide cuánto tiempo tardó en ejecutarse el volumen total. Diez mil contratos en 90 segundos y diez mil contratos a lo largo de seis horas son señales completamente distintas.
+
+Ventana de ejecución
+
+Pts
+
+Volumen objetivo completado en menos de 2 min
+
+10
+
+2 – 15 minutos
+
+8
+
+15 – 60 minutos
+
+6
+
+1 – 3 horas
+
+4
+
+Más de 3 horas / todo el día
+
+2
+
+Lectura Sweep coordinado. Máxima urgencia. Ejecución rápida y decidida. Acumulación activa. Construcción paciente de posición. Algoritmo VWAP. Poca información de timing.
+
+5. Repetición del actor (nuevo)
+Verifica si el mismo strike y vencimiento recibe ejecuciones agresivas repetidas a lo largo de varios días. La repetición es la diferencia entre una idea y una campaña.
+
+Patrón
+
+Pts
+
+3 o más días consecutivos con flow agresivo mismo strike
+
+10
+
+2 días consecutivos
+
+8
+
+Repetición no consecutiva dentro de 5 sesiones
+
+6
+
+Evento aislado
+
+4
+
+Cálculo del score del agente
+SCORE_A2 = (Spread * 0.20 + Dominancia * 0.25 + Fuerza * 0.30 + Velocidad * 0.15 + Repeticion * 0.10) Si Spread = VETO -> SCORE_A2 = 0 y se activa veto global Salida normalizada 0 - 10
+
+Página 2
+
+

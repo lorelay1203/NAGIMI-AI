@@ -1,0 +1,170 @@
+SUB-AGENTE 4 — CONTEXTO DE VOLATILIDAD
+
+INFUSION & CO. — SISTEMA DE AGENTES DE FLOW v2.0
+
+Sub-Agente 4: Contexto de Volatilidad
+Documento canónico — reemplaza ambas versiones anteriores de “Sub Agente de Contexto”
+Peso en score compuesto: 15%
+Nota de consolidación
+Existían dos PDFs de Contexto con tablas de puntuación contradictorias (por ejemplo, IV Rank 0%-15% valía 2 puntos en una versión y 8 en la otra; IV de 61%-89% valía 8 puntos mientras 90%-99% valía 5, una curva no monótona sin justificación). Este documento es la única versión válida. Las anteriores quedan obsoletas.
+Objetivo
+Determinar si la prima que se está pagando es razonable dado el rango histórico de volatilidad del subyacente. Este agente no origina señales: modula la señal de los demás. Un flow excelente en un contrato con volatilidad implícita inflada sigue siendo una mala operación. Se recopila el promedio de IV para las distintas fechas de expiración y se identifican los contratos con mayor IV, lo que permite detectar si un movimiento está próximo o si la acción ya opera en rangos elevados.
+
+Página 1
+
+SUB-AGENTE 4 — CONTEXTO DE VOLATILIDAD
+
+INFUSION & CO. — SISTEMA DE AGENTES DE FLOW v2.0
+
+1. Volatilidad Implícita (IV) del contrato
+La lógica correcta es una curva de campana, no una escala creciente. IV demasiado bajo significa que el mercado no espera movimiento; IV demasiado alto significa que ya se está pagando el movimiento por adelantado. El punto óptimo está en el medio.
+
+IV del contrato
+
+Pts
+
+Lectura
+
+30% – 60%
+
+10
+
+Zona óptima: prima razonable con movimiento esperado real.
+
+61% – 80%
+
+7
+
+Prima elevándose. Aceptable si IV Rank es bajo.
+
+20% – 29%
+
+5
+
+Prima barata pero el mercado no anticipa movimiento.
+
+81% – 100%
+
+4
+
+Prima cara. Preferir estructuras de débito limitado.
+
+Más de 100%
+
+2
+
+Evento binario descontado. Comprar prima simple es desfavorable.
+
+Menos de 20%
+
+2
+
+Contrato sin expectativa de movimiento.
+
+En v1.0, IV superior a 100% recibía 6 o 7 puntos según la versión — más que rangos moderados. Esto es incorrecto desde el punto de vista de valoración: pagar volatilidad extrema reduce el rendimiento esperado incluso acertando la dirección.
+
+2. IV Rank (posición del IV actual en su rango de 52 semanas)
+Esta métrica indica si la volatilidad se está comprimiendo o expandiendo. Para compradores de prima — que es lo que este sistema busca detectar — el IV Rank bajo es favorable.
+
+IV Rank 16% – 30% 0% – 15% 31% – 50% 51% – 70% 71% – 99% 100%
+
+Pts
+
+Lectura
+
+10
+
+Ideal: volatilidad comprimida con actividad detectada.
+
+9
+
+Compresión extrema. Excelente para compra, requiere catalizador.
+
+7
+
+Zona neutra. Prima justa.
+
+4
+
+Volatilidad elevada. Riesgo de contracción.
+
+2
+
+Prima cara. Crush de IV es el escenario base.
+
+0
+
+Máximo histórico. Comprar prima aquí es estadísticamente adverso.
+
+3. Estructura temporal de la volatilidad (nuevo)
+Compara el IV del vencimiento frontal contra vencimientos posteriores. La inversión de la estructura es una de las señales de evento inminente más confiables que existen.
+
+Estructura
+
+Pts
+
+Invertida (frontal > posterior en más de 15%) 10
+
+Invertida levemente (5% – 15%)
+
+8
+
+Plana (±5%)
+
+6
+
+Normal (contango moderado)
+
+5
+
+Contango pronunciado
+
+3
+
+Lectura Evento inminente descontado por el mercado. Tensión de corto plazo. Sin expectativa direccional en el tiempo. Estructura estándar. Sin expectativa de movimiento cercano.
+
+Página 2
+
+SUB-AGENTE 4 — CONTEXTO DE VOLATILIDAD
+
+INFUSION & CO. — SISTEMA DE AGENTES DE FLOW v2.0
+
+4. Skew (nuevo)
+Compara el IV de puts OTM contra calls OTM del mismo delta. Un skew que se aplana o se invierte mientras entra flow de calls es una de las confirmaciones más fuertes de reposicionamiento institucional alcista.
+
+Condición
+
+Pts
+
+Skew invertido con flow alcista (calls > puts en IV) 10
+
+Skew aplanándose con flow alcista
+
+8
+
+Skew normal (puts > calls) con flow alcista
+
+5
+
+Skew empinándose con flow alcista
+
+2
+
+Para flow bajista, invertir la lógica de la tabla.
+
+Lectura Demanda real de calls. Señal fuerte. Reposicionamiento en curso. Flow contra la estructura. Menos convincente. Contradicción: el mercado paga protección bajista.
+
+5. Proximidad a earnings (nuevo — modificador)
+
+Condición Sin earnings dentro del DTE Earnings dentro del DTE, IV Rank < 40 Earnings dentro del DTE, IV Rank ≥ 60 Earnings en menos de 5 días
+
+Mod. ×1.00 ×0.95 ×0.75 ×0.70
+
+Lectura Sin distorsión de IV. Distorsión leve. Crush de IV altamente probable post-evento. Máximo riesgo de contracción de prima.
+
+Cálculo del score del agente
+SCORE_A4 = (IV * 0.30 + IV_Rank * 0.30 + Term_Structure * 0.20 + Skew * 0.20) * Mod_Earnings Salida normalizada 0 - 10 Regla dura: IV Rank = 100 y DTE < 14 -> VETO global
+
+Página 3
+
+

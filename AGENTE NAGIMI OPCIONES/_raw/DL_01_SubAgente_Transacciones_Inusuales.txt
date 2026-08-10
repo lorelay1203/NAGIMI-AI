@@ -1,0 +1,289 @@
+SUB-AGENTE 1 — TRANSACCIONES INUSUALES
+
+INFUSION & CO. — SISTEMA DE AGENTES DE FLOW v2.0
+
+Sub-Agente 1: Transacciones Inusuales
+Detección de estructura institucional — Peso en score compuesto: 30%
+Objetivo
+Identificar transacciones cuyos parámetros de griegos, tamaño y estructura corresponden al comportamiento de mesas institucionales, no de retail. Ventana de análisis: últimos 30 días. Corrección clave respecto a v1.0: la versión anterior asignaba 0 puntos a todo delta menor a 0.49, eliminando el flow OTM especulativo — que históricamente es el de mayor contenido informativo cuando viene acompañado de gamma alto y tamaño. Ahora se evalúan dos perfiles distintos.
+
+Paso 1 — Clasificación de perfil
+Antes de puntuar, cada transacción se clasifica en uno de dos perfiles. Cada perfil usa su propia tabla de Delta y Gamma.
+
+Perfil DIRECCIONAL CONVEXO
+RUIDO
+
+Condición
+Delta ≥ 0.50
+Delta < 0.50 y Gamma ≥ 0.02
+Delta < 0.50 y Gamma < 0.02
+
+Interpretación Apuesta con alta probabilidad. Se comporta como acciones apalancadas. Apuesta especulativa de convexidad. Busca movimiento explosivo.
+Lotería o hedge barato. Score máximo limitado a 4.
+
+Paso 2 — Tabla de puntuación
+
+2.1 Tamaño de orden (prima total pagada, no notional)
+
+Rango
+
+Pts
+
+Lectura
+
+Más de $5M
+
+10
+
+Escala institucional inequívoca.
+
+$1M – $5M
+
+9
+
+Mesa institucional o family office.
+
+$500K – $1M
+
+7
+
+Capital significativo.
+
+$250K – $500K
+
+5
+
+Umbral inferior de relevancia.
+
+$100K – $250K
+
+3
+
+Solo relevante si se repite en cluster.
+
+Menos de $100K
+
+0
+
+Descartar salvo confluencia extrema.
+
+2.2 Delta — Perfil DIRECCIONAL
+
+Delta
+
+Pts
+
+0.80 – 1.00
+
+10
+
+0.70 – 0.79
+
+9
+
+0.60 – 0.69
+
+7
+
+0.50 – 0.59
+
+5
+
+2.3 Delta — Perfil CONVEXO
+
+Página 1
+
+SUB-AGENTE 1 — TRANSACCIONES INUSUALES
+
+INFUSION & CO. — SISTEMA DE AGENTES DE FLOW v2.0
+
+En el perfil convexo, un delta demasiado bajo indica un strike inalcanzable. El pico está en la zona 0.25–0.45, que es donde el smart money compra convexidad con probabilidad real.
+
+Delta
+
+Pts
+
+0.35 – 0.49
+
+10
+
+0.25 – 0.34
+
+8
+
+0.15 – 0.24
+
+5
+
+0.08 – 0.14
+
+3
+
+Menos de 0.08
+
+0
+
+Página 2
+
+SUB-AGENTE 1 — TRANSACCIONES INUSUALES
+
+INFUSION & CO. — SISTEMA DE AGENTES DE FLOW v2.0
+
+2.4 Gamma (rangos mutuamente excluyentes)
+La v1.0 tenía solapamiento en los límites 0.08 y 0.15, y asignaba 10 puntos a dos rangos distintos. Corregido con notación de intervalo semiabierto.
+
+Gamma [0.03, 0.08) [0.08, 0.15) [0.015, 0.03) [0.15, ∞) [0, 0.015)
+
+Pts
+
+Lectura
+
+10
+
+Zona óptima: convexidad real sin decaimiento extremo.
+
+8
+
+Alta convexidad, requiere movimiento rápido.
+
+7
+
+Convexidad moderada, típica de 30-60 DTE.
+
+4
+
+Gamma extremo — casi siempre 0DTE o semanal. Alto riesgo de pin.
+
+2
+
+Sin convexidad. Comportamiento lineal.
+
+2.5 Theta (decaimiento diario como % de la prima)
+
+Theta diario
+
+Pts
+
+Menos de 0.5%
+
+10
+
+0.5% – 1.0%
+
+9
+
+1.0% – 3.0%
+
+7
+
+3.0% – 5.0%
+
+4
+
+Más de 5.0%
+
+0
+
+2.6 Vega (nuevo — no existía en v1.0)
+Sin vega no se puede saber si la posición sobrevive a una compresión de IV post-evento. Un flow con vega alto entrando antes de earnings suele perder aunque acierte la dirección.
+
+Condición Vega bajo y IV Rank < 40 Vega bajo y IV Rank ≥ 40 Vega alto y IV Rank < 40 Vega alto y IV Rank ≥ 60
+
+Pts
+
+Lectura
+
+10
+
+Compra barata de volatilidad. Escenario ideal.
+
+7
+
+Neutral.
+
+8
+
+Apuesta de expansión de volatilidad. Válida.
+
+2
+
+Crush de IV es el escenario más probable.
+
+2.7 Estructura de la transacción
+
+Condición
+
+Pts
+
+Single leg, ejecutado en un solo sweep
+
+10
+
+Single leg, ejecutado en bloque
+
+8
+
+Multi-leg direccional (debit/credit spread)
+
+6
+
+Multi-leg neutral (iron condor, butterfly, calendar)
+
+2
+
+Combinación con acciones (buy-write, collar)
+
+0
+
+Multi-leg neutral y combinaciones con acciones puntúan bajo porque no expresan una tesis direccional — son gestión de riesgo o generación de ingreso. Contarlas como señal direccional era un error estructural de la v1.0.
+
+Página 3
+
+SUB-AGENTE 1 — TRANSACCIONES INUSUALES
+
+INFUSION & CO. — SISTEMA DE AGENTES DE FLOW v2.0
+
+2.8 Días hasta el vencimiento (DTE)
+Corrección crítica: la v1.0 daba 10 puntos tanto a 320 días como a 120 días. Los LEAPS raramente representan una tesis táctica; suelen ser posiciones de balance o cobertura estructural. La curva ahora tiene un pico definido.
+
+DTE 45 – 120 días 30 – 44 días 121 – 250 días 14 – 29 días Más de 250 días 7 – 13 días Menos de 7 días
+
+Pts
+
+Lectura
+
+10
+
+Zona de máxima señal direccional institucional.
+
+8
+
+Táctico. Theta empieza a pesar.
+
+7
+
+Tesis de mediano plazo, válida pero menos urgente.
+
+6
+
+Alta urgencia, alto riesgo de theta.
+
+4
+
+Probable posición estructural, no táctica.
+
+3
+
+Solo relevante con evento catalizador identificado.
+
+1
+
+Ruido de gamma. Excluir salvo confluencia extrema.
+
+Paso 3 — Cálculo del score del agente
+SCORE_A1 = (Tamano * 0.25 + Delta * 0.20 + Gamma * 0.12 + Theta * 0.10 + Vega * 0.13 + Estruct. * 0.10 + DTE * 0.10) Nota: Delta y Gamma se leen de la tabla del PERFIL asignado. Perfil RUIDO: SCORE_A1 se limita a un maximo de 4.0 Salida normalizada 0 - 10
+La validación de la etiqueta “inusual” contra lo reportado por los demás agentes es un proceso de reconciliación posterior y no forma parte de este scoreboard.
+
+Página 4
+
+

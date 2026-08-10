@@ -1,0 +1,195 @@
+# Agente Nagimi Opciones PRO
+
+**Mapa de nodos GEX y predicción de precio — guía técnica para estudiantes.** Cómo el agente lee el flujo de opciones, dónde se concentra el dinero, y cómo estima hacia dónde tiende el precio.
+
+> Sistema multi-agente de análisis de options flow · Documento de referencia · Julio 2026
+> Preparado para estudiantes · Infusion Investments
+
+---
+
+## 1. Qué es el sistema
+
+Agente Nagimi Opciones es un agente que analiza la actividad de opciones de una acción para identificar dónde están apostando los grandes jugadores y qué significa. Combina varios sub-agentes; cada uno responde una pregunta y da una nota de 0 a 10.
+
+- **Agresividad** — ¿Compran al ask con fuerza? (urgencia del comprador)
+- **Convicción** — ¿Cuánto dinero real entró y con qué ejecución?
+- **Inusualidad** — ¿Es flujo anormal? (se puntúa con los griegos)
+- **Estructura** — ¿En qué strikes y vencimientos se acumula el dinero?
+- **Contexto IV** — ¿La volatilidad implícita está limpia o inflada?
+- **Confirmación de Precio (próx.)** — ¿El precio valida o absorbe el flujo? (en desarrollo)
+
+El scorecard completo son 6 sub-agentes; hoy están activos cinco (Confirmación de Precio queda pendiente). La confianza del GEX se apoya sobre todo en **Convicción** y **Estructura**. Esta guía se enfoca en la pieza nueva: el **Mapa de nodos GEX** (la gráfica PRO) y la **predicción de precio** que sale de él, más las burbujas de repetición en las tablas.
+
+---
+
+## 2. ¿Qué es el GEX y por qué importa?
+
+**GEX = Gamma Exposure** (exposición a gamma de los market makers o "dealers"). Cuando un dealer vende opciones, queda con riesgo direccional y se ve obligado a comprar o vender la acción para mantenerse neutral. Ese *hedging* mecánico deja huellas en ciertos precios (strikes). El GEX mide esa presión.
+
+- **Gamma positiva (+)** — El dealer estabiliza: compra caídas y vende subidas. El precio tiende a revertir a la media y a ser "imantado" hacia ese strike (rango).
+- **Gamma negativa (−)** — El dealer amplifica: persigue el movimiento. El precio tiende a tendencia y a moverse más rápido.
+
+---
+
+## 3. El mapa de nodos: dinero concentrado
+
+Cada **nodo** es un strike donde se concentra el dinero. Su tamaño mezcla dos cosas que normalmente se ven por separado:
+
+1. **Posicionamiento (GEX)** — Gamma × Open Interest de toda la cadena de opciones: dónde el mercado tiene sus posiciones.
+2. **Actividad real (trades)** — El premium de los trades que están ocurriendo en ese strike: dónde entra el dinero ahora.
+
+**Color:** verde = + (imán) · rojo = − (amplifica).
+**Tamaño:** a mayor concentración, más grande el nodo. El nodo más grande brilla: es el **precio objetivo (imán)**.
+
+---
+
+## 4. Las fórmulas que usa el agente
+
+Massive (proveedor de datos) no entrega gamma ni volatilidad implícita en este plan. Por eso el agente las calcula. Éste es el pipeline completo, paso a paso.
+
+### 4.1 · Volatilidad implícita estimada (IV)
+
+Se estima con la volatilidad realizada del subyacente: la desviación estándar de los retornos logarítmicos diarios, anualizada.
+
+```
+r = ln( C_t / C_{t-1} )
+IV = desv.est.( r ) × √252
+```
+
+- `C` = cierre del día `t`
+- ventana = últimas ~21 sesiones
+- `√252` = anualización (252 días hábiles)
+- Se acota a `[0.05, 3]`; si faltan datos, `IV = 0.40`.
+
+### 4.2 · Gamma por contrato (Black-Scholes)
+
+Con esa IV se calcula la gamma de cada contrato de la cadena (tasa `r = 0`).
+
+```
+d1 = [ ln(S / K) + (½ · σ²) · T ] / ( σ · √T )
+Γ  = φ(d1) / ( S · σ · √T )
+```
+
+- `S` = precio de la acción (spot)
+- `K` = strike
+- `σ` = IV estimada
+- `T` = días al vencimiento / 365
+- `φ` = densidad normal estándar, φ(x) = e^(−x²/2) / √(2π)
+
+**Anclaje a datos reales:** donde un strike efectivamente operó, la gamma estimada se promedia con la gamma real reportada por los trades (MarketSnack). Así la estimación no se aleja de la realidad.
+
+### 4.3 · GEX por strike
+
+Se suma la contribución de cada contrato en el strike, con signo `+` para calls y `−` para puts (convención de gamma de dealer).
+
+```
+GEX(K) = Σ ( signo · Γ · OI · 100 · S² · 0.01 )
+```
+
+- `OI` = Open Interest del contrato
+- `100` = acciones por contrato
+- `signo` = +1 (call) / −1 (put)
+- `S² · 0.01` = escala a dólares por 1% de movimiento
+- **GEX neto = GEX de calls − GEX de puts**
+
+### 4.4 · Concentración de dinero (tamaño del nodo)
+
+Se normaliza cada componente a 0–1 y se mezclan: **60% posicionamiento gamma, 40% actividad real**.
+
+```
+Concentración = 0.60 · |GEX_K| / máx|GEX| + 0.40 · Prem_K / máxPrem
+```
+
+`Prem_K` = premium de trades reales en el strike `K`. Si no hubo trades, la concentración usa solo el término de GEX.
+
+### 4.5 · Nodo principal, zona de inversión, régimen y confianza
+
+| Salida | Cómo se obtiene |
+|---|---|
+| **Nodo principal (imán) = precio objetivo** | El strike con la mayor concentración. Es hacia donde tiende a gravitar el precio. |
+| **Zona de inversión gamma (flip)** | El precio donde el GEX neto cambia de signo (puts dominan abajo → calls dominan arriba). Se interpola entre los dos strikes contiguos donde ocurre el cruce, tomando el más cercano al spot. |
+| **Régimen** | Signo del GEX neto total: positivo → régimen de rango (revierte); negativo → régimen de tendencia (amplifica). |
+| **Dirección** | Compara el objetivo contra el spot: ↑ por encima · ↓ por debajo · • en el precio. |
+| **Confianza (0–100%)** | Mezcla la nitidez del nodo principal (qué tanto domina el GEX) con los scores de Convicción y Estructura. |
+
+```
+Confianza = 100 · ( 0.60 · nitidez + 0.40 · promedio(Convicción, Estructura) / 10 )
+```
+
+`nitidez = máx|GEX| / Σ|GEX|` — qué tan concentrado está el gamma en un solo strike.
+
+### 4.6 · Ejemplo numérico (un strike, paso a paso)
+
+Supongamos una call con estos datos y sigamos las fórmulas 4.1 → 4.3:
+
+**Datos de entrada**
+
+- `S` (spot) = $738
+- `K` (strike) = $740 · call
+- `σ` (IV est.) = 0.15
+- `T` = 29/365 = 0.079
+- `OI` = 5,000
+
+**Cálculo**
+
+```
+d1 = [ ln(738/740) + ½ · 0.15² · 0.079 ] / ( 0.15 · √0.079 ) ≈ −0.043
+φ(d1) ≈ 0.399
+Γ = 0.399 / ( 738 · 0.15 · √0.079 ) ≈ 0.01277
+```
+
+**GEX de esta call**
+
+```
+GEX = 0.01277 · 5,000 · 100 · 738² · 0.01 ≈ +$34.8M
+```
+
+Positivo porque es una call (signo +1). Una put del mismo tamaño restaría. El nodo del strike $740 suma esta contribución con la de todos los demás contratos en $740, y su concentración se compara contra los otros strikes para decidir el tamaño del nodo.
+
+---
+
+## 5. La predicción de precio
+
+La tarjeta **AI Price Prediction** se alimenta directamente del mapa de nodos:
+
+1. **Precio objetivo** = el strike del nodo principal (imán).
+2. **Dirección** = arriba / abajo / en el precio, según el objetivo vs. el spot.
+3. **Confianza** = el % de la fórmula 4.5.
+4. **Régimen** = + (el precio revierte y se imanta) o − (amplifica y tiende).
+
+---
+
+## 6. Burbujas de trades repetitivos
+
+En las tablas de trades, los contratos que se golpean varias veces se marcan con una burbuja **×N**. Es una señal de insistencia: alguien vuelve una y otra vez al mismo strike.
+
+> **Regla:** se marca "repetido" cuando el mismo strike aparece ≥ 3 veces en una ventana de 5 minutos.
+
+El `×N` indica cuántas operaciones hay sobre ese contrato en la tabla. Aparece en el Feed de trades, en Transacciones (Convicción) y en Transacciones inusuales.
+
+---
+
+## 7. Salvaguarda de liquidez (regla crítica)
+
+Una opción ilíquida da datos engañosos. El agente **nunca recomienda operar sobre una cadena ilíquida** y lo aplica también al GEX.
+
+> Si la cadena es de baja liquidez, la predicción GEX se marca como **"poco fiable"** y no debe usarse para operar. El nocional promedio de la cadena se compara contra líderes de mercado; por debajo del umbral, se levanta la alerta.
+
+---
+
+## 8. Cómo leerlo — guía rápida
+
+| Ves esto… | Significa… |
+|---|---|
+| Nodo verde grande cerca del precio | **Imán:** el precio tiende a gravitar hacia ahí y a revertir extremos. |
+| Nodo rojo grande | Zona que **amplifica** el movimiento; si el precio llega, puede acelerar. |
+| Precio cruza la zona de inversión | Cambia el régimen: de rango a tendencia (o viceversa). Momento clave. |
+| Régimen + | Mercado de rango: conviene desvanecer los extremos. |
+| Régimen − | Mercado de tendencia: conviene seguir el movimiento. |
+| Muchas burbujas en un strike | Insistencia de un jugador sobre ese contrato — refuerza el nodo. |
+
+**Filosofía:** primero se lee la estructura del precio; el GEX confirma, no adivina. Es una capa de contexto, no una bola de cristal.
+
+---
+
+> *Las predicciones son estimaciones de una IA basadas en datos de mercado, no constituyen consejo financiero. La gamma y la volatilidad implícita son estimaciones (volatilidad realizada + Black-Scholes), ancladas a datos reales cuando existen. Material educativo de Agente Nagimi Opciones.*

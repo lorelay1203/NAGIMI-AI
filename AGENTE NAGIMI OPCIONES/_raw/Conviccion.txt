@@ -1,0 +1,25 @@
+Este agente estará encargado de leer el Time and Sales de convicción de la empresa para buscar diversos datos:
+1.​ Spread: Queremos calcular el spread en varias opciones para detectar dónde se mueve el Smart Money. a.​ Definición: Es la
+diferencia entre el Bid y
+
+el Ask, expresada en porcentaje para elaborar la tabla de clasificación. b.​ Clasificación del Spread: c.​Menor de 2% = 10 puntos​ 2% a 5% = 7 puntos​ 5% a 10% = 4 puntos​ Más de un 10% = Separar aparte. Si la transacción excede el millón de dolares, se
+
+debe crear una alerta en la interfaz para analizar estas operaciones con mayor profundidad.
+1. Dominancia ASK vs BID
+Mide hacia qué lado se ejecuta la mayoría de transacciones.
+Ejemplo: Si el 80% del volumen se ejecuta en el Ask y el 20% en el Bid, hay una clara dominancia hacia el lado comprador.
+
+Escala de puntuación:
+●​ 80%+ en un solo lado = 10 puntos ●​ 70–79% = 8 puntos ●​ 60–69% = 6 puntos ●​ 55–59% = 4 puntos ●​ 50–54% = 2 puntos ●​ Menos de eso = 0 puntos
+Interpretación direccional:
+●​ ↑ 80% en Ask = presión compradora
+
+●​ ↓ 80% en Bid = presión vendedora
+2. Fuerza de ejecución
+Mide qué tan agresiva fue la orden, según dónde se ejecutó respecto al spread Ask/Bid. Niveles de ejecución (de más a menos agresivo): ●​ Above Ask / Below Bid
+→ 10 puntos
+
+●​ At Ask / At Bid → 8 puntos ●​ Cerca del Ask o del Bid → 6 puntos ●​ Mid → 3 puntos ●​ Sin claridad → 0 puntos
+Nota importante: Aquí el score mide la fuerza de la ejecución; la dirección se etiqueta por separado: Ask = bullish / Bid = bearish.
+
+

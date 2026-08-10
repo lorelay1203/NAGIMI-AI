@@ -1,0 +1,270 @@
+DOCUMENTO MAESTRO DE IMPLEMENTACIÓN
+
+INFUSION & CO. — SISTEMA DE AGENTES DE FLOW v2.0
+
+Sistema Multi-Agente de Análisis de Flow
+Documento Maestro de Implementación — Versión 2.0 | Infusion & Company
+
+1. Propósito y filosofía del sistema
+El objetivo no es detectar “flow grande”. El objetivo es detectar flow grande que además está estructurado para ganar dinero si el movimiento ocurre. La mayoría de sistemas de retail fallan porque puntúan tamaño de orden de forma aislada. Una orden de $5M en un contrato con delta 0.15, IV Rank en 95 y 7 días para expirar es casi siempre un hedge institucional o una venta de prima, no una apuesta direccional.
+Por eso este sistema separa cuatro preguntas distintas y las puntúa por separado antes de combinarlas:
+• ¿Quién opera? → Agente 1: Transacciones Inusuales (tamaño, griegos, estructura). • ¿Cómo se ejecuta? → Agente 2: Time & Sales de Convicción (agresividad, spread, dominancia). • ¿Dónde se acumula? → Agente 3: Acumulación y Rapidez (strikes, vencimientos, Vol/OI). • ¿Vale la pena la prima? → Agente 4: Contexto de Volatilidad (IV, IV Rank, term structure). • ¿Cuándo se paga? → Agente 5: Validación Temporal (backtest de 60 días, tiempo hasta el movimiento). Regla central: los primeros cuatro agentes producen la convicción. El quinto produce el horizonte y la gestión. Nunca se mezclan en un solo número sin ponderación.
+
+2. Errores corregidos respecto a la versión 1.0
+
+Área
+
+Error en v1.0
+
+Corrección en v2.0
+
+Contexto (IV)
+
+61%-89% valía 8 pts y 90%-99% valía 5 pts. Escala no monótona: el sistema premiaba saltar de rango.
+
+Curva de campana única con pico en 30%-60% (zona de prima barata con movimiento real). IV extremo penalizado por costo, no premiado.
+
+Contexto (duplicado)
+
+Existían dos PDFs de Contexto con tablas de puntos contradictorias.
+
+Un solo documento canónico. Cualquier otra versión queda obsoleta.
+
+Inusual (Gamma)
+
+0.01-0.03 = 10 pts y 0.03-0.08 = 10 pts, con solapamiento en 0.08 y 0.15.
+
+Rangos mutuamente excluyentes y notación de intervalos explícita. Gamma se evalúa condicionada al DTE.
+
+Inusual (Venc imiento)
+
+320 días = 10 pts igual que 120 días. Premiaba LEAPS ilíquidos donde el flow no tiene señal a corto plazo.
+
+Curva con pico en 45-120 DTE, que es donde el smart money direccional realmente opera. LEAPS reducido y marcado como posible posición de balance.
+
+Inusual (Delta)
+
+Delta <0.49 = 0 pts eliminaba todo el flow OTM especulativo, que es precisamente el más informativo.
+
+Dos perfiles: Direccional (delta alto) y Convexo/Especulativo (delta bajo + gamma alto). Se puntúan ambos, se etiquetan distinto.
+
+Acumulación 80% de los casos = 8 pts y 50% de los casos = Escala monótona corregida y umbral de significancia por
+
+(Vol/OI)
+
+8 pts. Empate sin sentido.
+
+strike.
+
+Todos
+
+No existía fórmula de agregación. Cinco scores Score Compuesto ponderado 0-100 con reglas de veto
+
+sueltos sin peso.
+
+duras.
+
+Todos
+
+Ningún agente distinguía compra de venta de prima. Un put vendido puntuaba igual que un put comprado.
+
+Clasificación obligatoria de intención (BTO/STO) antes de puntuar.
+
+Página 1
+
+DOCUMENTO MAESTRO DE IMPLEMENTACIÓN
+
+INFUSION & CO. — SISTEMA DE AGENTES DE FLOW v2.0
+
+3. Arquitectura de datos
+El sistema corre sobre tres fuentes. Ninguna se sustituye por otra.
+
+Fuente
+
+Datos que aporta
+
+Tradier
+
+Cadena de opciones, griegos, IV por contrato, Open Interest
+
+Unusual Whales MarketSnack (interno) Histórico propio
+
+Flow alerts, Time & Sales, side (ask/bid), condición multi-leg
+GEX/VEX, Money Map, Net Premium Flow, Unusual Score histórico
+45-60 días de flow etiquetado para el Agente 5
+
+Frecuencia Snapshot cada 5 min en horario de mercado Streaming / poll cada 60s
+Tiempo real
+Batch nocturno
+
+Orden de ejecución obligatorio
+Los agentes NO corren en paralelo ciego. Corren en cascada, porque cada uno filtra el universo del siguiente:
+FASE 0 Ingesta → normalizar contratos, calcular notional, clasificar BTO/STO FASE 1 Agente 1 (Inusual) → filtra universo a candidatos con score ≥ 5 FASE 2 Agente 2 (Time & Sales) → solo sobre candidatos de Fase 1 FASE 3 Agente 3 (Acumulacion) → contexto de cadena del ticker FASE 4 Agente 4 (Contexto IV) → contexto de volatilidad del ticker FASE 5 Agente 5 (Validacion) → horizonte esperado desde backtest 60d FASE 6 Motor de Score Compuesto → veredicto JSON
+
+4. Clasificación de intención (paso previo obligatorio)
+Antes de que cualquier agente puntúe, cada transacción debe recibir una etiqueta de intención. Sin esto, el sistema confunde un put comprado (bajista) con un put vendido (alcista).
+
+Etiqueta
+
+Condición de detección
+
+Sesgo direccional
+
+BTO Call / BTC Put
+
+Ejecutado en Ask o above Ask, Vol > OI en ese strike
+
+ALCISTA
+
+BTO Put / BTC Call
+
+Ejecutado en Ask o above Ask, Vol > OI en ese strike
+
+BAJISTA
+
+STO Call
+
+Ejecutado en Bid o below Bid, OI creciente al día siguiente
+
+BAJISTA / NEUTRAL (venta de prima)
+
+STO Put
+
+Ejecutado en Bid o below Bid, OI creciente al día siguiente
+
+ALCISTA / NEUTRAL (venta de prima)
+
+Indeterminado
+
+Ejecutado en Mid, o Vol < OI sin confirmación
+
+SIN ETIQUETA — penalización de -20% al score final
+
+Regla dura: si la intención no puede determinarse y el notional supera $1M, el flow se envía a revisión manual en lugar de puntuarse automáticamente.
+
+Página 2
+
+DOCUMENTO MAESTRO DE IMPLEMENTACIÓN
+
+INFUSION & CO. — SISTEMA DE AGENTES DE FLOW v2.0
+
+5. Motor de Score Compuesto
+Cada agente devuelve un score normalizado de 0 a 10. El score compuesto es una suma ponderada, no un promedio simple. Los pesos reflejan poder predictivo, no importancia conceptual.
+
+Agente Agente 1 — Transacciones Inusuales
+
+Peso 30%
+
+Agente 2 — Time & Sales Convicción
+Agente 3 — Acumulación y Rapidez Agente 4 — Contexto de Volatilidad Agente 5 — Validación Temporal
+
+25%
+20% 15% 10%
+
+Justificación
+Es el filtro de calidad estructural. Un flow mal estructurado no se recupera con contexto.
+La agresividad de ejecución es la señal más limpia de urgencia institucional.
+Confirma que no es una orden aislada sino posicionamiento sostenido.
+Determina si la prima es razonable. Modula, no origina, la señal.
+Define horizonte de gestión más que probabilidad de acierto.
+
+Fórmula
+SCORE_COMPUESTO = (A1 * 0.30 + A2 * 0.25 + A3 * 0.20 + A4 * 0.15 + A5 * 0.10) * 10 Rango de salida: 0 - 100 Modificadores aplicados DESPUES de la suma: - Intencion indeterminada .................. x 0.80 - Baja Liquidez (Agente 3) ................. x 0.70 - Earnings dentro del DTE .................. x 0.85 - Confluencia con nivel GEX de MarketSnack . x 1.10 (tope 100)
+
+Reglas de veto (score forzado a 0, sin importar la suma)
+• Spread bid/ask mayor a 15% sobre el mid — el costo de entrada destruye la ventaja estadística. • Open Interest total del strike menor a 250 contratos — imposible salir. • Volumen del contrato menor a 100 en la sesión. • IV Rank igual a 100 combinado con DTE menor a 14 — compra de prima en el peor punto posible del ciclo. • Transacción identificada como pata individual de un spread multi-leg ya contabilizado (evita doble conteo).
+
+Bandas de decisión
+
+Score
+
+Veredicto
+
+85 - 100
+
+CONVICCIÓN ALTA
+
+70 - 84
+
+CONVICCIÓN MEDIA
+
+55 - 69
+
+OBSERVACIÓN
+
+Menos de 55
+
+DESCARTE
+
+Tamaño de posición sugerido 1.0R. Entrada completa. 0.5R. Entrada parcial, escalar si confirma. 0R. Watchlist. Requiere confirmación de precio. Sin acción.
+
+Página 3
+
+DOCUMENTO MAESTRO DE IMPLEMENTACIÓN
+
+INFUSION & CO. — SISTEMA DE AGENTES DE FLOW v2.0
+
+6. Formato de salida (JSON)
+{ "ticker": "NVDA", "timestamp": "2026-07-24T14:32:10Z", "contrato": "NVDA 260918C00200000", "intencion": "BTO_CALL", "sesgo": "ALCISTA", "scores": { "a1_inusual": 8.5, "a2_time_sales": 9.0, "a3_acumulacion": 7.0, "a4_contexto_iv": 6.5, "a5_validacion": 7.5 }, "score_compuesto": 79.8, "modificadores": ["confluencia_gex:+10%"], "vetos": [], "veredicto": "CONVICCION_MEDIA", "tamano_sugerido_R": 0.5, "horizonte_esperado_dias": 6, "nivel_invalidacion": 188.40, "objetivo_gex": 205.00, "narrativa": "Compra agresiva above ask de 3,200 contratos ...", "mejor_alternativa": { "descripcion": "Call debit spread 200/215 mismo vencimiento", "razon": "IV Rank en 58% encarece la call simple; el spread reduce vega" } }
+El LLM solo genera los campos narrativa y mejor_alternativa. Todos los scores son deterministas y calculados en Python. Esto es innegociable: si el modelo puede mover un número, el sistema deja de ser auditable.
+
+7. Gestión de riesgo derivada del sistema
+
+Parámetro Tamaño base Stop Toma de ganancia Ventana de tenencia Concentración
+
+Regla
+1R = riesgo máximo por idea, escalado por banda de score (1.0R / 0.5R / 0R).
+Por tesis, no por precio del contrato. Se invalida si el subyacente rompe el nivel de invalidación o si el flow opuesto supera 2x el flow original.
+Débito: escalar en 50% y 100% de ganancia. Crédito: cerrar al 50% del máximo beneficio.
+Derivada del Agente 5: horizonte esperado + 50% de buffer. Si se excede sin movimiento, cerrar por tiempo, no por pérdida.
+Máximo 3 posiciones simultáneas del mismo sector. Máximo 3R de exposición total abierta.
+
+8. Plan de implementación por fases
+
+Fase
+
+Tiempo
+
+Entregable
+
+Fase 1
+
+Semanas 1-2
+
+Ingesta Tradier + UW, normalización de contratos, clasificador BTO/STO.
+
+Fase 2
+
+Semanas 3-4
+
+Agentes 1 y 2 en Python determinista. Tests unitarios sobre cada tabla de puntuación.
+
+Fase 3
+
+Semanas 5-6
+
+Agentes 3 y 4. Integración con GEX/VEX de MarketSnack.
+
+Fase 4
+
+Semanas 7-8
+
+Agente 5: motor de backtest de 60 días y cálculo de horizonte.
+
+Fase 5
+
+Semanas 9-10
+
+Motor compuesto, vetos, capa LLM de narrativa, salida JSON.
+
+Fase 6
+
+Semanas 11-12
+
+Paper trading en vivo. Calibración de pesos contra resultados reales.
+
+Los pesos del Motor Compuesto son una hipótesis inicial, no una verdad. Después de 90 días de paper trading, se recalibran con regresión sobre resultados reales. Un sistema que nunca ajusta sus pesos es un sistema que nunca aprendió nada.
+
+Página 4
+
+

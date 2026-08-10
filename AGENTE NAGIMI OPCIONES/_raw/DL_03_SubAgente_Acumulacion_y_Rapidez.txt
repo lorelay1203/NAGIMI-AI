@@ -1,0 +1,180 @@
+SUB-AGENTE 3 — ACUMULACIÓN Y RAPIDEZ
+
+INFUSION & CO. — SISTEMA DE AGENTES DE FLOW v2.0
+
+Sub-Agente 3: Acumulación y Rapidez
+Posicionamiento estructural en la cadena de opciones — Peso en score compuesto: 20%
+
+Objetivo
+Identificar dónde se está construyendo posición dentro de la cadena completa: qué strikes concentran el capital y qué vencimientos dominan. Se recorre la totalidad de las fechas de expiración del ticker con un historial de 45 días.
+
+1. Valor Nocional
+Fórmula: Strike × Open Interest × 100. Se calcula por cada strike y se promedia sobre la cadena del ticker individual.
+
+Nocional promedio de la cadena
+
+Pts
+
+Más de $1B
+
+10
+
+$500M – $1B
+
+9
+
+$100M – $500M
+
+8
+
+$50M – $100M
+
+6
+
+$25M – $50M
+
+4
+
+$25M o menos
+
+2
+
+La v1.0 asignaba 10 puntos tanto a “más de $1B” como a “$500M – $1B”. Corregido a escala monótona estricta. Si el nocional promedio es inferior a $25M en todos los strikes, marcar el ticker como BAJA LIQUIDEZ y aplicar el modificador ×0.70 al score compuesto.
+
+Página 1
+
+SUB-AGENTE 3 — ACUMULACIÓN Y RAPIDEZ
+
+INFUSION & CO. — SISTEMA DE AGENTES DE FLOW v2.0
+
+2. Dominio de strikes (Calls vs Puts)
+Se identifican los strikes que concentran mayor actividad o mayor porcentaje del nocional, y se determina si dominan Calls o Puts. La clave no es cuántos strikes hay, sino qué tan concentrado está el capital.
+
+Patrón de concentración
+
+Pts
+
+Lectura
+
+3 – 5 strikes contiguos concentran > 60% del nocional
+
+10
+
+Posicionamiento claro y coordinado.
+
+3 – 5 strikes dispersos concentran > 60%
+
+8
+
+Posicionamiento claro, menos coordinado.
+
+Más de 5 strikes, sin concentración dominante
+
+6
+
+Actividad amplia, señal difusa.
+
+1 strike concentra > 60%
+
+5
+
+Puede ser una sola orden grande, no una campaña.
+
+Sin visibilidad clara de concentración
+
+0
+
+No puntuar.
+
+La v1.0 premiaba “5 strikes” con 10 puntos sin exigir concentración de capital. Cinco strikes con volumen repartido uniformemente es ruido, no posicionamiento. Se añadió el umbral de 60% del nocional.
+
+3. Volumen vs Open Interest
+Compara, en los strikes dominantes, cuántas veces el volumen de la sesión supera el interés abierto existente. Volumen > OI indica creación de posición nueva, no rotación.
+
+% de strikes con Vol > OI
+
+Pts
+
+100% de los strikes dominantes
+
+10
+
+80% – 99%
+
+9
+
+60% – 79%
+
+7
+
+40% – 59%
+
+5
+
+20% – 39%
+
+3
+
+Menos de 20%
+
+1
+
+La v1.0 asignaba 8 puntos tanto al 80% como al 50% de los casos. Escala corregida a monótona estricta.
+
+4. Confirmación de Open Interest al día siguiente (nuevo)
+Métrica ausente en v1.0 y la más importante del agente. Un volumen alto que no se convierte en OI al día siguiente significa que la posición se cerró intradía — es decir, no era una apuesta, era una operación de flujo.
+
+Cambio en OI
+
+Pts
+
+OI aumenta ≥ 80% del volumen del día anterior 10
+
+OI aumenta 50% – 79% del volumen
+
+8
+
+OI aumenta 20% – 49% del volumen
+
+5
+
+OI aumenta menos de 20%
+
+1
+
+OI disminuye
+
+0
+
+Lectura Posición confirmada y mantenida. Mayoría de la posición se mantuvo. Posición parcialmente cerrada. Se cerró intradía. Sin valor predictivo. Era cierre de posición existente, no apertura.
+
+5. Distribución por vencimiento (nuevo)
+
+Página 2
+
+SUB-AGENTE 3 — ACUMULACIÓN Y RAPIDEZ
+
+INFUSION & CO. — SISTEMA DE AGENTES DE FLOW v2.0
+
+Patrón
+
+Pts
+
+Concentración en 1 – 2 vencimientos contiguos 10
+
+Concentración en 3 vencimientos
+
+7
+
+Distribución amplia sin concentración
+
+4
+
+Lectura Tesis con horizonte definido. Tesis escalonada. Probable actividad de market making.
+
+Cálculo del score del agente
+SCORE_A3 = (Nocional * 0.15 + Dominio_strikes * 0.25 + Vol_vs_OI * 0.20 + Confirmacion_OI * 0.30 + Dist_vencim. * 0.10) Si BAJA LIQUIDEZ -> aplicar modificador global x0.70 Salida normalizada 0 - 10
+
+Página 3
+
+

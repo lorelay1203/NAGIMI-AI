@@ -1,0 +1,14 @@
+Este agente debe verificar el contexto de movimiento que pudiese tener la accion, tienes que recopilar cual es el promedio de la volatilidad implicita (IV) para las diferentes fechas de expiracion y cuales son los contratos que mayor (IV) tienen, esto nos ayuda a identificar que un movimiento posible esta a punto de pasar o la accion
+
+tiene rangos altos de movimiento
+Implied Volatility:
++100% = 6 puntos (quizás una categoría especial, tal vez por encima del objetivo o algo así) 90%-99% = 5 puntos 61%-89% = 8 puntos 40%-60% = 10 puntos 30%-39% = 5 puntos
+
+Menos de 30% = 2 puntos
+IV Rank:
+Necesitamos entender la procedencia de la acción, si el movimiento se está comprimiendo o aumentando. Además, el IV Rank nos ayuda a visualizar el IV histórico para determinar si existe movimiento.​
+
+IV RANK: esto es en comparación al Current IV
+0%-15% = 2 puntos 16%-30% = 10 puntos 31%-50% = 8 puntos 51%-70% = 5 puntos 71%-99% = 1 puntos 100% = 0 puntos​
+
+

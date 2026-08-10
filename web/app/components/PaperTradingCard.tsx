@@ -1,0 +1,180 @@
+"use client";
+
+// Tarjeta de PAPER TRADING — trades simulados con P/L en vivo y marcador de aciertos.
+// Sirve para probar si el motor gana ANTES de arriesgar dinero real. Sin ejecución.
+
+import { useCallback, useEffect, useState } from "react";
+import { money0, px } from "../format";
+import type { PaperTrade, PaperLeg } from "@/lib/paper";
+
+// Precio en vivo de una pata vía /api/quote (mismo endpoint que usa Mis Posiciones).
+async function legQuote(ticker: string, l: PaperLeg): Promise<number | null> {
+  if (l.type === "stock") {
+    const q = await fetch(`/api/quote?ticker=${ticker}`).then((r) => r.json()).catch(() => null);
+    return q?.price ?? q?.mid ?? null;
+  }
+  const url = `/api/quote?ticker=${ticker}&type=${l.type}&strike=${l.strike}&expiration=${l.expiration}`;
+  const q = await fetch(url).then((r) => r.json()).catch(() => null);
+  return q?.mid ?? q?.price ?? null;
+}
+
+// Valor neto actual de la estructura (suma de patas, respetando compra/venta).
+async function liveNet(t: PaperTrade): Promise<number | null> {
+  let net = 0;
+  for (const l of t.legs) {
+    const pxNow = await legQuote(t.ticker, l);
+    if (pxNow == null) return null;
+    net += (l.side === "buy" ? 1 : -1) * pxNow * l.qty;
+  }
+  return net;
+}
+
+interface Enriched extends PaperTrade { live: number | null }
+
+export default function PaperTradingCard() {
+  const [trades, setTrades] = useState<Enriched[] | null>(null);
+  const [loading, setLoading] = useState(false);
+
+  const load = useCallback(async () => {
+    setLoading(true);
+    const d = await fetch("/api/paper").then((r) => r.json()).catch(() => ({ trades: [] }));
+    const base: PaperTrade[] = d.trades ?? [];
+    // Marca a mercado solo los abiertos.
+    const enriched = await Promise.all(
+      base.map(async (t) => ({ ...t, live: t.status === "open" ? await liveNet(t) : null }))
+    );
+    setTrades(enriched);
+    setLoading(false);
+  }, []);
+
+  useEffect(() => { load(); }, [load]);
+
+  async function close(t: Enriched) {
+    if (t.live == null) return;
+    await fetch("/api/paper", {
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ action: "close", id: t.id, exitNet: t.live, exitTime: new Date().toISOString() }),
+    });
+    load();
+  }
+  async function del(id: string) {
+    await fetch("/api/paper", {
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ action: "delete", id }),
+    });
+    load();
+  }
+
+  // P/L de un trade por contrato × 100 (multiplicador de opciones) × nº de estructuras.
+  const plOf = (t: Enriched): number | null => {
+    const exit = t.status === "closed" ? t.exitNet : t.live;
+    if (exit == null) return null;
+    // Débito: pagas entryNet, vale exit → ganas (exit - entryNet).
+    return (exit - t.entryNet) * 100 * t.qtyContracts;
+  };
+
+  // Marcador: solo cuenta trades con P/L conocido.
+  const scored = (trades ?? []).map(plOf).filter((x): x is number => x != null);
+  const wins = scored.filter((x) => x > 0).length;
+  const totalPL = scored.reduce((a, b) => a + b, 0);
+  const winRate = scored.length ? Math.round((wins / scored.length) * 100) : null;
+
+  const open = (trades ?? []).filter((t) => t.status === "open");
+  const closed = (trades ?? []).filter((t) => t.status === "closed");
+
+  return (
+    <section className="card" style={{ gap: 12 }}>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+        <div>
+          <div className="card-title">📝 Paper Trading</div>
+          <div className="card-sub">Trades simulados · prueba si el motor gana · sin dinero real</div>
+        </div>
+        <button type="button" onClick={load} disabled={loading}
+          style={{ background: "transparent", border: "1px solid var(--border)", borderRadius: 8, color: "var(--text)", padding: "5px 10px", fontSize: 12, cursor: "pointer" }}>
+          {loading ? "…" : "↻"}
+        </button>
+      </div>
+
+      {/* Marcador */}
+      <div style={{ display: "flex", gap: 12, flexWrap: "wrap" }}>
+        <div style={{ flex: 1, minWidth: 90, background: "var(--panel-2)", borderRadius: 10, padding: "10px 12px" }}>
+          <div style={{ fontSize: 11, color: "var(--muted)" }}>Aciertos</div>
+          <div style={{ fontSize: 18, fontWeight: 700 }}>{winRate == null ? "—" : `${winRate}%`}</div>
+        </div>
+        <div style={{ flex: 1, minWidth: 90, background: "var(--panel-2)", borderRadius: 10, padding: "10px 12px" }}>
+          <div style={{ fontSize: 11, color: "var(--muted)" }}>P/L total</div>
+          <div style={{ fontSize: 18, fontWeight: 700, color: totalPL >= 0 ? "#12b76a" : "#f04438" }}>
+            {money0.format(totalPL)}
+          </div>
+        </div>
+        <div style={{ flex: 1, minWidth: 90, background: "var(--panel-2)", borderRadius: 10, padding: "10px 12px" }}>
+          <div style={{ fontSize: 11, color: "var(--muted)" }}>Trades</div>
+          <div style={{ fontSize: 18, fontWeight: 700 }}>{scored.length}</div>
+        </div>
+      </div>
+
+      {trades == null ? (
+        <div className="feed-empty">Cargando…</div>
+      ) : trades.length === 0 ? (
+        <div className="feed-empty">
+          Aún no hay trades en papel. Cuando el motor recomiende una idea, la registras aquí
+          y Nagimi la sigue con precios reales para medir si gana. (El botón «Registrar» se
+          añade en Recomendaciones en el siguiente paso.)
+        </div>
+      ) : (
+        <>
+          {open.length > 0 && (
+            <div>
+              <div className="news-head">Abiertos ({open.length})</div>
+              {open.map((t) => {
+                const pl = plOf(t);
+                return (
+                  <div key={t.id} style={{ borderTop: "1px solid var(--border-soft)", padding: "8px 0", display: "flex", justifyContent: "space-between", alignItems: "center", gap: 8 }}>
+                    <div>
+                      <div style={{ fontWeight: 600, fontSize: 13 }}>{t.ticker} · {t.label}</div>
+                      <div style={{ fontSize: 11.5, color: "var(--muted)" }}>
+                        entrada ${px.format(t.entryNet)} · {t.qtyContracts}x · {t.source}
+                      </div>
+                    </div>
+                    <div style={{ textAlign: "right" }}>
+                      <div style={{ fontWeight: 700, color: pl == null ? "var(--muted)" : pl >= 0 ? "#12b76a" : "#f04438" }}>
+                        {pl == null ? "sin precio" : money0.format(pl)}
+                      </div>
+                      <button type="button" onClick={() => close(t)} disabled={t.live == null}
+                        style={{ marginTop: 3, fontSize: 11, background: "transparent", border: "1px solid var(--border)", borderRadius: 6, color: "var(--text)", padding: "2px 8px", cursor: "pointer" }}>
+                        Cerrar
+                      </button>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+
+          {closed.length > 0 && (
+            <div>
+              <div className="news-head">Cerrados ({closed.length})</div>
+              {closed.map((t) => {
+                const pl = plOf(t);
+                return (
+                  <div key={t.id} style={{ borderTop: "1px solid var(--border-soft)", padding: "6px 0", display: "flex", justifyContent: "space-between", alignItems: "center", gap: 8 }}>
+                    <div style={{ fontSize: 12.5 }}>{t.ticker} · {t.label}</div>
+                    <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                      <span style={{ fontWeight: 700, color: pl != null && pl >= 0 ? "#12b76a" : "#f04438" }}>
+                        {pl == null ? "—" : money0.format(pl)}
+                      </span>
+                      <button type="button" onClick={() => del(t.id)}
+                        style={{ fontSize: 11, background: "transparent", border: "none", color: "var(--muted)", cursor: "pointer" }}>✕</button>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </>
+      )}
+
+      <div className="disclaimer">Simulación con fines de estudio. No es dinero real ni consejo financiero.</div>
+    </section>
+  );
+}

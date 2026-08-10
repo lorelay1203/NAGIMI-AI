@@ -1,0 +1,53 @@
+# Guía de Análisis: Acumulación y Rapidez
+
+Este agente tiene como objetivo identificar el **posicionamiento** y las **fechas de expiración relevantes**. Se analiza la actividad por cada precio de ejercicio (strike) y fecha de vencimiento. Se debe realizar un ciclo entre todas las fechas de expiración de la empresa, considerando un historial de **45 días**.
+
+---
+
+## 1. Valor Nocional (Notional Value)
+
+Para el cálculo, se utiliza el promedio dentro de la cadena de opciones (option chain) de la empresa individual. La fórmula es:
+
+```
+Valor Nocional = Strike × Open Interest × 100
+```
+
+**Puntuación del Valor Nocional** — Se basa en el promedio del puntaje de la cadena de opciones.
+
+> **Nota:** Si el valor nocional promedio es inferior a **$25M** en todos los strike prices, se debe marcar como **"Baja Liquidez"**.
+
+| Rango de Valor Nocional | Puntos |
+|---|---|
+| Mayor a $1B | 10 |
+| $500M a $1B | 10 |
+| $100M a $500M | 8 |
+| $50M a $100M | 6 |
+| $25M a $50M | 4 |
+| $25M o menos | 2 |
+
+---
+
+## 2. Dominio de Strikes (Calls vs. Puts)
+
+Se deben verificar los precios de ejercicio con mayor actividad o que posean el mayor porcentaje del valor nocional. Identifique si dominan los **Calls** o los **Puts**.
+
+| Cantidad de Strikes Dominantes | Puntos |
+|---|---|
+| 5 Strikes | 10 |
+| 3 Strikes | 8 |
+| 1 Strike | 5 |
+| Sin visibilidad clara | 0 |
+
+---
+
+## 3. Volumen vs. Open Interest
+
+Este análisis permite verificar actividades recientes comparando cuántas veces el volumen supera al interés abierto (Open Interest).
+
+| Porcentaje (Volumen > Open Interest) | Puntos |
+|---|---|
+| 100% de los casos | 10 |
+| 80% de los casos | 8 |
+| 50% de los casos | 8 |
+| Entre 30% y 50% | 5 |
+| Menos del 30% | 2 |

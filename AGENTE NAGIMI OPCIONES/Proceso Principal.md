@@ -1,0 +1,19 @@
+# Agente Principal — Proceso Principal
+
+El objetivo principal del **agente de Opciones** es identificar operaciones de mercado actuales o históricas para proporcionar contexto sobre la actividad inusual en el mismo.
+
+Existen varias tareas fundamentales para el primer agente:
+
+1. Consultar el **Open Interest** de cada fecha de vencimiento y filtrar los resultados de mayor a menor.
+2. Identificar el **volumen más alto** por fecha de expiración. Además, el agente deberá almacenar al menos **5 días de datos históricos** de todas las fechas de vencimiento para detectar patrones de volumen recurrentes.
+3. Al buscar una empresa en una categoría específica, el agente debe identificar las **5 empresas líderes** de dicho sector y comparar flujos similares para determinar si la actividad es sectorial o individual, utilizando una etiqueta adicional para resaltar este hallazgo.
+4. El agente debe distinguir con precisión entre la **compra y venta** tanto de opciones Call como Put:
+   - **Buy Call (Compra):** Identificar como una postura usualmente direccional.
+   - **Sell Call (Venta):** Funciona como resistencia; órdenes de gran magnitud pueden indicar la formación de un *"muro"*.
+   - **Buy Put (Compra):** Puede ser tanto cobertura (hedge) como direccional, por lo que requiere validación de contexto con otros agentes.
+   - **Sell Put (Venta):** Actúa como un nivel de soporte para el activo subyacente.
+5. Para facilitar la comprensión del contexto, la información debe segmentarse de la siguiente manera:
+   - **A. Cálculo del Premium abierto por strike:** `Open Interest × Precio del Contrato (utilizar Bid) = Open Premium`.
+   - **B. Cálculo del Valor Nocional:** Crucial para identificar zonas de relevancia cuando un contrato expira ITM. El cálculo es: `Open Interest × 100 × Precio de Ejercicio (Strike) = Notional Value`.
+6. El agente debe evaluar la **liquidez** del Option Chain. Para ello, comparará el valor nocional promedio de los últimos 5 días de las *"7 Magníficas"* con la cadena consultada. Si existe una disparidad de liquidez del **20% al 40%** respecto a los líderes, o si la liquidez es **inferior al 60%** del promedio, el sistema emitirá una alerta indicando que los datos podrían no ser fiables.
+7. Monitorear constantemente el **feed RSS** referenciado para detectar eventos que afecten al activo y proporcionar noticias relevantes de la empresa en el panel de resultados.

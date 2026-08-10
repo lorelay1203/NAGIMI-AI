@@ -1,0 +1,79 @@
+"use client";
+
+import { useState } from "react";
+import type { CompanyInfo } from "@/lib/types";
+import { pct, px } from "../format";
+
+const QUICK = ["TSLA", "NVDA", "SPY", "AAPL"];
+
+export default function HeaderBar({
+  ticker,
+  company,
+  busy,
+  onSearch,
+  onHome,
+}: {
+  ticker: string | null;
+  company: CompanyInfo | null;
+  busy: boolean;
+  onSearch: (t: string) => void;
+  onHome?: () => void;
+}) {
+  const [q, setQ] = useState("");
+
+  const submit = () => {
+    const t = q.trim().toUpperCase();
+    if (!t || busy) return;
+    setQ("");
+    onSearch(t);
+  };
+
+  return (
+    <div className="hb">
+      <div className="hb-brand" onClick={() => onHome?.()} style={{ cursor: onHome ? "pointer" : "default" }} title="Ir al inicio">
+        <div className="hb-logo">N</div>
+        <div className="hb-name">Nagimi AI</div>
+        <div className="hb-chip">AI Options Agent</div>
+      </div>
+      <div className="hb-tabs">
+        {QUICK.map((s) => (
+          <button
+            key={s}
+            type="button"
+            className={`hb-tab ${ticker === s ? "on" : ""}`}
+            onClick={() => !busy && onSearch(s)}
+          >
+            {s}
+          </button>
+        ))}
+      </div>
+      <input
+        className="hb-search"
+        value={q}
+        onChange={(e) => setQ(e.target.value)}
+        onKeyDown={(e) => { if (e.key === "Enter") submit(); }}
+        placeholder="Buscar ticker…"
+        spellCheck={false}
+      />
+      <div className="hb-right">
+        {ticker && onHome && (
+          <button type="button" onClick={onHome} className="hb-link" style={{ background: "transparent", border: "1px solid var(--border)", cursor: "pointer" }}>🏠 Inicio</button>
+        )}
+        {company && (
+          <>
+            <div className="hb-ticker-name">{company.name ?? company.ticker}</div>
+            {company.price != null && <div className="hb-price">${px.format(company.price)}</div>}
+            {company.changePercent != null && (
+              <div className="hb-chg" style={{ color: company.changePercent >= 0 ? "#12b76a" : "#f04438" }}>
+                {pct.format(company.changePercent)}%
+              </div>
+            )}
+          </>
+        )}
+        <a className="hb-link" href="/ideas" title="Screener de ideas para cuenta chica">💡 Ideas</a>
+        <a className="hb-link" href="/cookie" title="Renovar cookie de MarketSnack">🍪 Cookie</a>
+        <a className="hb-link" href="/flow">Time &amp; Sales →</a>
+      </div>
+    </div>
+  );
+}
