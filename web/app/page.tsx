@@ -480,8 +480,13 @@ export default function Dashboard() {
             <div className="card" style={{ alignItems: "center", padding: "48px 24px", textAlign: "center" }}>
               <div style={{ fontSize: 20, fontWeight: 700 }}>Analiza un ticker</div>
               <div className="card-sub" style={{ maxWidth: 480 }}>
-                Elige un ticker arriba (o búscalo) y el agente armará el sentiment score, el flujo
-                inusual, los muros de strikes y el detalle completo de cada sub-agente.
+                Búscalo arriba y el agente armará el sentiment score, el flujo inusual, los muros
+                de strikes y el detalle completo de cada sub-agente.
+              </div>
+              <div style={{ display: "flex", gap: 10, marginTop: 16, flexWrap: "wrap", justifyContent: "center" }}>
+                <a href="/ideas" style={{ background: "var(--panel-2)", border: "1px solid var(--border)", borderRadius: 10, padding: "10px 16px", fontWeight: 700, fontSize: 13, color: "var(--text)", textDecoration: "none" }}>💡 Screener de Ideas</a>
+                <a href="/wheel" style={{ background: "var(--panel-2)", border: "1px solid var(--border)", borderRadius: 10, padding: "10px 16px", fontWeight: 700, fontSize: 13, color: "var(--text)", textDecoration: "none" }}>🎡 Wheel · venta de puts</a>
+                <a href="/watchlist" style={{ background: "var(--panel-2)", border: "1px solid var(--border)", borderRadius: 10, padding: "10px 16px", fontWeight: 700, fontSize: 13, color: "var(--text)", textDecoration: "none" }}>⭐ Watchlist</a>
               </div>
             </div>
             <MisPosicionesCard onPick={runSearch} />

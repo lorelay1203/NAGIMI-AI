@@ -4,8 +4,6 @@ import { useState } from "react";
 import type { CompanyInfo } from "@/lib/types";
 import { pct, px } from "../format";
 
-const QUICK = ["TSLA", "NVDA", "SPY", "AAPL"];
-
 export default function HeaderBar({
   ticker,
   company,
@@ -35,18 +33,6 @@ export default function HeaderBar({
         <div className="hb-name">Nagimi AI</div>
         <div className="hb-chip">AI Options Agent</div>
       </div>
-      <div className="hb-tabs">
-        {QUICK.map((s) => (
-          <button
-            key={s}
-            type="button"
-            className={`hb-tab ${ticker === s ? "on" : ""}`}
-            onClick={() => !busy && onSearch(s)}
-          >
-            {s}
-          </button>
-        ))}
-      </div>
       <input
         className="hb-search"
         value={q}
@@ -56,9 +42,6 @@ export default function HeaderBar({
         spellCheck={false}
       />
       <div className="hb-right">
-        {ticker && onHome && (
-          <button type="button" onClick={onHome} className="hb-link" style={{ background: "transparent", border: "1px solid var(--border)", cursor: "pointer" }}>🏠 Inicio</button>
-        )}
         {company && (
           <>
             <div className="hb-ticker-name">{company.name ?? company.ticker}</div>
@@ -70,10 +53,9 @@ export default function HeaderBar({
             )}
           </>
         )}
-        <a className="hb-link" href="/ideas" title="Screener de ideas para cuenta chica">💡 Ideas</a>
-        <a className="hb-link" href="/wheel" title="Screener de venta de puts (estrategia Wheel)">🎡 Wheel</a>
+        <a className="hb-link" href="/" title="Volver al inicio">🏠 Inicio</a>
         <a className="hb-link" href="/cookie" title="Renovar cookie de MarketSnack">🍪 Cookie</a>
-        <a className="hb-link" href="/flow">Time &amp; Sales →</a>
+        <a className="hb-link" href="/watchlist" title="Tu lista de seguimiento">⭐ Watchlist</a>
       </div>
     </div>
   );
