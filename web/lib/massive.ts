@@ -313,6 +313,10 @@ export interface WheelChainQuote {
   ask: number | null;
   lastTrade: number | null;
   openInterest: number;
+  /** Greeks que Massive SÍ entrega en la query filtrada (aunque no traiga bid/ask). */
+  delta: number | null;  // negativo para put
+  iv: number | null;     // volatilidad implícita (decimal)
+  dayClose: number | null; // último precio del contrato (day.close) — proxy de prima
 }
 
 interface WheelRawContract {
@@ -321,6 +325,8 @@ interface WheelRawContract {
   last_trade?: { price?: number };
   open_interest?: number;
   underlying_asset?: { price?: number };
+  greeks?: { delta?: number; implied_volatility?: number };
+  day?: { close?: number };
 }
 
 export async function fetchWheelChain(
@@ -364,7 +370,17 @@ export async function fetchWheelChain(
       ask: c.last_quote?.ask ?? null,
       lastTrade: c.last_trade?.price ?? null,
       openInterest: c.open_interest ?? 0,
+      delta: c.greeks?.delta ?? null,
+      iv: c.greeks?.implied_volatility ?? null,
+      dayClose: c.day?.close ?? null,
     });
+  }
+
+  // La query filtrada de puts de Massive NO trae el precio del subyacente
+  // (underlying_asset solo tiene el ticker). Lo traemos de Finnhub (tiempo real)
+  // como respaldo — sin esto, `spot` queda null y el screener descarta TODO.
+  if (spot == null) {
+    spot = (await fetchQuote(clean).catch(() => null))?.price ?? null;
   }
 
   // Solo puts OTM: los ITM no son cash-secured puts de Wheel, son otra cosa.

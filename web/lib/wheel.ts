@@ -310,6 +310,10 @@ export interface ChainQuote {
   ask: number | null;
   lastTrade: number | null;
   openInterest: number;
+  /** Datos que Massive entrega aunque no traiga bid/ask (query filtrada de puts). */
+  delta?: number | null;   // greeks.delta (negativo para put)
+  iv?: number | null;      // volatilidad implícita (decimal)
+  dayClose?: number | null; // último precio del contrato (proxy de prima)
 }
 
 export type IvSource = "implicita" | "estimada";
@@ -369,34 +373,38 @@ export function wheelCandidates(input: CandidatesInput): WheelCandidate[] {
       ? (q.bid + q.ask) / 2
       : null;
 
+    // IV: prefiere la de Massive (greeks); si no, la implícita del mid; si no, respaldo.
     const implied = mid != null ? impliedVol(mid, spot, q.strike, T, "put") : null;
-    const iv = implied ?? fallbackIv;
-    const ivSource: IvSource = implied != null ? "implicita" : "estimada";
+    const massiveIv = q.iv != null && q.iv > 0 ? q.iv : null;
+    const iv = massiveIv ?? implied ?? fallbackIv;
+    const ivSource: IvSource = massiveIv != null || implied != null ? "implicita" : "estimada";
 
-    const delta = bsDelta(spot, q.strike, T, iv, "put");
+    // Delta: prefiere el REAL de Massive; si no, lo estima por Black-Scholes.
+    const delta = q.delta != null ? q.delta : bsDelta(spot, q.strike, T, iv, "put");
     const absDelta = Math.abs(delta);
     if (absDelta < preset.deltaMin || absDelta > preset.deltaMax) continue;
 
     const spreadPct = spreadPctOf(q.bid, q.ask);
-    const blockReason = liquidityBlock({ bid: q.bid, ask: q.ask, openInterest: q.openInterest });
 
-    if (blockReason) {
-      // Bloqueado: sin prima y sin métricas. No se enseña un número que no puedes cobrar.
-      out.push({
-        ticker, strike: q.strike, expiration: q.expiration, dte: q.dte, spot,
-        delta, iv, ivSource, openInterest: q.openInterest, spreadPct,
-        premium: null, metrics: null, score: null, blocked: true, blockReason,
-      });
-      continue;
-    }
-
+    // Precio para la prima: bid → último trade → day.close → modelo Black-Scholes.
+    // Con datos de Massive no hay bid/ask, pero sí day.close (último precio real).
     const premium = pickPremium({
       bid: q.bid,
       ask: q.ask,
-      lastTrade: q.lastTrade,
+      lastTrade: q.lastTrade ?? q.dayClose,
       model: bsPrice(spot, q.strike, T, iv, "put"),
     });
-    if (!premium) continue;
+
+    // Bloqueo: solo si NO hay ningún precio real ni modelable. Ya no se bloquea por
+    // "sin bid" cuando existe un último precio — con datos de Massive nunca hay bid.
+    if (!premium) {
+      out.push({
+        ticker, strike: q.strike, expiration: q.expiration, dte: q.dte, spot,
+        delta, iv, ivSource, openInterest: q.openInterest, spreadPct,
+        premium: null, metrics: null, score: null, blocked: true, blockReason: "sin_bid",
+      });
+      continue;
+    }
 
     const metrics = wheelMetrics({ strike: q.strike, price: premium.price, spot, dte: q.dte, iv });
     const score = scoreCandidate({
