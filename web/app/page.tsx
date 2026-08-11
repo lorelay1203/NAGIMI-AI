@@ -15,10 +15,6 @@ import { int } from "./format";
 import HeaderBar from "./components/HeaderBar";
 import AnalysisLoader from "./components/AnalysisLoader";
 import VeredictoCard from "./components/VeredictoCard";
-import EscenariosCard from "./components/EscenariosCard";
-import SimpleChart from "./components/SimpleChart";
-import NivelesSimples from "./components/NivelesSimples";
-import ContextoLinea from "./components/ContextoLinea";
 import MemoriaCard from "./components/MemoriaCard";
 import SentimentCard, { type SentimentPart } from "./components/SentimentCard";
 import PredictionCard from "./components/PredictionCard";
@@ -44,14 +40,15 @@ import ChartPanel from "./ChartPanel";
 import TradeChecklist from "./components/TradeChecklist";
 import OrderBuilder from "./components/OrderBuilder";
 import RecomendacionesCard from "./components/RecomendacionesCard";
-import ChatBox from "./components/ChatBox";
 import RadarCard from "./components/RadarCard";
 import MisPosicionesCard from "./components/MisPosicionesCard";
 import TastytradeCard from "./components/TastytradeCard";
 import PaperTradingCard from "./components/PaperTradingCard";
+import AutoScanCard from "./components/AutoScanCard";
 import InstitutionalCard from "./components/InstitutionalCard";
 import JournalCard from "./components/JournalCard";
 import MarketSnackGexCard from "./components/MarketSnackGexCard";
+import PineScriptCard from "./components/PineScriptCard";
 import type { MsGexResult } from "@/lib/marketsnackGex";
 
 interface FlowMeta { ticker: string; notableCount: number; shown: number }
@@ -70,6 +67,19 @@ type FlowEvent =
       meta: FlowMeta;
     }
   | { type: "error"; message: string };
+
+/** Encabezado de paso para guiar el orden de análisis (Conclusión primero). */
+function SectionHead({ n, title, sub }: { n: number; title: string; sub: string }) {
+  return (
+    <div style={{ display: "flex", alignItems: "center", gap: 10, margin: "10px 0 2px" }}>
+      <span style={{ minWidth: 26, height: 26, borderRadius: 999, background: "var(--accent)", color: "#fff", fontWeight: 700, fontSize: 13, display: "flex", alignItems: "center", justifyContent: "center" }}>{n}</span>
+      <div>
+        <div style={{ fontSize: 15, fontWeight: 700, lineHeight: 1.1 }}>{title}</div>
+        <div style={{ fontSize: 12, color: "var(--muted)" }}>{sub}</div>
+      </div>
+    </div>
+  );
+}
 
 export default function Dashboard() {
   const [ticker, setTicker] = useState<string | null>(null);
@@ -101,16 +111,16 @@ export default function Dashboard() {
   const [flowErr, setFlowErr] = useState<string | null>(null);
   const [showChain, setShowChain] = useState(false);
   const [horizonDays, setHorizonDays] = useState(20);
-  const [view, setView] = useState<"estudiante" | "pro">("estudiante");
-  const [tab, setTab] = useState<"analisis" | "operar" | "chat">("analisis");
+  const [tab, setTab] = useState<"analisis" | "operar">("analisis");
   // Operación elegida para la lectura institucional (clic en la tabla de inusuales).
   const [instRow, setInstRow] = useState<UnusualRow | null>(null);
+  const [paperKey, setPaperKey] = useState(0); // fuerza recarga del diario tras el auto-escaneo
 
   // Persistencia: guardar y leer pestaña activa
   useEffect(() => {
     try {
       const saved = localStorage.getItem("nagimi.tab");
-      if (saved === "operar" || saved === "chat") setTab(saved);
+      if (saved === "operar") setTab(saved);
     } catch { /* sin localStorage */ }
   }, []);
 
@@ -476,7 +486,8 @@ export default function Dashboard() {
             </div>
             <MisPosicionesCard onPick={runSearch} />
             <TastytradeCard />
-            <PaperTradingCard />
+            <AutoScanCard onRegistered={() => setPaperKey((k) => k + 1)} />
+            <PaperTradingCard key={paperKey} />
             <JournalCard />
             <RadarCard onPick={runSearch} />
           </>
@@ -490,90 +501,43 @@ export default function Dashboard() {
         {started && ticker && (
           <>
             <div className="section-tabs">
-              {([["analisis", "📊 Análisis"], ["operar", "💵 Operar"], ["chat", "💬 Chat"]] as const).map(([id, lbl]) => (
+              {([["analisis", "📊 Análisis"], ["operar", "💵 Operar"]] as const).map(([id, lbl]) => (
                 <button key={id} className={tab === id ? "active" : ""} onClick={() => setTab(id)}>{lbl}</button>
               ))}
             </div>
 
             {tab === "analisis" && (
             <>
-            <div className="view-toggle-row">
-              <div className="view-toggle">
-                <button className={view === "estudiante" ? "active" : ""} onClick={() => setView("estudiante")}>
-                  👤 Estudiante
-                </button>
-                <button className={view === "pro" ? "active" : ""} onClick={() => setView("pro")}>
-                  ⚡ Pro
-                </button>
-              </div>
-            </div>
+            {/* Orden "Conclusión primero": del veredicto al detalle, paso por paso. */}
 
-            {view === "estudiante" && (
-              <>
-                <VeredictoCard ticker={ticker} prediction={prediction} horizonDays={horizonDays} />
+            {/* 1 · Veredicto — la respuesta */}
+            <SectionHead n={1} title="Veredicto" sub="La conclusión: ¿sube o baja, y qué tan seguro?" />
+            <VeredictoCard ticker={ticker} prediction={prediction} horizonDays={horizonDays} />
 
-                {/* El selector de horizonte va pegado a la gráfica que controla:
-                    si flota a la misma distancia que una sección, deja de leerse
-                    como su control. */}
-                <div className="stack-tight">
-                  <div className="view-toggle-row">
-                    <div className="view-toggle">
-                      {[[10, "Esta semana"], [20, "2 semanas"], [30, "1 mes"]].map(([d, lbl]) => (
-                        <button
-                          key={d as number}
-                          className={horizonDays === d ? "active" : ""}
-                          onClick={() => setHorizonDays(d as number)}
-                        >
-                          {lbl}
-                        </button>
-                      ))}
-                    </div>
-                  </div>
-
-                  <SimpleChart
-                    ticker={ticker}
-                    spot={gex?.spot ?? company?.price ?? chainMeta?.underlyingPrice ?? 0}
-                    iv={gex?.iv ?? 0.4}
-                    horizonDays={horizonDays}
-                    scenarios={prediction ? { bear: prediction.bear.target, base: prediction.base.target, bull: prediction.bull.target } : null}
-                    levels={levels}
-                  />
-                </div>
-
-                <EscenariosCard prediction={prediction} />
-
-                <ContextoLinea ticker={ticker} company={company} callPct={callPct} />
-
-                {levels && (
-                  <NivelesSimples levels={levels} iv={gex?.iv ?? 0.4} horizonDays={horizonDays} />
-                )}
-
-                <MemoriaCard ticker={ticker} />
-
-                <div className="disclaimer">
-                  Las predicciones son estimaciones de IA, no consejo financiero.
-                </div>
-              </>
-            )}
-
-            {view === "pro" && (
-              <>
+            {/* 2 · Sentiment y predicción — la lectura */}
+            <SectionHead n={2} title="Sentiment y predicción" sub="La lectura del agente y los escenarios" />
             {chainRows && top5.length > 0 && bars !== null && (
               <ChartPanel ticker={chainMeta!.ticker} bars={bars} contracts={top5} />
             )}
-
             <div className="grid-2">
               <SentimentCard ticker={ticker} parts={sentimentParts} />
               <PredictionCard ticker={ticker} prediction={prediction} horizonDays={horizonDays} onHorizon={setHorizonDays} topFlows={topFlows} />
             </div>
 
+            {/* 3 · Flujo de dinero — ¿confirma el dinero grande? */}
+            <SectionHead n={3} title="Flujo de dinero" sub="¿El dinero grande confirma la dirección?" />
             {convRows && convRows.length > 0 && unusuality && (
               <div className="grid-2">
                 <ActivityCard rows={convRows} unusualCount={unusuality.unusualCount} />
                 <MoneyFlowCard ticker={ticker} rows={convRows} conviction={conviction} structure={structure} />
               </div>
             )}
+            {/* Lectura institucional de la operación elegida (clic en la tabla de inusuales) */}
+            {instRow && <InstitutionalCard row={instRow} onClose={() => setInstRow(null)} />}
+            {unusualRows && <TradesFeed rows={unusualRows} />}
 
+            {/* 4 · Niveles y muros GEX — dónde están los precios clave */}
+            <SectionHead n={4} title="Niveles y muros (GEX)" sub="Soportes, resistencias y paredes de opciones" />
             {levels && (
               <div className="grid-2">
                 <LevelsCard r={levels} ticker={ticker} />
@@ -581,22 +545,42 @@ export default function Dashboard() {
               </div>
             )}
             {!levels && <NewsCard ticker={ticker} company={company} callPct={callPct} />}
-
             {structure && <ProWallsCard ticker={ticker} structure={structure} gex={realGex ?? gex} horizonDays={horizonDays} levels={levels} />}
-
             {msGex && <MarketSnackGexCard data={msGex} />}
-
             {gexChart && <GexHeatmapCard h={gexChart} />}
 
-            {/* Lectura institucional de la operación elegida (clic en la tabla de inusuales) */}
-            {instRow && <InstitutionalCard row={instRow} onClose={() => setInstRow(null)} />}
+            {/* 5 · Llevar a TradingView */}
+            {(msGex || levels) && (
+              <>
+                <SectionHead n={5} title="Llevar a TradingView" sub="Genera el script con tus niveles ya adentro" />
+                <PineScriptCard
+                  ticker={ticker}
+                  spot={gex?.spot ?? company?.price ?? null}
+                  gex={{
+                    callWall: msGex?.latest?.callWall ?? null,
+                    putWall: msGex?.latest?.putWall ?? null,
+                    magnet: msGex?.latest?.magnet ?? gex?.kingStrike ?? null,
+                    maxPain: msGex?.latest?.maxPain ?? null,
+                    gammaFlip: msGex?.latest?.gammaFlip ?? gex?.flipStrike ?? null,
+                    netGex: msGex?.latest?.netGex ?? gex?.totalNetGex ?? null,
+                    regime: gex?.regime ?? null,
+                  }}
+                  supports={(levels?.supports ?? []).map((l) => ({ price: l.price, strength: l.strength, why: l.why }))}
+                  resistances={(levels?.resistances ?? []).map((l) => ({ price: l.price, strength: l.strength, why: l.why }))}
+                />
+              </>
+            )}
 
-            {unusualRows && <TradesFeed rows={unusualRows} />}
+            {/* 6 · Memoria del agente — su historial de aciertos */}
+            <SectionHead n={6} title="Memoria del agente" sub="Qué tan bien predijo antes (mejora con el tiempo)" />
+            <MemoriaCard ticker={ticker} />
 
             <div className="disclaimer">
               Las predicciones son estimaciones de IA, no consejo financiero.
             </div>
 
+            {/* 7 · Detalle de sub-agentes — el fondo de todo */}
+            <SectionHead n={7} title="Detalle de sub-agentes" sub="El fondo de todo, plegado por si lo quieres ver" />
             <details className="detalle">
               <summary>
                 Detalle de sub-agentes — las tablas y promedios que alimentan Prediction Pro
@@ -629,8 +613,6 @@ export default function Dashboard() {
                 )}
               </div>
             </details>
-              </>
-            )}
             </>
             )}
 
@@ -660,25 +642,6 @@ export default function Dashboard() {
             </>
             )}
 
-            {tab === "chat" && (
-            <ChatBox
-              ticker={ticker}
-              context={{
-                ticker,
-                precioActual: checklistCtx.spot,
-                direccion: checklistCtx.direction,
-                confianzaPct: checklistCtx.confidence,
-                pctDineroEnCalls: callPct,
-                gex: { iman: checklistCtx.gexMagnet, callWall: checklistCtx.gexCallWall, putWall: checklistCtx.gexPutWall },
-                iv: gex?.iv ?? null,
-                aciertoHistoricoPct: checklistCtx.hitRate,
-                datosPocoFiables: !!checklistCtx.caveat || !!checklistCtx.lowLiquidity,
-                escenarios: prediction && !prediction.caveat
-                  ? { bajista: prediction.bear.target, base: prediction.base.target, alcista: prediction.bull.target, horizonteDias: horizonDays }
-                  : null,
-              }}
-            />
-            )}
           </>
         )}
       </main>

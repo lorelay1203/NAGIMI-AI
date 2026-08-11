@@ -28,6 +28,8 @@ export interface PaperTrade {
   exitNet?: number;         // débito neto al cerrar (por contrato)
   exitTime?: string;
   note?: string;
+  /** Explicación larga de POR QUÉ el motor eligió este trade (se ve al tocarlo). */
+  rationale?: string;
   source: "motor" | "manual";
 }
 

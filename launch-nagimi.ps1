@@ -1,6 +1,7 @@
 # Lanzador de Nagimi AI (Opciones) — arranca el server si hace falta y abre el navegador.
 $ErrorActionPreference = "SilentlyContinue"
-$web = "C:\Users\lorel\OneDrive\Escritorio\Nagimi AI\1 - App Opciones (localhost 3000)\web"
+# Ruta relativa al propio script: así renombrar o mover la carpeta no rompe el lanzador.
+$web = Join-Path $PSScriptRoot "web"
 
 # Resolver npm (Node instalado por winget suele estar en Program Files\nodejs).
 $npm = "$env:ProgramFiles\nodejs\npm.cmd"

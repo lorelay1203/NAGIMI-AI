@@ -71,6 +71,7 @@ export default function HeaderBar({
           </>
         )}
         <a className="hb-link" href="/ideas" title="Screener de ideas para cuenta chica">💡 Ideas</a>
+        <a className="hb-link" href="/wheel" title="Screener de venta de puts (estrategia Wheel)">🎡 Wheel</a>
         <a className="hb-link" href="/cookie" title="Renovar cookie de MarketSnack">🍪 Cookie</a>
         <a className="hb-link" href="/flow">Time &amp; Sales →</a>
       </div>

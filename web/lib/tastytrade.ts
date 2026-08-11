@@ -1,10 +1,11 @@
-// Cliente de Tastytrade — API OFICIAL. FASE 1: SOLO LECTURA (scope `read`).
+// Cliente de Tastytrade — API OFICIAL. Scopes del grant: read + trade.
 // OAuth2 con "grant personal": guardamos client_id + client_secret + refresh_token.
 // Con el refresh_token se sacan access tokens de 15 min (se renuevan solos).
-// Aquí NO se colocan órdenes (el scope `read` no lo permite por diseño).
+// Las órdenes SIEMPRE las dispara la usuaria desde la UI; nunca se envían solas.
 
 import { promises as fs } from "fs";
 import path from "path";
+import { occSymbol, type Side } from "./orderBuilder";
 
 const CREDS_FILE = path.join(process.cwd(), "data", "tastytrade_creds.json");
 const TOKEN_FILE = path.join(process.cwd(), "data", "tastytrade_token.json");
@@ -138,4 +139,97 @@ export async function getAccounts(): Promise<{ accounts: TastyAccount[] }> {
     accounts.push({ accountNumber: num, nickname: it.account?.nickname ?? num, balance, positions });
   }
   return { accounts };
+}
+
+async function tastyPost(pathname: string, body: unknown): Promise<unknown> {
+  const { at, base } = await accessToken();
+  const res = await fetch(`${base}${pathname}`, {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${at}`,
+      "User-Agent": USER_AGENT,
+      "Content-Type": "application/json",
+      Accept: "application/json",
+    },
+    body: JSON.stringify(body),
+  });
+  const json = await res.json().catch(() => null);
+  if (!res.ok) {
+    const err = (json as { error?: { message?: string; errors?: { message?: string }[] } } | null)?.error;
+    // Tastytrade anida el motivo real en error.errors[]; el message de arriba suele ser genérico.
+    const nested = err?.errors?.map((e) => e.message).filter(Boolean).join(" · ");
+    const detail = nested || err?.message;
+    throw new TastyError(detail ?? `Tastytrade rechazó la orden (${res.status}).`, res.status);
+  }
+  return json;
+}
+
+export interface OrderLegInput {
+  side: Side;
+  optionType: "call" | "put";
+  strike: number;
+  quantity: number;
+}
+
+export interface SubmitOrderInput {
+  accountNumber: string;
+  underlying: string;
+  expiration: string; // YYYY-MM-DD
+  legs: OrderLegInput[];
+  /** Precio neto de la estrategia, por contrato y en positivo. */
+  price: number;
+  /** "Debit" = pagas, "Credit" = recibes. */
+  priceEffect: "Debit" | "Credit";
+  timeInForce?: "Day" | "GTC";
+}
+
+export interface OrderOutcome {
+  buyingPowerEffect: number | null;
+  fees: number | null;
+  warnings: string[];
+  status: string | null;
+  orderId: string | null;
+  raw: unknown;
+}
+
+function buildOrderPayload(o: SubmitOrderInput) {
+  return {
+    "order-type": "Limit",
+    "time-in-force": o.timeInForce ?? "Day",
+    price: Math.abs(o.price),
+    "price-effect": o.priceEffect,
+    legs: o.legs.map((l) => ({
+      "instrument-type": "Equity Option",
+      symbol: occSymbol(o.underlying, o.expiration, l.optionType, l.strike),
+      quantity: l.quantity,
+      // Estrategias nuevas: todas las patas abren posición.
+      action: l.side === "buy" ? "Buy to Open" : "Sell to Open",
+    })),
+  };
+}
+
+function readOutcome(json: unknown): OrderOutcome {
+  const d = (json as { data?: Record<string, unknown> } | null)?.data ?? {};
+  const order = (d.order ?? {}) as Record<string, unknown>;
+  const bpe = d["buying-power-effect"] as { "change-in-buying-power"?: string } | undefined;
+  const fees = d["fee-calculation"] as { "total-fees"?: string } | undefined;
+  const warnings = (d.warnings ?? []) as { message?: string }[];
+  return {
+    buyingPowerEffect: bpe?.["change-in-buying-power"] != null ? Number(bpe["change-in-buying-power"]) : null,
+    fees: fees?.["total-fees"] != null ? Number(fees["total-fees"]) : null,
+    warnings: warnings.map((w) => w.message ?? "").filter(Boolean),
+    status: (order.status as string) ?? null,
+    orderId: order.id != null ? String(order.id) : null,
+    raw: json,
+  };
+}
+
+/** Valida la orden en Tastytrade SIN ejecutarla: devuelve poder de compra, comisiones y avisos. */
+export async function dryRunOrder(o: SubmitOrderInput): Promise<OrderOutcome> {
+  return readOutcome(await tastyPost(`/accounts/${o.accountNumber}/orders/dry-run`, buildOrderPayload(o)));
+}
+
+/** Envía la orden de verdad. Solo debe llamarse tras una confirmación explícita de la usuaria. */
+export async function placeOrder(o: SubmitOrderInput): Promise<OrderOutcome> {
+  return readOutcome(await tastyPost(`/accounts/${o.accountNumber}/orders`, buildOrderPayload(o)));
 }

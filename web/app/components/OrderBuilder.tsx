@@ -4,11 +4,12 @@
 // butterfly, condor, iron condor); arma las patas y te dice qué colocar.
 // NO ejecuta nada: tú las pones en tu broker.
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { occSymbol, legNet, generateLegs, STRATEGIES, type OrderDraft, type Strategy, type Side } from "@/lib/orderBuilder";
 import { analyzeStrategy, strategyBias, adjustPop, type PayoffLeg } from "@/lib/payoff";
 import GreeksPanel from "./GreeksPanel";
 import PayoffChart from "./PayoffChart";
+import SendToTastytrade from "./SendToTastytrade";
 import { px } from "../format";
 
 const money = (n: number) => "$" + px.format(Math.abs(n));
@@ -104,6 +105,12 @@ export default function OrderBuilder({ ticker, prefill }: { ticker: string; pref
   const net = legs.reduce((s, l) => s + legNet(draftOf(l)), 0); // >0 débito (pagas), <0 crédito (recibes)
   const isDebit = net >= 0;
 
+  // Referencia estable: si cambia, el panel de envío invalida su revisión previa.
+  const orderLegs = useMemo(
+    () => legs.map((l) => ({ side: l.side, optionType: l.optionType, strike: l.strike, quantity: l.quantity })),
+    [legs],
+  );
+
   const spot = prefill.spot ?? 0;
   const daysToExp = expiration ? Math.max(1, Math.round((new Date(expiration + "T00:00:00").getTime() - Date.now()) / 86_400_000)) : 0;
   const ivs = legs.map((l) => l.quote?.iv).filter((x): x is number => typeof x === "number" && x > 0 && x < 5);
@@ -122,8 +129,8 @@ export default function OrderBuilder({ ticker, prefill }: { ticker: string; pref
       <div>
         <div style={{ fontSize: 16, fontWeight: 700 }}>🧾 Order Builder + Estrategias · {ticker}</div>
         <div className="card-sub">
-          Elige una estrategia, arma las patas y trae los precios reales. <b>Nagimi NO ejecuta</b> —
-          tú colocas la orden en tu broker.
+          Elige una estrategia, arma las patas y trae los precios reales. Nagimi la revisa en Tastytrade,
+          pero <b>el envío lo confirmas tú</b>.
         </div>
       </div>
 
@@ -258,11 +265,21 @@ export default function OrderBuilder({ ticker, prefill }: { ticker: string; pref
         <GreeksPanel
           ticker={ticker}
           expiration={expiration}
-          legs={legs.map((l) => ({ side: l.side, optionType: l.optionType, strike: l.strike, quantity: l.quantity }))}
+          legs={orderLegs}
         />
       )}
 
-      <div className="disclaimer">Nagimi solo prepara la estrategia. La ejecutas TÚ en tu broker. No es consejo financiero.</div>
+      {priced && (
+        <SendToTastytrade
+          ticker={ticker}
+          expiration={expiration}
+          legs={orderLegs}
+          price={Math.abs(net) / 100}
+          priceEffect={isDebit ? "Debit" : "Credit"}
+        />
+      )}
+
+      <div className="disclaimer">Nagimi prepara la estrategia y la revisa en tu broker. El envío lo confirmas TÚ. No es consejo financiero.</div>
     </section>
   );
 }
