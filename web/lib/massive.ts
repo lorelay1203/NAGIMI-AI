@@ -315,6 +315,9 @@ export interface WheelChainQuote {
   openInterest: number;
   /** Greeks que Massive SÍ entrega en la query filtrada (aunque no traiga bid/ask). */
   delta: number | null;  // negativo para put
+  theta: number | null;  // decaimiento diario (negativo)
+  gamma: number | null;
+  vega: number | null;
   iv: number | null;     // volatilidad implícita (decimal)
   dayClose: number | null; // último precio del contrato (day.close) — proxy de prima
 }
@@ -325,7 +328,7 @@ interface WheelRawContract {
   last_trade?: { price?: number };
   open_interest?: number;
   underlying_asset?: { price?: number };
-  greeks?: { delta?: number; implied_volatility?: number };
+  greeks?: { delta?: number; theta?: number; gamma?: number; vega?: number; implied_volatility?: number };
   day?: { close?: number };
 }
 
@@ -371,6 +374,9 @@ export async function fetchWheelChain(
       lastTrade: c.last_trade?.price ?? null,
       openInterest: c.open_interest ?? 0,
       delta: c.greeks?.delta ?? null,
+      theta: c.greeks?.theta ?? null,
+      gamma: c.greeks?.gamma ?? null,
+      vega: c.greeks?.vega ?? null,
       iv: c.greeks?.implied_volatility ?? null,
       dayClose: c.day?.close ?? null,
     });

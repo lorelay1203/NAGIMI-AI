@@ -33,26 +33,53 @@ export interface PaperTrade {
   source: "motor" | "manual";
 }
 
+/**
+ * Lee el diario. CLAVE: distingue "el archivo no existe todavía" (lista vacía
+ * legítima) de "el archivo existe pero falló al leerse/parsearse". En el segundo
+ * caso LANZA en vez de devolver [], porque devolver [] haría que el siguiente
+ * writeAll SOBRESCRIBA con vacío y borre todos los trades. Un JSON corrupto se
+ * respalda y también lanza — nunca se pierde lo que había.
+ */
 async function readAll(): Promise<PaperTrade[]> {
+  let raw: string;
   try {
-    return JSON.parse(await fs.readFile(FILE, "utf8")) as PaperTrade[];
+    raw = await fs.readFile(FILE, "utf8");
+  } catch (e) {
+    if ((e as NodeJS.ErrnoException)?.code === "ENOENT") return []; // aún no existe
+    throw new Error(`No se pudo leer el diario de paper (no se toca para no perderlo): ${(e as Error)?.message}`);
+  }
+  const trimmed = raw.trim();
+  if (!trimmed) return []; // archivo vacío legítimo
+  try {
+    const parsed = JSON.parse(trimmed);
+    return Array.isArray(parsed) ? (parsed as PaperTrade[]) : [];
   } catch {
-    return [];
+    await fs.copyFile(FILE, `${FILE}.corrupt-${Date.now()}.bak`).catch(() => {});
+    throw new Error("El diario de paper estaba corrupto; se respaldó y NO se sobrescribe.");
   }
 }
 
+/** Guardado ATÓMICO: escribe a un temporal y renombra. Un corte a mitad no corrompe el archivo real. */
 async function writeAll(list: PaperTrade[]): Promise<void> {
   await fs.mkdir(path.dirname(FILE), { recursive: true });
-  await fs.writeFile(FILE, JSON.stringify(list, null, 2), "utf8");
+  const tmp = `${FILE}.tmp`;
+  await fs.writeFile(tmp, JSON.stringify(list, null, 2), "utf8");
+  await fs.rename(tmp, FILE);
 }
 
 export async function listPaper(): Promise<PaperTrade[]> {
   return (await readAll()).sort((a, b) => (a.entryTime < b.entryTime ? 1 : -1));
 }
 
-// id sin depender de Date.now()/random (bloqueados): contador + timestamp de entrada.
+// id único: contador + timestamp de entrada, y si colisiona con uno existente sube
+// el contador hasta que sea único (evita los IDs duplicados tras borrar trades).
 function makeId(list: PaperTrade[], entryTime: string): string {
-  return `pt_${list.length + 1}_${entryTime.replace(/[^0-9]/g, "").slice(0, 14)}`;
+  const stamp = entryTime.replace(/[^0-9]/g, "").slice(0, 14);
+  const existing = new Set(list.map((t) => t.id));
+  let n = list.length + 1;
+  let id = `pt_${n}_${stamp}`;
+  while (existing.has(id)) { n += 1; id = `pt_${n}_${stamp}`; }
+  return id;
 }
 
 export async function openPaper(

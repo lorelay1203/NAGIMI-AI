@@ -11,7 +11,9 @@ import { sizeFlow, type RiskProfile } from "@/lib/risk";
 import IdeasTable, { type SizedIdea } from "@/app/components/IdeasTable";
 
 const KEY_PROFILE = "nagimi.ideas.profile";
-const DEFAULT_PROFILE: RiskProfile = { accountSize: 100, tolerancePct: 2 };
+// tolerancePct 100 = las recomendaciones se basan en TODO tu capital disponible
+// (no en un % por trade). La usuaria pidió recomendaciones según el capital, sin knobs.
+const DEFAULT_PROFILE: RiskProfile = { accountSize: 100, tolerancePct: 100 };
 
 export default function IdeasPage() {
   const [profile, setProfile] = useState<RiskProfile>(DEFAULT_PROFILE);
@@ -31,7 +33,7 @@ export default function IdeasPage() {
   useEffect(() => {
     try {
       const raw = localStorage.getItem(KEY_PROFILE);
-      if (raw) { const p = JSON.parse(raw); if (p && typeof p.accountSize === "number") setProfile(p); }
+      if (raw) { const p = JSON.parse(raw); if (p && typeof p.accountSize === "number") setProfile({ accountSize: p.accountSize, tolerancePct: 100 }); }
     } catch { /* sin localStorage */ }
   }, []);
   const saveProfile = (p: RiskProfile) => {
@@ -126,27 +128,8 @@ export default function IdeasPage() {
             <input type="number" style={{ ...field, marginTop: 4, width: 140 }} value={profile.accountSize || ""}
               onChange={(e) => saveProfile({ ...profile, accountSize: Number(e.target.value) })} />
           </div>
-          <div>
-            <label style={{ fontSize: 11, color: "var(--muted)", fontWeight: 700 }}>Riesgo por trade: <b style={{ color: "var(--text)" }}>{profile.tolerancePct}%</b></label>
-            <div style={{ display: "flex", gap: 6, marginTop: 4 }}>
-              {[0.5, 1, 1.5, 2].map((t) => (
-                <button key={t} type="button" onClick={() => saveProfile({ ...profile, tolerancePct: t })}
-                  style={{ padding: "7px 11px", borderRadius: 8, cursor: "pointer", fontSize: 12.5, fontWeight: 600, border: profile.tolerancePct === t ? "1px solid var(--accent)" : "1px solid var(--border)", background: profile.tolerancePct === t ? "var(--accent)" : "transparent", color: profile.tolerancePct === t ? "#fff" : "var(--text)" }}>
-                  {t}%
-                </button>
-              ))}
-            </div>
-          </div>
-          <div>
-            <label style={{ fontSize: 11, color: "var(--muted)", fontWeight: 700 }}>Horizonte</label>
-            <div style={{ display: "flex", gap: 6, marginTop: 4 }}>
-              {[[10, "1 sem"], [20, "2 sem"], [30, "1 mes"]].map(([d, l]) => (
-                <button key={d as number} type="button" onClick={() => setHorizonDays(d as number)}
-                  style={{ padding: "7px 11px", borderRadius: 8, cursor: "pointer", fontSize: 12.5, fontWeight: 600, border: horizonDays === d ? "1px solid var(--accent)" : "1px solid var(--border)", background: horizonDays === d ? "var(--accent)" : "transparent", color: horizonDays === d ? "#fff" : "var(--text)" }}>
-                  {l}
-                </button>
-              ))}
-            </div>
+          <div style={{ fontSize: 11.5, color: "var(--muted)", maxWidth: 240 }}>
+            Las recomendaciones se ajustan a <b style={{ color: "var(--text)" }}>tu capital disponible</b>.
           </div>
           <div style={{ marginLeft: "auto", display: "flex", gap: 8, alignItems: "center" }}>
             <div style={{ display: "flex", gap: 4 }}>

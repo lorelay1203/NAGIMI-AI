@@ -312,6 +312,9 @@ export interface ChainQuote {
   openInterest: number;
   /** Datos que Massive entrega aunque no traiga bid/ask (query filtrada de puts). */
   delta?: number | null;   // greeks.delta (negativo para put)
+  theta?: number | null;   // decaimiento diario
+  gamma?: number | null;
+  vega?: number | null;
   iv?: number | null;      // volatilidad implícita (decimal)
   dayClose?: number | null; // último precio del contrato (proxy de prima)
 }
@@ -326,6 +329,8 @@ export interface WheelCandidate {
   spot: number;
   /** Negativo (es un put). 0 si no se pudo calcular. */
   delta: number;
+  /** Decaimiento diario (theta) del contrato. null si no vino. */
+  theta: number | null;
   /** IV decimal usada en todos los cálculos de esta fila. */
   iv: number;
   ivSource: IvSource;
@@ -400,7 +405,7 @@ export function wheelCandidates(input: CandidatesInput): WheelCandidate[] {
     if (!premium) {
       out.push({
         ticker, strike: q.strike, expiration: q.expiration, dte: q.dte, spot,
-        delta, iv, ivSource, openInterest: q.openInterest, spreadPct,
+        delta, theta: q.theta ?? null, iv, ivSource, openInterest: q.openInterest, spreadPct,
         premium: null, metrics: null, score: null, blocked: true, blockReason: "sin_bid",
       });
       continue;
@@ -416,7 +421,7 @@ export function wheelCandidates(input: CandidatesInput): WheelCandidate[] {
 
     out.push({
       ticker, strike: q.strike, expiration: q.expiration, dte: q.dte, spot,
-      delta, iv, ivSource, openInterest: q.openInterest, spreadPct,
+      delta, theta: q.theta ?? null, iv, ivSource, openInterest: q.openInterest, spreadPct,
       premium, metrics, score, blocked: false, blockReason: null,
     });
   }

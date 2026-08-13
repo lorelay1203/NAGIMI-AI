@@ -54,46 +54,65 @@ function WheelRow({ c, view }: { c: AffordableCandidate; view: "estudiante" | "p
   const m = c.metrics!;
   const s = c.score!;
   const p = c.premium!;
+  const prob = Math.round(m.probExpireWorthless);
+  const assignPct = Math.round(Math.abs(c.delta) * 100); // delta ≈ prob. de asignación
+  const thetaDay = c.theta != null ? Math.abs(c.theta) * 100 : null; // $/día a tu favor (vendes)
 
   return (
-    <div className={`card wheel-row ${c.afford.affordable ? "" : "unafford"}`}>
-      <button className="wheel-row-head" onClick={() => setOpen((v) => !v)} type="button">
-        <span><b>{c.ticker}</b> ${c.strike} put · {c.expiration} ({c.dte}d)</span>
-        <span className="wheel-score">{s.total}<small>/100</small></span>
+    <div className={`card wheel-row ${c.afford.affordable ? "" : "unafford"}`} style={{ gap: 10 }}>
+      <button onClick={() => setOpen((v) => !v)} type="button"
+        style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 8, background: "transparent", border: "none", cursor: "pointer", width: "100%", padding: 0, color: "var(--text)" }}>
+        <span style={{ fontSize: 15, fontWeight: 700 }}>
+          {open ? "▾" : "▸"} {c.ticker} · vender put ${c.strike}
+          {!c.afford.affordable && <span style={{ marginLeft: 8, fontSize: 11, color: "#f0a", fontWeight: 600 }}>· no te alcanza</span>}
+        </span>
+        <span style={{ fontSize: 12, color: "var(--muted)" }}>puntaje <b style={{ color: "var(--text)", fontSize: 15 }}>{s.total}</b>/100</span>
       </button>
 
-      {view === "estudiante" ? (
-        <p className="wheel-plain">
-          Si vendieras este put, cobrarías <b>{money(m.credit)}</b> y necesitas{" "}
-          <b>{money(m.collateral)}</b> en efectivo retenido. Empiezas a perder por debajo de{" "}
-          <b>{money2(m.breakeven)}</b>. Hay <b>{Math.round(m.probExpireWorthless)}%</b> de que expire sin valor y te quedes la prima.
-          {!c.afford.affordable && <> Te faltan <b>{money(c.afford.shortfall)}</b> para poder venderlo.</>}
-        </p>
-      ) : (
-        <div className="wheel-grid">
-          <span>Prima <b>{money2(p.price)}</b> <small>({SOURCE_LABEL[p.source]})</small></span>
-          <span>Δ <b>{c.delta.toFixed(2)}</b></span>
-          <span>IV <b>{pct(c.iv * 100)}</b> <small>{c.ivSource === "estimada" ? "est." : "impl."}</small></span>
-          <span>Anualizado <b>{pct(m.annualizedPct)}</b></span>
-          <span>Colchón <b>{pct(m.cushionPct)}</b></span>
-          <span>OI <b>{c.openInterest.toLocaleString()}</b></span>
-          <span>Colateral <b>{money(m.collateral)}</b></span>
-          {!c.afford.affordable && <span className="wheel-tag warn">faltan {money(c.afford.shortfall)}</span>}
+      {/* Casillas visuales con los datos clave */}
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(88px, 1fr))", gap: 8 }}>
+        <Tile label="💵 Cobras" value={money(m.credit)} tone="good" sub="prima hoy" />
+        <Tile label="🎯 Strike" value={`$${c.strike}`} sub={`spot $${c.spot.toFixed(0)}`} />
+        <Tile label="📅 Días" value={`${c.dte}d`} sub={c.expiration.slice(5)} />
+        <Tile label="Δ Delta" value={c.delta.toFixed(2)} sub={`~${assignPct}% asignación`} />
+        <Tile label="Θ Theta" value={thetaDay != null ? `$${thetaDay.toFixed(0)}` : "—"} tone="good" sub="al día a tu favor" />
+        <Tile label="📊 IV" value={pct(c.iv * 100)} sub={c.ivSource === "estimada" ? "estimada" : "real"} />
+        <Tile label="🛡️ Colchón" value={pct(m.cushionPct)} sub="puede caer antes" />
+        <Tile label="📈 Anual" value={pct(m.annualizedPct)} tone="good" sub="rinde/año" />
+        <Tile label="💰 Necesitas" value={money(m.collateral)} tone={c.afford.affordable ? undefined : "bad"} sub={c.afford.affordable ? "en efectivo" : `faltan ${money(c.afford.shortfall)}`} />
+      </div>
+
+      {/* Barra visual: probabilidad de ganar */}
+      <div>
+        <div style={{ display: "flex", justifyContent: "space-between", fontSize: 11, color: "var(--muted)", marginBottom: 3 }}>
+          <span>Probabilidad de ganar (que expire sin valor)</span>
+          <b style={{ color: prob >= 70 ? "#12b76a" : prob >= 50 ? "#e0a800" : "#f04438" }}>{prob}%</b>
         </div>
-      )}
+        <div style={{ height: 8, borderRadius: 999, background: "var(--panel-2)", overflow: "hidden" }}>
+          <div style={{ width: `${prob}%`, height: "100%", background: prob >= 70 ? "#12b76a" : prob >= 50 ? "#e0a800" : "#f04438" }} />
+        </div>
+      </div>
 
       {open && (
-        <div className="wheel-outcomes">
-          <div><b>Si expira sin valor</b> ({Math.round(m.probExpireWorthless)}%): te quedas {money(m.credit)} y se libera tu colateral.</div>
-          <div><b>Si te asignan</b>: compras 100 acciones a ${c.strike}. Tu costo real queda en {money2(m.breakeven)} y empiezas a vender calls sobre ellas.</div>
-          <div><b>Si se desploma 20%</b>: tendrías las acciones valiendo ~{money2(c.spot * 0.8)}, con pérdida no realizada frente a tu costo de {money2(m.breakeven)}.</div>
-          <div className="wheel-why">
-            {[s.annualized, s.ivRank, s.cushion, s.liquidity, s.earnings].map((part, i) => (
-              <div key={i}>· {part.why}</div>
-            ))}
-          </div>
+        <div className="wheel-outcomes" style={{ fontSize: 12.5, display: "flex", flexDirection: "column", gap: 5, paddingTop: 4, borderTop: "1px solid var(--border-soft)" }}>
+          <div><b>✅ Si expira sin valor</b> ({prob}%): te quedas <b>{money(m.credit)}</b> y se libera tu efectivo.</div>
+          <div><b>📦 Si te asignan</b>: compras 100 acciones a ${c.strike}. Tu costo real queda en <b>{money2(m.breakeven)}</b> y ahí empiezas a vender calls (la "rueda").</div>
+          <div><b>⚠️ Si cae 20%</b>: tendrías las acciones valiendo ~{money2(c.spot * 0.8)}, con pérdida no realizada frente a tu costo de {money2(m.breakeven)}.</div>
+          <div style={{ fontSize: 11, color: "var(--muted)" }}>Prima calculada con {SOURCE_LABEL[p.source]}.</div>
         </div>
       )}
+    </div>
+  );
+}
+
+/** Casilla visual: etiqueta chica arriba, número grande abajo, con color según tono. */
+function Tile({ label, value, sub, tone }: { label: string; value: string; sub?: string; tone?: "good" | "bad" }) {
+  const color = tone === "good" ? "#12b76a" : tone === "bad" ? "#f04438" : "var(--text)";
+  return (
+    <div style={{ background: "var(--panel-2)", borderRadius: 10, padding: "8px 9px", border: "1px solid var(--border-soft)" }}>
+      <div style={{ fontSize: 10.5, color: "var(--muted)", fontWeight: 600, whiteSpace: "nowrap" }}>{label}</div>
+      <div style={{ fontSize: 17, fontWeight: 700, color, lineHeight: 1.15 }}>{value}</div>
+      {sub && <div style={{ fontSize: 10, color: "var(--muted)" }}>{sub}</div>}
     </div>
   );
 }
