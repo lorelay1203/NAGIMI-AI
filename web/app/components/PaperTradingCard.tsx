@@ -6,6 +6,8 @@
 import { useCallback, useEffect, useState } from "react";
 import { money0, px } from "../format";
 import type { PaperTrade, PaperLeg } from "@/lib/paper";
+import type { OrderLegInput } from "@/lib/tastytrade";
+import SendToTastytrade from "./SendToTastytrade";
 
 // Precio en vivo de una pata vía /api/quote (mismo endpoint que usa Mis Posiciones).
 async function legQuote(ticker: string, l: PaperLeg): Promise<number | null> {
@@ -30,6 +32,72 @@ async function liveNet(t: PaperTrade): Promise<number | null> {
 }
 
 interface Enriched extends PaperTrade { live: number | null }
+
+/**
+ * Panel para LLEVAR A REAL un trade en ganancia: editas contratos y precio límite,
+ * y lo mandas a Tastytrade (semi-automático — tú das el clic final). Reusa el mismo
+ * componente de envío con dry-run del Order Builder.
+ */
+function SendPaperPanel({ t }: { t: PaperTrade }) {
+  const opts = t.legs.filter((l) => l.type !== "stock" && l.strike != null);
+  const expiration = opts.find((l) => l.expiration)?.expiration ?? "";
+  const [contracts, setContracts] = useState(Math.max(1, t.qtyContracts || 1));
+  // entryNet por contrato: <0 = crédito recibido, >0 = débito pagado.
+  const [price, setPrice] = useState(Math.abs(Math.round(t.entryNet * 100) / 100) || 0.05);
+  const priceEffect: "Credit" | "Debit" = t.entryNet <= 0 ? "Credit" : "Debit";
+
+  const legs: OrderLegInput[] = opts.map((l) => ({
+    side: l.side,
+    optionType: l.type as "call" | "put",
+    strike: l.strike as number,
+    quantity: l.qty * Math.max(1, contracts),
+  }));
+
+  return (
+    <div style={{ background: "var(--panel-2)", border: "1px solid var(--accent)", borderRadius: 10, padding: "12px 14px", marginTop: 6, display: "flex", flexDirection: "column", gap: 10 }}>
+      <div style={{ fontSize: 12.5, fontWeight: 700 }}>💵 Llevar este trade a real (Tastytrade)</div>
+      <div style={{ fontSize: 11.5, color: "var(--muted)" }}>
+        Ajusta lo que quieras y revisa antes de enviar. Nagimi <b>no ejecuta sola</b>: hace la prueba (dry-run) y
+        tú das el clic final. Con tu cuenta chica puede que Tastytrade lo rechace por poco poder de compra — el
+        dry-run te lo dirá sin arriesgar nada.
+      </div>
+
+      {/* Editar a tu manera: contratos + precio límite */}
+      <div style={{ display: "flex", gap: 14, flexWrap: "wrap", alignItems: "flex-end" }}>
+        <label style={{ fontSize: 11, color: "var(--muted)", fontWeight: 700 }}>
+          Nº de contratos
+          <div>
+            <input type="number" min={1} value={contracts || ""} onChange={(e) => setContracts(Number(e.target.value))}
+              style={{ marginTop: 4, width: 70, background: "var(--panel)", border: "1px solid var(--border)", borderRadius: 6, color: "var(--text)", padding: "5px 8px", fontSize: 13, fontWeight: 700 }} />
+          </div>
+        </label>
+        <label style={{ fontSize: 11, color: "var(--muted)", fontWeight: 700 }}>
+          Precio límite neto ({priceEffect === "Credit" ? "recibes" : "pagas"})
+          <div>
+            <input type="number" step="0.01" min={0} value={price || ""} onChange={(e) => setPrice(Number(e.target.value))}
+              style={{ marginTop: 4, width: 90, background: "var(--panel)", border: "1px solid var(--border)", borderRadius: 6, color: "var(--text)", padding: "5px 8px", fontSize: 13, fontWeight: 700 }} />
+          </div>
+        </label>
+      </div>
+
+      {/* Patas resultantes */}
+      <div style={{ fontSize: 11.5, color: "var(--text)" }}>
+        {legs.map((l, i) => (
+          <div key={i} style={{ color: l.side === "buy" ? "#4ad991" : "#ff8a82" }}>
+            • {l.side === "buy" ? "Compra" : "Vende"} {l.quantity}× {l.optionType.toUpperCase()} ${l.strike}
+          </div>
+        ))}
+        <div style={{ color: "var(--muted)", marginTop: 2 }}>Vence {expiration || "—"}</div>
+      </div>
+
+      {legs.length > 0 && expiration ? (
+        <SendToTastytrade ticker={t.ticker} expiration={expiration} legs={legs} price={price} priceEffect={priceEffect} />
+      ) : (
+        <div style={{ fontSize: 11.5, color: "#ff9b94" }}>Este trade no se puede enviar (faltan datos de las patas).</div>
+      )}
+    </div>
+  );
+}
 
 // Traduce una pata a lenguaje llano: "Vende PUT 740 vence 2026-09-18".
 function legText(l: PaperLeg): string {
@@ -78,6 +146,7 @@ export default function PaperTradingCard() {
   const [trades, setTrades] = useState<Enriched[] | null>(null);
   const [loading, setLoading] = useState(false);
   const [openId, setOpenId] = useState<string | null>(null); // trade abierto en detalle
+  const [sendId, setSendId] = useState<string | null>(null);  // trade que se está llevando a real
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -190,12 +259,21 @@ export default function PaperTradingCard() {
                         <div style={{ fontWeight: 700, color: pl == null ? "var(--muted)" : pl >= 0 ? "#12b76a" : "#f04438" }}>
                           {pl == null ? "sin precio" : money0.format(pl)}
                         </div>
-                        <button type="button" onClick={() => close(t)} disabled={t.live == null}
-                          style={{ marginTop: 3, fontSize: 11, background: "transparent", border: "1px solid var(--border)", borderRadius: 6, color: "var(--text)", padding: "2px 8px", cursor: "pointer" }}>
-                          Cerrar
-                        </button>
+                        <div style={{ display: "flex", gap: 5, marginTop: 3, justifyContent: "flex-end" }}>
+                          {pl != null && pl > 0 && (
+                            <button type="button" onClick={() => setSendId(sendId === t.id ? null : t.id)}
+                              style={{ fontSize: 11, background: sendId === t.id ? "var(--accent)" : "#12b76a", color: "#fff", border: "none", borderRadius: 6, padding: "2px 8px", cursor: "pointer", fontWeight: 700 }}>
+                              💵 Llevar a real
+                            </button>
+                          )}
+                          <button type="button" onClick={() => close(t)} disabled={t.live == null}
+                            style={{ fontSize: 11, background: "transparent", border: "1px solid var(--border)", borderRadius: 6, color: "var(--text)", padding: "2px 8px", cursor: "pointer" }}>
+                            Cerrar
+                          </button>
+                        </div>
                       </div>
                     </div>
+                    {sendId === t.id && <SendPaperPanel t={t} />}
                     {isOpen && <TradeDetail t={t} />}
                   </div>
                 );
