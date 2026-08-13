@@ -9,6 +9,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 const RISK_KEY = "nagimi.paperMaxRisk";
 const POP_KEY = "nagimi.paperMinPop";
 const RET_KEY = "nagimi.paperMinReturn";
+const TERM_KEY = "nagimi.paperTerm";
 
 interface Candidate {
   ticker: string;
@@ -44,9 +45,11 @@ export default function AutoScanCard({ onRegistered }: { onRegistered?: () => vo
   const [maxRisk, setMaxRisk] = useState(100); // límite de pérdida por trade ($)
   const [minPop, setMinPop] = useState(60);    // POP mínimo aceptado (%)
   const [minRet, setMinRet] = useState(25);    // ganancia mínima como % del riesgo
+  const [term, setTerm] = useState<"corto" | "normal">("normal"); // plazo de los trades
   const riskRef = useRef(100);
   const popRef = useRef(60);
   const retRef = useRef(25);
+  const termRef = useRef<"corto" | "normal">("normal");
 
   // Capital, POP mínimo y ganancia mínima (guardados entre sesiones).
   useEffect(() => {
@@ -56,10 +59,13 @@ export default function AutoScanCard({ onRegistered }: { onRegistered?: () => vo
     if (savedPop > 0) { setMinPop(savedPop); popRef.current = savedPop; }
     const savedRet = Number(localStorage.getItem(RET_KEY));
     if (savedRet > 0) { setMinRet(savedRet); retRef.current = savedRet; }
+    const savedTerm = localStorage.getItem(TERM_KEY);
+    if (savedTerm === "corto" || savedTerm === "normal") { setTerm(savedTerm); termRef.current = savedTerm; }
   }, []);
   useEffect(() => { riskRef.current = maxRisk; if (maxRisk > 0) localStorage.setItem(RISK_KEY, String(maxRisk)); }, [maxRisk]);
   useEffect(() => { popRef.current = minPop; if (minPop > 0) localStorage.setItem(POP_KEY, String(minPop)); }, [minPop]);
   useEffect(() => { retRef.current = minRet; if (minRet > 0) localStorage.setItem(RET_KEY, String(minRet)); }, [minRet]);
+  useEffect(() => { termRef.current = term; localStorage.setItem(TERM_KEY, term); }, [term]);
 
   const run = useCallback(async (force: boolean) => {
     setBusy(true); setErr(null);
@@ -67,7 +73,7 @@ export default function AutoScanCard({ onRegistered }: { onRegistered?: () => vo
       const r = await fetch("/api/paper-scan", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ force, maxRisk: riskRef.current, minPop: popRef.current / 100, minReturn: retRef.current / 100 }),
+        body: JSON.stringify({ force, maxRisk: riskRef.current, minPop: popRef.current / 100, minReturn: retRef.current / 100, term: termRef.current }),
       }).then((x) => x.json());
       setState(r);
       if (r.justRan && r.lastResult?.registered > 0) onRegistered?.();
@@ -122,6 +128,15 @@ export default function AutoScanCard({ onRegistered }: { onRegistered?: () => vo
           <input type="number" min={5} max={200} value={minRet || ""} onChange={(e) => setMinRet(Number(e.target.value))}
             style={{ width: 56, background: "var(--panel)", border: "1px solid var(--border)", borderRadius: 6, color: "var(--text)", padding: "5px 8px", fontSize: 13, fontWeight: 700 }} />%
         </label>
+        <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+          <span style={{ fontSize: 12, color: "var(--muted)", fontWeight: 700 }}>⏱️ Plazo:</span>
+          {(["corto", "normal"] as const).map((tm) => (
+            <button key={tm} type="button" onClick={() => setTerm(tm)}
+              style={{ padding: "6px 11px", borderRadius: 8, cursor: "pointer", fontSize: 12, fontWeight: 700, border: term === tm ? "1px solid var(--accent)" : "1px solid var(--border)", background: term === tm ? "var(--accent)" : "transparent", color: term === tm ? "#fff" : "var(--text)" }}>
+              {tm === "corto" ? "Corto (3-14 días)" : "~1 mes (14-45 días)"}
+            </button>
+          ))}
+        </div>
         <button type="button" onClick={() => run(true)} disabled={busy}
           style={{ background: "var(--accent)", color: "#fff", border: "none", borderRadius: 8, padding: "9px 14px", fontWeight: 700, cursor: "pointer", fontSize: 13 }}>
           {busy ? "Escaneando el mercado…" : "🔍 Buscar ahora"}

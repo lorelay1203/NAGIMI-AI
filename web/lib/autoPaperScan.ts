@@ -110,6 +110,7 @@ async function findHighPopCondor(
   popTarget: number,
   maxRisk: number,
   minReturn: number,
+  term: { min: number; max: number; target: number },
   now: Date,
 ): Promise<FindResult> {
   const g = await fetchMsGex(ticker).catch(() => null);
@@ -125,9 +126,9 @@ async function findHighPopCondor(
   // Ventana ideal para venta de prima: 10-45 días (theta trabaja, sin ser 0DTE).
   const dated = dates
     .map((d) => ({ d, dte: Math.round((Date.parse(`${d}T00:00:00Z`) - Date.parse(`${todayET(now)}T00:00:00Z`)) / 86_400_000) }))
-    .filter((x) => x.dte >= 10 && x.dte <= 45)
-    .sort((a, b) => Math.abs(a.dte - 28) - Math.abs(b.dte - 28)); // preferimos ~4 semanas
-  if (dated.length === 0) return { skip: "sin vencimiento en 10-45 días" };
+    .filter((x) => x.dte >= term.min && x.dte <= term.max)
+    .sort((a, b) => Math.abs(a.dte - term.target) - Math.abs(b.dte - term.target));
+  if (dated.length === 0) return { skip: `sin vencimiento en ${term.min}-${term.max} días` };
 
   const { d: expiration, dte } = dated[0];
   const res = await msFetch(`/api/assets/${encodeURIComponent(ticker)}/option_chain_extended?expiration_date=${encodeURIComponent(expiration)}`);
@@ -367,7 +368,11 @@ async function buildUniverse(maxNames: number): Promise<string[]> {
  * Corre el escaneo completo y registra en paper las estructuras nuevas.
  * Dedup: no re-registra si ya hay un trade ABIERTO del mismo ticker + vencimiento.
  */
-export async function runAutoScan(opts: { popTarget?: number; maxNames?: number; maxRisk?: number; minReturn?: number; now?: Date } = {}): Promise<ScanResult> {
+export async function runAutoScan(opts: { popTarget?: number; maxNames?: number; maxRisk?: number; minReturn?: number; term?: "corto" | "normal"; now?: Date } = {}): Promise<ScanResult> {
+  // Plazo: "corto" = 3-14 días (dinero rápido); "normal" = 14-45 días (~1 mes).
+  const term = opts.term === "corto"
+    ? { min: 3, max: 14, target: 7 }
+    : { min: 14, max: 45, target: 28 };
   const popTarget = opts.popTarget && opts.popTarget > 0 ? opts.popTarget : 0.6;
   const maxNames = opts.maxNames ?? 12;
   // Límite de pérdida máxima por trade. Por defecto $100 = tu cuenta chica.
@@ -385,7 +390,7 @@ export async function runAutoScan(opts: { popTarget?: number; maxNames?: number;
   for (const ticker of universe) {
     let result: FindResult;
     try {
-      result = await findHighPopCondor(ticker, popTarget, maxRisk, minReturn, now);
+      result = await findHighPopCondor(ticker, popTarget, maxRisk, minReturn, term, now);
     } catch (e) {
       skipped.push({ ticker, reason: `error: ${e instanceof Error ? e.message : String(e)}`.slice(0, 160) });
       continue;
