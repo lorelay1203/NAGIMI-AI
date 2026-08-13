@@ -260,12 +260,11 @@ export default function PaperTradingCard() {
                           {pl == null ? "sin precio" : money0.format(pl)}
                         </div>
                         <div style={{ display: "flex", gap: 5, marginTop: 3, justifyContent: "flex-end" }}>
-                          {pl != null && pl > 0 && (
-                            <button type="button" onClick={() => setSendId(sendId === t.id ? null : t.id)}
-                              style={{ fontSize: 11, background: sendId === t.id ? "var(--accent)" : "#12b76a", color: "#fff", border: "none", borderRadius: 6, padding: "2px 8px", cursor: "pointer", fontWeight: 700 }}>
-                              💵 Llevar a real
-                            </button>
-                          )}
+                          <button type="button" onClick={() => setSendId(sendId === t.id ? null : t.id)}
+                            title={pl != null && pl > 0 ? "¡En ganancia!" : "Ejecutar este trade si quieres"}
+                            style={{ fontSize: 11, background: sendId === t.id ? "var(--accent)" : (pl != null && pl > 0 ? "#12b76a" : "transparent"), color: sendId === t.id || (pl != null && pl > 0) ? "#fff" : "var(--text)", border: sendId === t.id || (pl != null && pl > 0) ? "none" : "1px solid var(--accent)", borderRadius: 6, padding: "2px 8px", cursor: "pointer", fontWeight: 700 }}>
+                            💵 Ejecutar{pl != null && pl > 0 ? " (en ganancia)" : ""}
+                          </button>
                           <button type="button" onClick={() => close(t)} disabled={t.live == null}
                             style={{ fontSize: 11, background: "transparent", border: "1px solid var(--border)", borderRadius: 6, color: "var(--text)", padding: "2px 8px", cursor: "pointer" }}>
                             Cerrar
