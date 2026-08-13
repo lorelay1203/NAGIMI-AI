@@ -41,7 +41,7 @@ export async function GET() {
 }
 
 export async function POST(request: Request) {
-  const body = (await request.json().catch(() => ({}))) as { force?: boolean; maxRisk?: number; minPop?: number; minReturn?: number; term?: "corto" | "normal" };
+  const body = (await request.json().catch(() => ({}))) as { force?: boolean; maxRisk?: number; minPop?: number; minReturn?: number; term?: "0dte" | "corto" | "normal" };
   const today = todayET();
   const state = await readState();
 
@@ -54,7 +54,7 @@ export async function POST(request: Request) {
   const popTarget = body.minPop && body.minPop > 0 && body.minPop <= 1 ? body.minPop : 0.6;
   // Ganancia mínima como fracción del riesgo (0.25 = 25%).
   const minReturn = body.minReturn && body.minReturn > 0 && body.minReturn <= 5 ? body.minReturn : 0.25;
-  const term = body.term === "corto" ? "corto" : "normal";
+  const term = body.term === "0dte" ? "0dte" : body.term === "corto" ? "corto" : "normal";
   const result = await runAutoScan({ popTarget, maxNames: 12, maxRisk, minReturn, term });
   const next: ScanState = { lastRunDate: today, lastResult: result };
   await writeState(next);

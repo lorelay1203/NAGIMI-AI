@@ -45,11 +45,11 @@ export default function AutoScanCard({ onRegistered }: { onRegistered?: () => vo
   const [maxRisk, setMaxRisk] = useState(100); // límite de pérdida por trade ($)
   const [minPop, setMinPop] = useState(60);    // POP mínimo aceptado (%)
   const [minRet, setMinRet] = useState(25);    // ganancia mínima como % del riesgo
-  const [term, setTerm] = useState<"corto" | "normal">("normal"); // plazo de los trades
+  const [term, setTerm] = useState<"0dte" | "corto" | "normal">("normal"); // plazo de los trades
   const riskRef = useRef(100);
   const popRef = useRef(60);
   const retRef = useRef(25);
-  const termRef = useRef<"corto" | "normal">("normal");
+  const termRef = useRef<"0dte" | "corto" | "normal">("normal");
 
   // Capital, POP mínimo y ganancia mínima (guardados entre sesiones).
   useEffect(() => {
@@ -60,7 +60,7 @@ export default function AutoScanCard({ onRegistered }: { onRegistered?: () => vo
     const savedRet = Number(localStorage.getItem(RET_KEY));
     if (savedRet > 0) { setMinRet(savedRet); retRef.current = savedRet; }
     const savedTerm = localStorage.getItem(TERM_KEY);
-    if (savedTerm === "corto" || savedTerm === "normal") { setTerm(savedTerm); termRef.current = savedTerm; }
+    if (savedTerm === "0dte" || savedTerm === "corto" || savedTerm === "normal") { setTerm(savedTerm); termRef.current = savedTerm; }
   }, []);
   useEffect(() => { riskRef.current = maxRisk; if (maxRisk > 0) localStorage.setItem(RISK_KEY, String(maxRisk)); }, [maxRisk]);
   useEffect(() => { popRef.current = minPop; if (minPop > 0) localStorage.setItem(POP_KEY, String(minPop)); }, [minPop]);
@@ -114,8 +114,9 @@ export default function AutoScanCard({ onRegistered }: { onRegistered?: () => vo
 
       <div style={{ display: "flex", gap: 10, alignItems: "center", flexWrap: "wrap" }}>
         <label style={{ fontSize: 12, color: "var(--muted)", fontWeight: 700, display: "flex", alignItems: "center", gap: 6 }}>
-          💵 Máximo a arriesgar por trade: $
+          💵 Tu capital disponible: $
           <input type="number" value={maxRisk || ""} onChange={(e) => setMaxRisk(Number(e.target.value))}
+            title="Solo busca trades cuya pérdida máxima quepa en este capital"
             style={{ width: 80, background: "var(--panel)", border: "1px solid var(--border)", borderRadius: 6, color: "var(--text)", padding: "5px 8px", fontSize: 13, fontWeight: 700 }} />
         </label>
         <label style={{ fontSize: 12, color: "var(--muted)", fontWeight: 700, display: "flex", alignItems: "center", gap: 6 }}>
@@ -130,10 +131,10 @@ export default function AutoScanCard({ onRegistered }: { onRegistered?: () => vo
         </label>
         <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
           <span style={{ fontSize: 12, color: "var(--muted)", fontWeight: 700 }}>⏱️ Plazo:</span>
-          {(["corto", "normal"] as const).map((tm) => (
+          {(["0dte", "corto", "normal"] as const).map((tm) => (
             <button key={tm} type="button" onClick={() => setTerm(tm)}
               style={{ padding: "6px 11px", borderRadius: 8, cursor: "pointer", fontSize: 12, fontWeight: 700, border: term === tm ? "1px solid var(--accent)" : "1px solid var(--border)", background: term === tm ? "var(--accent)" : "transparent", color: term === tm ? "#fff" : "var(--text)" }}>
-              {tm === "corto" ? "Corto (3-14 días)" : "~1 mes (14-45 días)"}
+              {tm === "0dte" ? "0DTE (hoy)" : tm === "corto" ? "Corto (3-14d)" : "~1 mes (14-45d)"}
             </button>
           ))}
         </div>

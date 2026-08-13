@@ -368,11 +368,14 @@ async function buildUniverse(maxNames: number): Promise<string[]> {
  * Corre el escaneo completo y registra en paper las estructuras nuevas.
  * Dedup: no re-registra si ya hay un trade ABIERTO del mismo ticker + vencimiento.
  */
-export async function runAutoScan(opts: { popTarget?: number; maxNames?: number; maxRisk?: number; minReturn?: number; term?: "corto" | "normal"; now?: Date } = {}): Promise<ScanResult> {
-  // Plazo: "corto" = 3-14 días (dinero rápido); "normal" = 14-45 días (~1 mes).
-  const term = opts.term === "corto"
-    ? { min: 3, max: 14, target: 7 }
-    : { min: 14, max: 45, target: 28 };
+export async function runAutoScan(opts: { popTarget?: number; maxNames?: number; maxRisk?: number; minReturn?: number; term?: "0dte" | "corto" | "normal"; now?: Date } = {}): Promise<ScanResult> {
+  // Plazo: "0dte" = vence hoy-mañana; "corto" = 3-14 días (dinero rápido);
+  // "normal" = 14-45 días (~1 mes).
+  const term = opts.term === "0dte"
+    ? { min: 0, max: 2, target: 0 }
+    : opts.term === "corto"
+      ? { min: 3, max: 14, target: 7 }
+      : { min: 14, max: 45, target: 28 };
   const popTarget = opts.popTarget && opts.popTarget > 0 ? opts.popTarget : 0.6;
   const maxNames = opts.maxNames ?? 12;
   // Límite de pérdida máxima por trade. Por defecto $100 = tu cuenta chica.
