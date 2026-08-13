@@ -12,7 +12,7 @@ const MULTIPLIER = 100;
 
 // ── Presets ────────────────────────────────────────────────────────────
 
-export type PresetId = "conservador" | "balanceado" | "agresivo";
+export type PresetId = "corto" | "conservador" | "balanceado" | "agresivo";
 
 export interface WheelPreset {
   id: PresetId;
@@ -30,6 +30,12 @@ export interface WheelPreset {
 }
 
 export const WHEEL_PRESETS: Record<PresetId, WheelPreset> = {
+  corto: {
+    id: "corto", label: "Corto plazo (0DTE)",
+    deltaMin: 0.15, deltaMax: 0.40, dteMin: 0, dteMax: 7,
+    takeProfitPct: 50, rollDte: 0,
+    explain: "Vence hoy o esta semana (0DTE): cobras rápido y mucha theta, pero es lo más arriesgado — el precio no tiene tiempo de recuperarse.",
+  },
   conservador: {
     id: "conservador", label: "Conservador",
     deltaMin: 0.10, deltaMax: 0.20, dteMin: 30, dteMax: 45,

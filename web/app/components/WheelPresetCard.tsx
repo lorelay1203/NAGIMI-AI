@@ -2,7 +2,7 @@
 
 import { WHEEL_PRESETS, type PresetId } from "@/lib/wheel";
 
-const ORDER: PresetId[] = ["conservador", "balanceado", "agresivo"];
+const ORDER: PresetId[] = ["corto", "conservador", "balanceado", "agresivo"];
 
 export default function WheelPresetCard({
   preset,

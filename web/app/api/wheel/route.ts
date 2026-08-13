@@ -26,7 +26,7 @@ function sse(event: WheelSseEvent): string {
 }
 
 function isPreset(v: string | null): v is PresetId {
-  return v === "conservador" || v === "balanceado" || v === "agresivo";
+  return v === "corto" || v === "conservador" || v === "balanceado" || v === "agresivo";
 }
 
 /** Corre `worker` sobre `items` con como mucho `limit` en vuelo a la vez. */
