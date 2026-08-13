@@ -107,34 +107,34 @@ export default function ProWallsCard({
 
   return (
     <section className="pro-card">
-      <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 16, flexWrap: "wrap" }}>
-        <div>
-          <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-            <div className="pro-title">Strike Walls, probabilidad y ruta esperada</div>
-            <span className="pro-badge">PRO</span>
-          </div>
-          <div className="pro-sub">
-            Las bandas son los precios donde está el dinero, con la <b>probabilidad</b> de que
-            el precio llegue ahí en {horizonDays} días. El cono sale de la desviación estándar
-            (σ = precio × IV × √t): dentro de ±1σ cae ~68% de los escenarios.
-          </div>
+      <div>
+        <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+          <div className="pro-title">🧱 Muros de dinero y hacia dónde jala el precio</div>
+          <span className="pro-badge">PRO</span>
         </div>
-        <div className="pro-legend" style={{ paddingTop: 4 }}>
-          <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-            <span style={{ width: 10, height: 10, borderRadius: 3, background: "rgba(212,160,23,0.8)" }} />Muro de calls
-          </div>
-          <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-            <span style={{ width: 10, height: 10, borderRadius: 3, background: "rgba(124,110,228,0.8)" }} />Muro de puts
-          </div>
-          <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+        <div style={{ background: "var(--panel-2, rgba(255,255,255,0.04))", borderRadius: 10, padding: "10px 12px", marginTop: 8, fontSize: 12.5, lineHeight: 1.55 }}>
+          <b>¿Para qué sirve?</b> Esta gráfica te muestra 3 cosas de {ticker}: <b>dónde está apostado el dinero grande</b> (las
+          bandas de color = los "muros"), hacia qué precio <b>jala</b> el mercado (el imán 🧲), y <b>qué tan lejos</b> puede
+          moverse en {horizonDays} días (el cono). Cuanto más fuerte el color de una banda, más dinero y más probable que el
+          precio la toque.
+        </div>
+        {/* Cómo leer la gráfica */}
+        <div style={{ display: "flex", gap: 14, flexWrap: "wrap", marginTop: 8, fontSize: 11.5, color: "var(--muted)" }}>
+          <span style={{ display: "flex", alignItems: "center", gap: 6 }}>
+            <span style={{ width: 10, height: 10, borderRadius: 3, background: "rgba(212,160,23,0.85)" }} />Muro de calls <b style={{ color: "var(--text)" }}>(techo)</b>
+          </span>
+          <span style={{ display: "flex", alignItems: "center", gap: 6 }}>
+            <span style={{ width: 10, height: 10, borderRadius: 3, background: "rgba(124,110,228,0.85)" }} />Muro de puts <b style={{ color: "var(--text)" }}>(piso)</b>
+          </span>
+          <span style={{ display: "flex", alignItems: "center", gap: 6 }}>
             <span style={{ width: 14, height: 2, background: "#f5c542" }} />Ruta esperada
-          </div>
-          <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+          </span>
+          <span style={{ display: "flex", alignItems: "center", gap: 6 }}>
             <span style={{ width: 14, height: 0, borderTop: "2px dotted rgba(18,183,106,0.9)" }} />Soporte
-          </div>
-          <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+          </span>
+          <span style={{ display: "flex", alignItems: "center", gap: 6 }}>
             <span style={{ width: 14, height: 0, borderTop: "2px dotted rgba(240,68,56,0.9)" }} />Resistencia
-          </div>
+          </span>
         </div>
       </div>
 
@@ -159,38 +159,23 @@ export default function ProWallsCard({
         )}
       </div>
 
-      <div className="wall-stats">
-        <div className="wall-stat">
-          <div className="wall-stat-label">Movimiento esperado · 1σ · {horizonDays}d</div>
-          <div className="wall-stat-value">±{em.sigmaPct.toFixed(1)}%</div>
-          <div className="wall-stat-sub">
-            ${px.format(em.lower1)} — ${px.format(em.upper1)} · 68% de los escenarios
-          </div>
-        </div>
-        <div className="wall-stat">
-          <div className="wall-stat-label">Rango extremo · 2σ</div>
-          <div className="wall-stat-value">±{(em.sigmaPct * 2).toFixed(1)}%</div>
-          <div className="wall-stat-sub">
-            ${px.format(em.lower2)} — ${px.format(em.upper2)} · 95%
-          </div>
-        </div>
-        <div className="wall-stat">
-          <div className="wall-stat-label">Nivel imán</div>
-          <div className="wall-stat-value" style={{ color: "#f5c542" }}>
-            {path ? `$${px.format(path.target)}` : "—"}
-          </div>
-          <div className="wall-stat-sub">
-            {magnet ? `${(magnet.magnet * 100).toFixed(0)}% de peso · ${dirLabel}` : "—"}
-            {path?.clamped && " · recortado al cono 2σ"}
-          </div>
-        </div>
-        <div className="wall-stat">
-          <div className="wall-stat-label">IV usada</div>
-          <div className="wall-stat-value">{(iv * 100).toFixed(1)}%</div>
-          <div className="wall-stat-sub">
-            {gex ? `régimen ${gex.regime === "positive" ? "γ+ revierte" : "γ− amplifica"} · confianza ${gex.confidence}%` : "—"}
-          </div>
-        </div>
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(150px, 1fr))", gap: 10, marginTop: 12 }}>
+        <StatBox icon="📏" color="#3b82f6" label="Movimiento normal (1σ)"
+          value={`±${em.sigmaPct.toFixed(1)}%`}
+          sub={`$${px.format(em.lower1)} – $${px.format(em.upper1)}`}
+          hint="Dónde estará 68 de cada 100 veces" />
+        <StatBox icon="🌪️" color="#e0a800" label="Movimiento extremo (2σ)"
+          value={`±${(em.sigmaPct * 2).toFixed(1)}%`}
+          sub={`$${px.format(em.lower2)} – $${px.format(em.upper2)}`}
+          hint="El caso raro (95 de 100 veces cae dentro)" />
+        <StatBox icon="🧲" color="#f5c542" label="Imán (hacia dónde jala)"
+          value={path ? `$${px.format(path.target)}` : "—"}
+          sub={magnet ? `${(magnet.magnet * 100).toFixed(0)}% de peso · ${dirLabel}` : "—"}
+          hint="El precio que más atrae al dinero" />
+        <StatBox icon="📊" color="#8b5cf6" label="Nerviosismo (IV)"
+          value={`${(iv * 100).toFixed(1)}%`}
+          sub={gex ? (gex.regime === "positive" ? "γ+ tiende a revertir" : "γ− amplifica el movimiento") : "—"}
+          hint="Más alto = se espera más movimiento" />
       </div>
 
       {(gex?.lowLiquidity || structure.notional.lowLiquidity) && (
@@ -200,5 +185,19 @@ export default function ProWallsCard({
         </div>
       )}
     </section>
+  );
+}
+
+/** Casilla de estadística con color e ícono propios, para que cada dato se distinga. */
+function StatBox({ icon, color, label, value, sub, hint }: {
+  icon: string; color: string; label: string; value: string; sub: string; hint: string;
+}) {
+  return (
+    <div style={{ background: "var(--panel-2, rgba(255,255,255,0.04))", borderRadius: 10, padding: "10px 12px", borderLeft: `3px solid ${color}` }}>
+      <div style={{ fontSize: 11, color: "var(--muted)", fontWeight: 700 }}>{icon} {label}</div>
+      <div style={{ fontSize: 20, fontWeight: 700, color, lineHeight: 1.2, marginTop: 2 }}>{value}</div>
+      <div style={{ fontSize: 11.5, color: "var(--text)" }}>{sub}</div>
+      <div style={{ fontSize: 10.5, color: "var(--muted)", marginTop: 2 }}>{hint}</div>
+    </div>
   );
 }
