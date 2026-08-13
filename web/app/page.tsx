@@ -48,7 +48,6 @@ import AutoScanCard from "./components/AutoScanCard";
 import InstitutionalCard from "./components/InstitutionalCard";
 import JournalCard from "./components/JournalCard";
 import MarketSnackGexCard from "./components/MarketSnackGexCard";
-import PineScriptCard from "./components/PineScriptCard";
 import type { MsGexResult } from "@/lib/marketsnackGex";
 
 interface FlowMeta { ticker: string; notableCount: number; shown: number }
@@ -554,30 +553,8 @@ export default function Dashboard() {
             {msGex && <MarketSnackGexCard data={msGex} />}
             {gexChart && <GexHeatmapCard h={gexChart} />}
 
-            {/* 5 · Llevar a TradingView */}
-            {(msGex || levels) && (
-              <>
-                <SectionHead n={5} title="Llevar a TradingView" sub="Genera el script con tus niveles ya adentro" />
-                <PineScriptCard
-                  ticker={ticker}
-                  spot={gex?.spot ?? company?.price ?? null}
-                  gex={{
-                    callWall: msGex?.latest?.callWall ?? null,
-                    putWall: msGex?.latest?.putWall ?? null,
-                    magnet: msGex?.latest?.magnet ?? gex?.kingStrike ?? null,
-                    maxPain: msGex?.latest?.maxPain ?? null,
-                    gammaFlip: msGex?.latest?.gammaFlip ?? gex?.flipStrike ?? null,
-                    netGex: msGex?.latest?.netGex ?? gex?.totalNetGex ?? null,
-                    regime: gex?.regime ?? null,
-                  }}
-                  supports={(levels?.supports ?? []).map((l) => ({ price: l.price, strength: l.strength, why: l.why }))}
-                  resistances={(levels?.resistances ?? []).map((l) => ({ price: l.price, strength: l.strength, why: l.why }))}
-                />
-              </>
-            )}
-
-            {/* 6 · Memoria del agente — su historial de aciertos */}
-            <SectionHead n={6} title="Memoria del agente" sub="Qué tan bien predijo antes (mejora con el tiempo)" />
+            {/* 5 · Memoria del agente — su historial de aciertos */}
+            <SectionHead n={5} title="Memoria del agente" sub="Qué tan bien predijo antes (mejora con el tiempo)" />
             <MemoriaCard ticker={ticker} />
 
             <div className="disclaimer">
