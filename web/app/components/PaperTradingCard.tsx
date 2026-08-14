@@ -145,6 +145,15 @@ function TradeDetail({ t }: { t: PaperTrade }) {
 // Datos extra que viven en el `note` del trade (para columnas y orden).
 const popOf = (t: PaperTrade): number | null => { const m = /POP (\d+)/.exec(t.note ?? ""); return m ? Number(m[1]) : null; };
 const riskOf = (t: PaperTrade): number | null => { const m = /riesgo \$?(\d+)/.exec(t.note ?? ""); return m ? Number(m[1]) : null; };
+// Fecha de vencimiento: de las patas (o del label como respaldo).
+const expOf = (t: PaperTrade): string => {
+  const leg = t.legs.find((l) => l.expiration);
+  if (leg?.expiration) return leg.expiration;
+  const m = /(\d{4}-\d{2}-\d{2})/.exec(t.label);
+  return m ? m[1] : "";
+};
+// Nombre del trade SIN la fecha (para no duplicarla con la columna Vence).
+const labelNoDate = (label: string): string => label.replace(/\s*·\s*\d{4}-\d{2}-\d{2}\s*$/, "").trim();
 
 const pth: React.CSSProperties = { textAlign: "right", padding: "8px 10px", fontSize: 11, color: "var(--muted)", fontWeight: 700, whiteSpace: "nowrap", borderBottom: "1px solid var(--border)", userSelect: "none" };
 const ptd: React.CSSProperties = { textAlign: "right", padding: "9px 10px", fontSize: 12.5, whiteSpace: "nowrap", borderBottom: "1px solid var(--border-soft)" };
@@ -216,6 +225,7 @@ export default function PaperTradingCard() {
     if (k === "entrada") return t.entryNet;
     if (k === "riesgo") return riskOf(t) ?? 0;
     if (k === "pop") return popOf(t) ?? 0;
+    if (k === "vence") return expOf(t);
     return 0;
   };
   const sortRows = (arr: Enriched[]) => [...arr].sort((a, b) => {
@@ -275,6 +285,7 @@ export default function PaperTradingCard() {
                 <table style={{ width: "100%", borderCollapse: "collapse", background: "var(--panel)" }}>
                   <thead><tr>
                     <th style={{ ...pth, textAlign: "left", cursor: "pointer" }} onClick={() => sortBy("ticker")}>Trade{arrow("ticker")}</th>
+                    <th style={{ ...pth, cursor: "pointer" }} onClick={() => sortBy("vence")}>📅 Vence{arrow("vence")}</th>
                     <th style={{ ...pth, cursor: "pointer" }} onClick={() => sortBy("pop")}>POP{arrow("pop")}</th>
                     <th style={{ ...pth, cursor: "pointer" }} onClick={() => sortBy("pl")}>P/L{arrow("pl")}</th>
                     <th style={{ ...pth, cursor: "pointer" }} onClick={() => sortBy("entrada")}>Entrada{arrow("entrada")}</th>
@@ -293,8 +304,9 @@ export default function PaperTradingCard() {
                           <tr style={{ borderTop: "1px solid var(--border-soft)", background: isOpen || sendId === t.id ? "var(--panel-2)" : "transparent" }}>
                             <td style={{ ...ptd, textAlign: "left", cursor: "pointer", maxWidth: 260, whiteSpace: "normal" }} onClick={() => setOpenId(isOpen ? null : t.id)} title="Toca para ver el detalle y el porqué">
                               <span style={{ color: "var(--accent)", marginRight: 4 }}>{isOpen ? "▾" : "▸"}</span>
-                              <b>{t.ticker}</b> <span style={{ color: "var(--muted)", fontSize: 12 }}>{t.label}</span>
+                              <b>{t.ticker}</b> <span style={{ color: "var(--muted)", fontSize: 12 }}>{labelNoDate(t.label)}</span>
                             </td>
+                            <td style={ptd}>{expOf(t) || "—"}</td>
                             <td style={ptd}>{pop != null ? `${pop}%` : "—"}</td>
                             <td style={{ ...ptd, color: pl == null ? "var(--muted)" : pl >= 0 ? "#12b76a" : "#f04438", fontWeight: 700 }}>{pl == null ? "sin precio" : money0.format(pl)}</td>
                             <td style={ptd}>${px.format(t.entryNet)}</td>
@@ -316,7 +328,7 @@ export default function PaperTradingCard() {
                           </tr>
                           {(sendId === t.id || isOpen) && (
                             <tr>
-                              <td colSpan={7} style={{ padding: "0 10px 10px", background: "var(--panel-2)", borderBottom: "1px solid var(--border-soft)" }}>
+                              <td colSpan={8} style={{ padding: "0 10px 10px", background: "var(--panel-2)", borderBottom: "1px solid var(--border-soft)" }}>
                                 {sendId === t.id && <SendPaperPanel t={t} />}
                                 {isOpen && <TradeDetail t={t} />}
                               </td>
@@ -338,6 +350,7 @@ export default function PaperTradingCard() {
                 <table style={{ width: "100%", borderCollapse: "collapse", background: "var(--panel)" }}>
                   <thead><tr>
                     <th style={{ ...pth, textAlign: "left", cursor: "pointer" }} onClick={() => sortBy("ticker")}>Trade{arrow("ticker")}</th>
+                    <th style={{ ...pth, cursor: "pointer" }} onClick={() => sortBy("vence")}>📅 Vence{arrow("vence")}</th>
                     <th style={{ ...pth, cursor: "pointer" }} onClick={() => sortBy("pl")}>P/L{arrow("pl")}</th>
                     <th style={pth}>Fuente</th>
                     <th style={pth}></th>
@@ -351,8 +364,9 @@ export default function PaperTradingCard() {
                           <tr style={{ borderTop: "1px solid var(--border-soft)", background: isOpen ? "var(--panel-2)" : "transparent" }}>
                             <td style={{ ...ptd, textAlign: "left", cursor: "pointer", maxWidth: 260, whiteSpace: "normal" }} onClick={() => setOpenId(isOpen ? null : t.id)}>
                               <span style={{ color: "var(--accent)", marginRight: 4 }}>{isOpen ? "▾" : "▸"}</span>
-                              <b>{t.ticker}</b> <span style={{ color: "var(--muted)", fontSize: 12 }}>{t.label}</span>
+                              <b>{t.ticker}</b> <span style={{ color: "var(--muted)", fontSize: 12 }}>{labelNoDate(t.label)}</span>
                             </td>
+                            <td style={ptd}>{expOf(t) || "—"}</td>
                             <td style={{ ...ptd, color: pl != null && pl >= 0 ? "#12b76a" : "#f04438", fontWeight: 700 }}>{pl == null ? "—" : money0.format(pl)}</td>
                             <td style={{ ...ptd, textAlign: "center" }}>{t.source === "motor" ? "🤖" : "✍️"}</td>
                             <td style={{ ...ptd, textAlign: "center" }}>
@@ -361,7 +375,7 @@ export default function PaperTradingCard() {
                             </td>
                           </tr>
                           {isOpen && (
-                            <tr><td colSpan={4} style={{ padding: "0 10px 10px", background: "var(--panel-2)", borderBottom: "1px solid var(--border-soft)" }}><TradeDetail t={t} /></td></tr>
+                            <tr><td colSpan={5} style={{ padding: "0 10px 10px", background: "var(--panel-2)", borderBottom: "1px solid var(--border-soft)" }}><TradeDetail t={t} /></td></tr>
                           )}
                         </Fragment>
                       );
