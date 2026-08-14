@@ -53,6 +53,7 @@ export default function HeaderBar({
             )}
           </>
         )}
+        <a className="hb-link" href="/bienvenida" title="Portada de presentación">✨ Portada</a>
         <a className="hb-link" href="/" title="Volver al inicio">🏠 Inicio</a>
         <a className="hb-link" href="/cookie" title="Renovar cookie de MarketSnack">🍪 Cookie</a>
         <a className="hb-link" href="/watchlist" title="Tu lista de seguimiento">⭐ Watchlist</a>
