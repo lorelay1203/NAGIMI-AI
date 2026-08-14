@@ -42,6 +42,7 @@ import OrderBuilder from "./components/OrderBuilder";
 import RecomendacionesCard from "./components/RecomendacionesCard";
 import RadarCard from "./components/RadarCard";
 import MisPosicionesCard from "./components/MisPosicionesCard";
+import FinderCard from "./components/FinderCard";
 import TastytradeCard from "./components/TastytradeCard";
 import PaperTradingCard from "./components/PaperTradingCard";
 import AutoScanCard from "./components/AutoScanCard";
@@ -488,6 +489,7 @@ export default function Dashboard() {
                 <a href="/watchlist" style={{ background: "var(--panel-2)", border: "1px solid var(--border)", borderRadius: 10, padding: "10px 16px", fontWeight: 700, fontSize: 13, color: "var(--text)", textDecoration: "none" }}>⭐ Watchlist</a>
               </div>
             </div>
+            <FinderCard />
             <MisPosicionesCard onPick={runSearch} />
             <TastytradeCard />
             <AutoScanCard onRegistered={() => setPaperKey((k) => k + 1)} />
