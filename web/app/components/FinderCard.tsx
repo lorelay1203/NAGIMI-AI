@@ -120,21 +120,36 @@ export default function FinderCard() {
                         cuesta <b>{money(s.capital)}</b>
                       </span>
                     </div>
-                    {isOpen && (
-                      <div style={{ marginTop: 8, borderTop: "1px solid var(--border-soft)", paddingTop: 8, fontSize: 12.5, lineHeight: 1.55 }}>
-                        <div style={{ marginBottom: 4 }}>{s.note}</div>
-                        <div style={{ color: "var(--muted)", marginBottom: 4 }}>
-                          {s.legsDesc.join(" · ")}
+                    {isOpen && (() => {
+                      // Stop-loss recomendado: crédito → 2× la prima (tope = pérdida máx);
+                      // débito/compra → cortar a la mitad de lo que pagaste.
+                      const isCredit = ["put_credit", "call_credit", "iron_condor", "csp"].includes(s.kind);
+                      const stop = isCredit
+                        ? Math.min(Math.round(2 * (s.maxGain ?? 0)) || s.maxLoss, s.maxLoss)
+                        : Math.round(s.capital * 0.5);
+                      const take = s.maxGain != null ? Math.max(1, Math.round(s.maxGain * 0.5)) : null;
+                      return (
+                        <div style={{ marginTop: 8, borderTop: "1px solid var(--border-soft)", paddingTop: 8, fontSize: 12.5, lineHeight: 1.55 }}>
+                          {/* Por qué */}
+                          <div style={{ marginBottom: 4 }}><b>🧠 Por qué:</b> {s.note}</div>
+                          <div style={{ color: "var(--muted)", marginBottom: 4 }}>{s.legsDesc.join(" · ")}</div>
+                          <div style={{ display: "flex", gap: 16, flexWrap: "wrap", marginBottom: 6 }}>
+                            <span>💵 Cuesta: <b>{money(s.capital)}</b></span>
+                            <span>📈 Gana máx: <b style={{ color: "#4ad991" }}>{s.maxGain == null ? "mucho (sin tope)" : money(s.maxGain)}</b></span>
+                            <span>📉 Pierde máx: <b style={{ color: "#ff8a82" }}>{money(s.maxLoss)}</b></span>
+                            {rr != null && <span>⚖️ Gana/pierde: <b>1:{(1 / rr).toFixed(1)}</b></span>}
+                            {s.breakevens.length > 0 && <span>⚖️ Equilibrio: <b>{s.breakevens.map((b) => `$${b}`).join(" / ")}</b></span>}
+                          </div>
+                          {/* Gestión: stop-loss recomendado */}
+                          <div style={{ background: "rgba(255,138,130,0.08)", border: "1px solid var(--border-soft)", borderRadius: 8, padding: "6px 10px" }}>
+                            📏 <b>Gestión recomendada:</b>
+                            {take != null && <> toma ganancia a <b style={{ color: "#12b76a" }}>+{money(take)}</b> ·</>}
+                            <b style={{ color: "#f04438" }}> 🛑 stop-loss: cierra si pierdes {money(stop)}</b>
+                            {isCredit ? " (≈2× la prima)" : " (la mitad de lo que pagaste)"}.
+                          </div>
                         </div>
-                        <div style={{ display: "flex", gap: 16, flexWrap: "wrap" }}>
-                          <span>💵 Cuesta: <b>{money(s.capital)}</b></span>
-                          <span>📈 Gana máx: <b style={{ color: "#4ad991" }}>{s.maxGain == null ? "mucho (sin tope)" : money(s.maxGain)}</b></span>
-                          <span>📉 Pierde máx: <b style={{ color: "#ff8a82" }}>{money(s.maxLoss)}</b></span>
-                          {rr != null && <span>⚖️ Gana/pierde: <b>1:{(1 / rr).toFixed(1)}</b></span>}
-                          {s.breakevens.length > 0 && <span>⚖️ Equilibrio: <b>{s.breakevens.map((b) => `$${b}`).join(" / ")}</b></span>}
-                        </div>
-                      </div>
-                    )}
+                      );
+                    })()}
                   </div>
                 );
               })}
