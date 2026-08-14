@@ -47,6 +47,7 @@ export async function GET(req: Request) {
   const url = new URL(req.url);
   const presetParam = url.searchParams.get("preset");
   const preset = WHEEL_PRESETS[isPreset(presetParam) ? presetParam : "balanceado"];
+  const mode: "csp" | "spread" = url.searchParams.get("mode") === "spread" ? "spread" : "csp";
   const now = new Date();
   const encoder = new TextEncoder();
 
@@ -104,7 +105,7 @@ export async function GET(req: Request) {
             const fallbackIv = currentRv != null ? currentRv / 100 : 0.4;
             const cands = wheelCandidates({
               ticker: sym.ticker, spot: chain.spot, quotes: chain.quotes,
-              preset, ivRank, supports: levels.supports, earnings, fallbackIv,
+              preset, ivRank, supports: levels.supports, earnings, fallbackIv, mode,
             });
             all.push(...cands);
             done++;

@@ -106,7 +106,9 @@ function WheelRow({ c, visible }: { c: AffordableCandidate; view: "estudiante" |
       <button onClick={() => setOpen((v) => !v)} type="button"
         style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 8, background: "transparent", border: "none", cursor: "pointer", width: "100%", padding: 0, color: "var(--text)" }}>
         <span style={{ fontSize: 15, fontWeight: 700 }}>
-          {open ? "▾" : "▸"} {c.ticker} · vender put ${c.strike}
+          {open ? "▾" : "▸"} {c.ticker} · {c.longStrike != null
+            ? <>vender put ${c.strike} / comprar ${c.longStrike} <span style={{ fontSize: 11, color: "#4ad991", fontWeight: 600 }}>· spread</span></>
+            : <>vender put ${c.strike}</>}
           {!c.afford.affordable && <span style={{ marginLeft: 8, fontSize: 11, color: "#f0a", fontWeight: 600 }}>· no te alcanza</span>}
         </span>
         <span style={{ fontSize: 12, color: "var(--muted)" }}>puntaje <b style={{ color: "var(--text)", fontSize: 15 }}>{s.total}</b>/100</span>

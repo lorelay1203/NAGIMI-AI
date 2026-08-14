@@ -10,11 +10,13 @@ import type { RiskProfile } from "@/lib/risk";
 import type { WheelSseEvent } from "./types";
 
 const KEY_PRESET = "tito.wheel.preset";
+const KEY_MODE = "nagimi.wheel.mode";
 type WheelMeta = { scanned: number; failed: number; withCandidates: number; degraded: boolean };
 
 export default function WheelPage() {
   const [profile, setProfile] = useState<RiskProfile>(DEFAULT_PROFILE);
   const [preset, setPreset] = useState<PresetId>("balanceado");
+  const [mode, setMode] = useState<"csp" | "spread">("spread"); // cuenta chica → spread por defecto
   const [candidates, setCandidates] = useState<WheelCandidate[] | null>(null);
   const [meta, setMeta] = useState<WheelMeta | null>(null);
   const [progress, setProgress] = useState<{ done: number; total: number } | null>(null);
@@ -26,12 +28,14 @@ export default function WheelPage() {
     setProfile(loadProfile());
     const p = window.localStorage.getItem(KEY_PRESET);
     if (p === "corto" || p === "conservador" || p === "balanceado" || p === "agresivo") setPreset(p);
+    const m = window.localStorage.getItem(KEY_MODE);
+    if (m === "csp" || m === "spread") setMode(m);
   }, []);
 
-  const scan = useCallback((which: PresetId) => {
+  const scan = useCallback((which: PresetId, m: "csp" | "spread") => {
     esRef.current?.close();
     setBusy(true); setError(null); setCandidates(null); setMeta(null); setProgress({ done: 0, total: 40 });
-    const es = new EventSource(`/api/wheel?preset=${which}`);
+    const es = new EventSource(`/api/wheel?preset=${which}&mode=${m}`);
     esRef.current = es;
     es.onmessage = (ev) => {
       const data = JSON.parse(ev.data) as WheelSseEvent;
@@ -42,9 +46,10 @@ export default function WheelPage() {
     es.onerror = () => { setError("Se cortó la conexión con el escáner."); setBusy(false); es.close(); };
   }, []);
 
-  useEffect(() => { scan(preset); return () => esRef.current?.close(); }, [scan, preset]);
+  useEffect(() => { scan(preset, mode); return () => esRef.current?.close(); }, [scan, preset, mode]);
 
   const pickPreset = (p: PresetId) => { setPreset(p); window.localStorage.setItem(KEY_PRESET, p); };
+  const pickMode = (m: "csp" | "spread") => { setMode(m); window.localStorage.setItem(KEY_MODE, m); };
 
   const rows = useMemo(() => {
     if (!candidates) return [];
@@ -66,11 +71,28 @@ export default function WheelPage() {
       </div>
 
       <div className="ideas-body">
+        {/* Modo: spread (barato, cuenta chica) vs put suelto (Wheel clásico, mucho colateral) */}
+        <div className="card" style={{ gap: 8 }}>
+          <div style={{ fontSize: 13, fontWeight: 700 }}>¿Cómo quieres vender el put?</div>
+          <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+            <button type="button" onClick={() => pickMode("spread")}
+              style={{ flex: 1, minWidth: 160, textAlign: "left", padding: "10px 12px", borderRadius: 10, cursor: "pointer", border: mode === "spread" ? "2px solid var(--accent)" : "1px solid var(--border)", background: mode === "spread" ? "rgba(74,217,145,0.10)" : "transparent", color: "var(--text)" }}>
+              <div style={{ fontWeight: 700, fontSize: 13 }}>🛡️ Spread (cuenta chica)</div>
+              <div style={{ fontSize: 11.5, color: "var(--muted)" }}>Riesgo topado, necesitas cientos no miles. Recomendado para ti.</div>
+            </button>
+            <button type="button" onClick={() => pickMode("csp")}
+              style={{ flex: 1, minWidth: 160, textAlign: "left", padding: "10px 12px", borderRadius: 10, cursor: "pointer", border: mode === "csp" ? "2px solid var(--accent)" : "1px solid var(--border)", background: mode === "csp" ? "rgba(74,217,145,0.10)" : "transparent", color: "var(--text)" }}>
+              <div style={{ fontWeight: 700, fontSize: 13 }}>🎡 Put suelto (Wheel clásico)</div>
+              <div style={{ fontSize: 11.5, color: "var(--muted)" }}>Si te asignan, compras 100 acciones. Necesita miles de colateral.</div>
+            </button>
+          </div>
+        </div>
+
         <WheelPresetCard preset={preset} onChange={pickPreset} />
         <RiskProfileCard profile={profile} onChange={setProfile} />
 
         <div style={{ display: "flex", justifyContent: "flex-end" }}>
-          <button className="rescan" onClick={() => scan(preset)} disabled={busy}>↻ Volver a escanear</button>
+          <button className="rescan" onClick={() => scan(preset, mode)} disabled={busy}>↻ Volver a escanear</button>
         </div>
 
         {/* Barra de progreso — para que veas que SÍ está trabajando */}

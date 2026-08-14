@@ -150,10 +150,12 @@ export function wheelMetrics(input: {
   dte: number;
   /** IV decimal del strike. */
   iv: number;
+  /** Colateral en $ para OVERRIDE (spreads = ancho×100 − crédito). Si no, strike×100. */
+  collateral?: number;
 }): WheelMetrics {
   const { strike, price, spot, dte, iv } = input;
   const credit = price * MULTIPLIER;
-  const collateral = strike * MULTIPLIER;
+  const collateral = input.collateral != null && input.collateral > 0 ? input.collateral : strike * MULTIPLIER;
   const returnPct = collateral > 0 ? (credit / collateral) * 100 : 0;
   // Un DTE de 0 haría infinito el anualizado: se trata como 1 día.
   const annualizedPct = returnPct * (365 / Math.max(dte, 1));
@@ -348,6 +350,8 @@ export interface WheelCandidate {
   score: WheelScore | null;
   blocked: boolean;
   blockReason: WheelBlockReason | null;
+  /** Si es un SPREAD (cuenta chica): strike del put que se COMPRA como protección. */
+  longStrike?: number;
 }
 
 export interface CandidatesInput {
@@ -360,6 +364,8 @@ export interface CandidatesInput {
   earnings: EarningsFlag;
   /** IV de respaldo (volatilidad realizada) cuando la bisección no converge. */
   fallbackIv: number;
+  /** "csp" = put suelto (mucho colateral); "spread" = put credit spread (barato, cuenta chica). */
+  mode?: "csp" | "spread";
 }
 
 /** IV del strike más cercano al spot — el proxy de "la IV de esta cadena". */
@@ -373,6 +379,15 @@ export function atmIv(rows: { strike: number; iv: number }[], spot: number): num
 export function wheelCandidates(input: CandidatesInput): WheelCandidate[] {
   const { ticker, spot, quotes, preset, ivRank, supports, earnings, fallbackIv } = input;
   if (!(spot > 0)) return [];
+  const mode = input.mode ?? "csp";
+
+  // Precio crudo de cada put (para valorar la pata larga del spread — la que se compra).
+  const putRaw = new Map<number, number>();
+  for (const q of quotes) {
+    const m = q.bid != null && q.ask != null && q.bid > 0 && q.ask > 0 ? (q.bid + q.ask) / 2 : (q.lastTrade ?? q.dayClose ?? 0);
+    if (m > 0) putRaw.set(q.strike, Math.max(putRaw.get(q.strike) ?? 0, m));
+  }
+  const putStrikes = [...putRaw.keys()].sort((a, b) => a - b);
 
   const out: WheelCandidate[] = [];
 
@@ -417,7 +432,26 @@ export function wheelCandidates(input: CandidatesInput): WheelCandidate[] {
       continue;
     }
 
-    const metrics = wheelMetrics({ strike: q.strike, price: premium.price, spot, dte: q.dte, iv });
+    // Modo SPREAD (cuenta chica): compra un put más abajo para topar el riesgo.
+    // El colateral pasa de strike×100 (miles) a ancho×100 − crédito (cientos).
+    let longStrike: number | undefined;
+    let effPrice = premium.price;      // prima neta que se muestra
+    let collateralOverride: number | undefined;
+    if (mode === "spread") {
+      const below = putStrikes.filter((s) => s < q.strike);
+      const lS = below.length ? below[below.length - 1] : null;   // put justo debajo
+      const lP = lS != null ? putRaw.get(lS) ?? 0 : 0;
+      if (lS == null || !(lP > 0)) continue;                       // no se puede armar el spread
+      const width = q.strike - lS;
+      const net = premium.price - lP;                              // crédito neto por acción
+      if (!(net > 0)) continue;                                    // sin crédito, no vale
+      longStrike = lS;
+      effPrice = net;
+      collateralOverride = Math.max(0, width - net) * MULTIPLIER;  // riesgo definido
+      if (!(collateralOverride > 0)) continue;
+    }
+
+    const metrics = wheelMetrics({ strike: q.strike, price: effPrice, spot, dte: q.dte, iv, collateral: collateralOverride });
     const score = scoreCandidate({
       annualizedPct: metrics.annualizedPct,
       ivRank, strike: q.strike, spot,
@@ -428,7 +462,7 @@ export function wheelCandidates(input: CandidatesInput): WheelCandidate[] {
     out.push({
       ticker, strike: q.strike, expiration: q.expiration, dte: q.dte, spot,
       delta, theta: q.theta ?? null, iv, ivSource, openInterest: q.openInterest, spreadPct,
-      premium, metrics, score, blocked: false, blockReason: null,
+      premium: { ...premium, price: effPrice }, metrics, score, blocked: false, blockReason: null, longStrike,
     });
   }
 
