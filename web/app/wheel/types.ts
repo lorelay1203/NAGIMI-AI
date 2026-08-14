@@ -10,6 +10,14 @@ export interface WheelStepEvent {
   label: string;
 }
 
+/** Progreso en vivo: cuántos tickers van y los candidatos acumulados hasta ahora. */
+export interface WheelProgressEvent {
+  type: "progress";
+  done: number;
+  total: number;
+  candidates: WheelIdea[];
+}
+
 export interface WheelDoneEvent {
   type: "done";
   candidates: WheelIdea[];
@@ -28,4 +36,4 @@ export interface WheelErrorEvent {
   message: string;
 }
 
-export type WheelSseEvent = WheelStepEvent | WheelDoneEvent | WheelErrorEvent;
+export type WheelSseEvent = WheelStepEvent | WheelProgressEvent | WheelDoneEvent | WheelErrorEvent;

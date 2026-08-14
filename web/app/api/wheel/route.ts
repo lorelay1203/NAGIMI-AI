@@ -54,10 +54,20 @@ export async function GET(req: Request) {
     async start(controller) {
       const send = (e: WheelSseEvent) => controller.enqueue(encoder.encode(sse(e)));
       let failed = 0;
+      let done = 0;
       const all: WheelCandidate[] = [];
+      const total = WHEEL_UNIVERSE.length;
+
+      // Emite los mejores candidatos acumulados hasta ahora (para verlos en vivo).
+      const emitProgress = () => {
+        const top = all.filter((c) => !c.blocked)
+          .sort((a, b) => (b.score?.total ?? 0) - (a.score?.total ?? 0))
+          .slice(0, 40);
+        send({ type: "progress", done, total, candidates: top });
+      };
 
       try {
-        send({ type: "step", label: `Escaneando ${WHEEL_UNIVERSE.length} tickers · preset ${preset.label}` });
+        send({ type: "step", label: `Escaneando ${total} tickers · preset ${preset.label}` });
 
         await mapLimit(WHEEL_UNIVERSE, CONCURRENCY, async (sym) => {
           try {
@@ -65,8 +75,9 @@ export async function GET(req: Request) {
               dteMin: preset.dteMin, dteMax: preset.dteMax, now,
             });
             if (chain.spot == null || chain.quotes.length === 0) {
-              failed++;
+              failed++; done++;
               send({ type: "step", label: `${sym.ticker}: sin cadena` });
+              emitProgress();
               return;
             }
 
@@ -96,10 +107,13 @@ export async function GET(req: Request) {
               preset, ivRank, supports: levels.supports, earnings, fallbackIv,
             });
             all.push(...cands);
+            done++;
             send({ type: "step", label: `${sym.ticker}: ${cands.filter((c) => !c.blocked).length} candidatos` });
+            emitProgress();
           } catch {
-            failed++;
+            failed++; done++;
             send({ type: "step", label: `${sym.ticker}: error` });
+            emitProgress();
           }
         });
 

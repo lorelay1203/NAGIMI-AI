@@ -9,39 +9,33 @@ import type { PresetId, WheelCandidate } from "@/lib/wheel";
 import type { RiskProfile } from "@/lib/risk";
 import type { WheelSseEvent } from "./types";
 
-const KEY_VIEW = "tito.view";
 const KEY_PRESET = "tito.wheel.preset";
-
 type WheelMeta = { scanned: number; failed: number; withCandidates: number; degraded: boolean };
 
 export default function WheelPage() {
   const [profile, setProfile] = useState<RiskProfile>(DEFAULT_PROFILE);
-  const [view, setView] = useState<"estudiante" | "pro">("estudiante");
   const [preset, setPreset] = useState<PresetId>("balanceado");
-
   const [candidates, setCandidates] = useState<WheelCandidate[] | null>(null);
   const [meta, setMeta] = useState<WheelMeta | null>(null);
-  const [steps, setSteps] = useState<string[]>([]);
+  const [progress, setProgress] = useState<{ done: number; total: number } | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const esRef = useRef<EventSource | null>(null);
 
   useEffect(() => {
     setProfile(loadProfile());
-    const v = window.localStorage.getItem(KEY_VIEW);
-    if (v === "pro" || v === "estudiante") setView(v);
     const p = window.localStorage.getItem(KEY_PRESET);
     if (p === "corto" || p === "conservador" || p === "balanceado" || p === "agresivo") setPreset(p);
   }, []);
 
   const scan = useCallback((which: PresetId) => {
     esRef.current?.close();
-    setBusy(true); setError(null); setSteps([]); setCandidates(null); setMeta(null);
+    setBusy(true); setError(null); setCandidates(null); setMeta(null); setProgress({ done: 0, total: 40 });
     const es = new EventSource(`/api/wheel?preset=${which}`);
     esRef.current = es;
     es.onmessage = (ev) => {
       const data = JSON.parse(ev.data) as WheelSseEvent;
-      if (data.type === "step") setSteps((s) => [...s, data.label]);
+      if (data.type === "progress") { setCandidates(data.candidates); setProgress({ done: data.done, total: data.total }); }
       else if (data.type === "done") { setCandidates(data.candidates); setMeta(data.meta); setBusy(false); es.close(); }
       else if (data.type === "error") { setError(data.message); setBusy(false); es.close(); }
     };
@@ -51,7 +45,6 @@ export default function WheelPage() {
   useEffect(() => { scan(preset); return () => esRef.current?.close(); }, [scan, preset]);
 
   const pickPreset = (p: PresetId) => { setPreset(p); window.localStorage.setItem(KEY_PRESET, p); };
-  const pickView = (v: "estudiante" | "pro") => { setView(v); window.localStorage.setItem(KEY_VIEW, v); };
 
   const rows = useMemo(() => {
     if (!candidates) return [];
@@ -59,14 +52,15 @@ export default function WheelPage() {
   }, [candidates, profile.accountSize]);
 
   const operables = rows.filter((r) => !r.blocked && r.afford.affordable).length;
+  const pct = progress ? Math.round((progress.done / progress.total) * 100) : 0;
 
   return (
     <main className="ideas-page">
       <div className="hb">
         <div className="hb-brand">
-          <div className="hb-logo">🍒</div>
-          <div className="hb-name">Nagimi AI</div>
-          <div className="hb-chip">Wheel · ingreso con puts</div>
+          <div className="hb-logo">🎡</div>
+          <div className="hb-name">Wheel</div>
+          <div className="hb-chip">ingresos vendiendo puts</div>
         </div>
         <a href="/" style={{ color: "var(--accent)", fontSize: 13, fontWeight: 600 }}>← Volver al inicio</a>
       </div>
@@ -75,33 +69,45 @@ export default function WheelPage() {
         <WheelPresetCard preset={preset} onChange={pickPreset} />
         <RiskProfileCard profile={profile} onChange={setProfile} />
 
-        <div className="ideas-controls">
-          <div className="view-toggle">
-            <button className={view === "estudiante" ? "active" : ""} onClick={() => pickView("estudiante")}>👤 Estudiante</button>
-            <button className={view === "pro" ? "active" : ""} onClick={() => pickView("pro")}>⚡ Pro</button>
-          </div>
+        <div style={{ display: "flex", justifyContent: "flex-end" }}>
           <button className="rescan" onClick={() => scan(preset)} disabled={busy}>↻ Volver a escanear</button>
         </div>
 
-        {busy && (
-          <div className="card wheel-empty">
-            {steps.length > 0 ? steps[steps.length - 1] : "Escaneando el mercado…"}
+        {/* Barra de progreso — para que veas que SÍ está trabajando */}
+        {busy && progress && (
+          <div className="card" style={{ gap: 8 }}>
+            <div style={{ display: "flex", justifyContent: "space-between", fontSize: 12.5 }}>
+              <span style={{ color: "var(--muted)" }}>🔍 Escaneando el mercado…</span>
+              <b style={{ color: "var(--text)" }}>{progress.done} de {progress.total} acciones</b>
+            </div>
+            <div style={{ height: 8, borderRadius: 999, background: "var(--panel-2)", overflow: "hidden" }}>
+              <div style={{ width: `${pct}%`, height: "100%", background: "var(--accent)", transition: "width .3s" }} />
+            </div>
+            {operables > 0 && (
+              <div style={{ fontSize: 12, color: "#4ad991", fontWeight: 600 }}>
+                Ya van {operables} que caben en tu efectivo — la lista se llena en vivo 👇
+              </div>
+            )}
           </div>
         )}
         {error && <div className="error">⚠ {error}</div>}
 
-        {candidates && meta && (
-          <>
-            <div className="wheel-status">
-              Escaneadas {meta.scanned} · {operables} alcanzables con tu efectivo · {rows.filter((r) => !r.blocked).length} candidatos
-              {meta.degraded && <span className="wheel-tag warn"> datos parciales: falló más de la mitad</span>}
-            </div>
-            <p className="wheel-disclaimer">
-              Las cotizaciones de Massive son <b>retrasadas</b>. Estos son candidatos, no órdenes: confirma el precio en tu bróker antes de vender.
-            </p>
-            <WheelTable rows={rows} view={view} />
-          </>
+        {!busy && meta && (
+          <div className="wheel-status">
+            Revisadas {meta.scanned} acciones · <b style={{ color: "#4ad991" }}>{operables}</b> caben en tu efectivo · {rows.filter((r) => !r.blocked).length} candidatos
+            {meta.degraded && <span className="wheel-tag warn"> · datos parciales</span>}
+          </div>
         )}
+
+        {rows.length > 0 && <WheelTable rows={rows} view="pro" />}
+
+        {!busy && !error && rows.length === 0 && (
+          <div className="card wheel-empty">Sin candidatos con este perfil. Prueba otro preset arriba.</div>
+        )}
+
+        <p style={{ fontSize: 11, color: "var(--muted)" }}>
+          Precios retrasados. Son candidatos, no órdenes — confirma el precio en tu bróker antes de vender.
+        </p>
       </div>
     </main>
   );
