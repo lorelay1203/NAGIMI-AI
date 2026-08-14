@@ -39,13 +39,37 @@ export async function reloginMarketsnack(): Promise<boolean> {
   return inFlight;
 }
 
+/**
+ * Lanza un navegador headless de forma ROBUSTA. El navegador empaquetado de
+ * Playwright ("chrome-headless-shell") se rompe seguido en esta máquina y deja
+ * la renovación automática muerta. Primero probamos el Edge/Chrome DEL SISTEMA
+ * (Windows siempre tiene Edge) — esos no dependen de la descarga frágil de
+ * Playwright. Solo si ninguno está, caemos al chromium empaquetado.
+ */
+async function launchBrowser() {
+  const { chromium } = await import("playwright");
+  const errors: string[] = [];
+  for (const channel of ["msedge", "chrome"] as const) {
+    try {
+      return await chromium.launch({ headless: true, channel });
+    } catch (e) {
+      errors.push(`${channel}: ${e instanceof Error ? e.message.split("\n")[0] : e}`);
+    }
+  }
+  // Último recurso: el chromium que trae Playwright (puede fallar si no está instalado).
+  try {
+    return await chromium.launch({ headless: true });
+  } catch (e) {
+    errors.push(`bundled: ${e instanceof Error ? e.message.split("\n")[0] : e}`);
+    throw new Error(`No se pudo abrir ningún navegador para renovar la cookie. ${errors.join(" · ")}`);
+  }
+}
+
 async function doRelogin(): Promise<boolean> {
   const login = await getLogin();
   if (!login) throw new Error("No hay credenciales de MarketSnack guardadas.");
 
-  // Import dinámico para no empaquetar Playwright en el bundle.
-  const { chromium } = await import("playwright");
-  const browser = await chromium.launch({ headless: true });
+  const browser = await launchBrowser();
   try {
     const context = await browser.newContext({ userAgent: "Mozilla/5.0" });
     const page = await context.newPage();
