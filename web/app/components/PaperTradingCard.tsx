@@ -3,7 +3,7 @@
 // Tarjeta de PAPER TRADING — trades simulados con P/L en vivo y marcador de aciertos.
 // Sirve para probar si el motor gana ANTES de arriesgar dinero real. Sin ejecución.
 
-import { useCallback, useEffect, useState } from "react";
+import { Fragment, useCallback, useEffect, useState } from "react";
 import { money0, px } from "../format";
 import type { PaperTrade, PaperLeg } from "@/lib/paper";
 import type { OrderLegInput } from "@/lib/tastytrade";
@@ -142,11 +142,20 @@ function TradeDetail({ t }: { t: PaperTrade }) {
   );
 }
 
+// Datos extra que viven en el `note` del trade (para columnas y orden).
+const popOf = (t: PaperTrade): number | null => { const m = /POP (\d+)/.exec(t.note ?? ""); return m ? Number(m[1]) : null; };
+const riskOf = (t: PaperTrade): number | null => { const m = /riesgo \$?(\d+)/.exec(t.note ?? ""); return m ? Number(m[1]) : null; };
+
+const pth: React.CSSProperties = { textAlign: "right", padding: "8px 10px", fontSize: 11, color: "var(--muted)", fontWeight: 700, whiteSpace: "nowrap", borderBottom: "1px solid var(--border)", userSelect: "none" };
+const ptd: React.CSSProperties = { textAlign: "right", padding: "9px 10px", fontSize: 12.5, whiteSpace: "nowrap", borderBottom: "1px solid var(--border-soft)" };
+
 export default function PaperTradingCard() {
   const [trades, setTrades] = useState<Enriched[] | null>(null);
   const [loading, setLoading] = useState(false);
   const [openId, setOpenId] = useState<string | null>(null); // trade abierto en detalle
   const [sendId, setSendId] = useState<string | null>(null);  // trade que se está llevando a real
+  const [sortKey, setSortKey] = useState("pl");
+  const [sortDir, setSortDir] = useState<"asc" | "desc">("desc");
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -195,6 +204,26 @@ export default function PaperTradingCard() {
   const open = (trades ?? []).filter((t) => t.status === "open");
   const closed = (trades ?? []).filter((t) => t.status === "closed");
 
+  // Orden de las tablas (clic en encabezado → invierte / ordena por él).
+  const sortBy = (k: string) => {
+    if (k === sortKey) setSortDir((d) => (d === "desc" ? "asc" : "desc"));
+    else { setSortKey(k); setSortDir(k === "ticker" ? "asc" : "desc"); }
+  };
+  const arrow = (k: string) => (sortKey === k ? (sortDir === "desc" ? " ▼" : " ▲") : "");
+  const valOf = (t: Enriched, k: string): number | string => {
+    if (k === "ticker") return t.ticker;
+    if (k === "pl") return plOf(t) ?? -1e12;
+    if (k === "entrada") return t.entryNet;
+    if (k === "riesgo") return riskOf(t) ?? 0;
+    if (k === "pop") return popOf(t) ?? 0;
+    return 0;
+  };
+  const sortRows = (arr: Enriched[]) => [...arr].sort((a, b) => {
+    const va = valOf(a, sortKey), vb = valOf(b, sortKey);
+    const cmp = typeof va === "string" ? String(va).localeCompare(String(vb)) : (va as number) - (vb as number);
+    return sortDir === "asc" ? cmp : -cmp;
+  });
+
   return (
     <section className="card" style={{ gap: 12 }}>
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
@@ -238,74 +267,108 @@ export default function PaperTradingCard() {
         <>
           {open.length > 0 && (
             <div>
-              <div className="news-head">Abiertos ({open.length})</div>
-              {open.map((t) => {
-                const pl = plOf(t);
-                const isOpen = openId === t.id;
-                return (
-                  <div key={t.id} style={{ borderTop: "1px solid var(--border-soft)", padding: "8px 0" }}>
-                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 8 }}>
-                      <div onClick={() => setOpenId(isOpen ? null : t.id)} style={{ cursor: "pointer", flex: 1 }}
-                        title="Toca para ver por qué el motor eligió este trade">
-                        <div style={{ fontWeight: 600, fontSize: 13 }}>
-                          <span style={{ color: "var(--accent)", marginRight: 4 }}>{isOpen ? "▾" : "▸"}</span>
-                          {t.ticker} · {t.label}
-                        </div>
-                        <div style={{ fontSize: 11.5, color: "var(--muted)" }}>
-                          entrada ${px.format(t.entryNet)} · {t.qtyContracts}x · {t.source === "motor" ? "🤖 motor" : "✍️ manual"} · <span style={{ color: "var(--accent)" }}>ver por qué</span>
-                        </div>
-                      </div>
-                      <div style={{ textAlign: "right" }}>
-                        <div style={{ fontWeight: 700, color: pl == null ? "var(--muted)" : pl >= 0 ? "#12b76a" : "#f04438" }}>
-                          {pl == null ? "sin precio" : money0.format(pl)}
-                        </div>
-                        <div style={{ display: "flex", gap: 5, marginTop: 3, justifyContent: "flex-end" }}>
-                          <button type="button" onClick={() => setSendId(sendId === t.id ? null : t.id)}
-                            title={pl != null && pl > 0 ? "¡En ganancia!" : "Ejecutar este trade si quieres"}
-                            style={{ fontSize: 11, background: sendId === t.id ? "var(--accent)" : (pl != null && pl > 0 ? "#12b76a" : "transparent"), color: sendId === t.id || (pl != null && pl > 0) ? "#fff" : "var(--text)", border: sendId === t.id || (pl != null && pl > 0) ? "none" : "1px solid var(--accent)", borderRadius: 6, padding: "2px 8px", cursor: "pointer", fontWeight: 700 }}>
-                            💵 Ejecutar{pl != null && pl > 0 ? " (en ganancia)" : ""}
-                          </button>
-                          <button type="button" onClick={() => close(t)} disabled={t.live == null}
-                            style={{ fontSize: 11, background: "transparent", border: "1px solid var(--border)", borderRadius: 6, color: "var(--text)", padding: "2px 8px", cursor: "pointer" }}>
-                            Cerrar
-                          </button>
-                        </div>
-                      </div>
-                    </div>
-                    {sendId === t.id && <SendPaperPanel t={t} />}
-                    {isOpen && <TradeDetail t={t} />}
-                  </div>
-                );
-              })}
+              <div className="news-head" style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                <span>Abiertos ({open.length})</span>
+                <span style={{ fontSize: 11, color: "var(--muted)", fontWeight: 400 }}>toca un encabezado para ordenar ▲▼</span>
+              </div>
+              <div style={{ overflowX: "auto", border: "1px solid var(--border)", borderRadius: 12, marginTop: 6 }}>
+                <table style={{ width: "100%", borderCollapse: "collapse", background: "var(--panel)" }}>
+                  <thead><tr>
+                    <th style={{ ...pth, textAlign: "left", cursor: "pointer" }} onClick={() => sortBy("ticker")}>Trade{arrow("ticker")}</th>
+                    <th style={{ ...pth, cursor: "pointer" }} onClick={() => sortBy("pop")}>POP{arrow("pop")}</th>
+                    <th style={{ ...pth, cursor: "pointer" }} onClick={() => sortBy("pl")}>P/L{arrow("pl")}</th>
+                    <th style={{ ...pth, cursor: "pointer" }} onClick={() => sortBy("entrada")}>Entrada{arrow("entrada")}</th>
+                    <th style={{ ...pth, cursor: "pointer" }} onClick={() => sortBy("riesgo")}>Riesgo{arrow("riesgo")}</th>
+                    <th style={pth}>Fuente</th>
+                    <th style={pth}>Acciones</th>
+                  </tr></thead>
+                  <tbody>
+                    {sortRows(open).map((t) => {
+                      const pl = plOf(t);
+                      const isOpen = openId === t.id;
+                      const pop = popOf(t); const risk = riskOf(t);
+                      const inProfit = pl != null && pl > 0;
+                      return (
+                        <Fragment key={t.id}>
+                          <tr style={{ borderTop: "1px solid var(--border-soft)", background: isOpen || sendId === t.id ? "var(--panel-2)" : "transparent" }}>
+                            <td style={{ ...ptd, textAlign: "left", cursor: "pointer", maxWidth: 260, whiteSpace: "normal" }} onClick={() => setOpenId(isOpen ? null : t.id)} title="Toca para ver el detalle y el porqué">
+                              <span style={{ color: "var(--accent)", marginRight: 4 }}>{isOpen ? "▾" : "▸"}</span>
+                              <b>{t.ticker}</b> <span style={{ color: "var(--muted)", fontSize: 12 }}>{t.label}</span>
+                            </td>
+                            <td style={ptd}>{pop != null ? `${pop}%` : "—"}</td>
+                            <td style={{ ...ptd, color: pl == null ? "var(--muted)" : pl >= 0 ? "#12b76a" : "#f04438", fontWeight: 700 }}>{pl == null ? "sin precio" : money0.format(pl)}</td>
+                            <td style={ptd}>${px.format(t.entryNet)}</td>
+                            <td style={ptd}>{risk != null ? `$${risk}` : "—"}</td>
+                            <td style={{ ...ptd, textAlign: "center" }}>{t.source === "motor" ? "🤖" : "✍️"}</td>
+                            <td style={ptd}>
+                              <div style={{ display: "flex", gap: 5, justifyContent: "flex-end" }}>
+                                <button type="button" onClick={() => setSendId(sendId === t.id ? null : t.id)}
+                                  title={inProfit ? "¡En ganancia!" : "Ejecutar si quieres"}
+                                  style={{ fontSize: 11, background: sendId === t.id ? "var(--accent)" : (inProfit ? "#12b76a" : "transparent"), color: sendId === t.id || inProfit ? "#fff" : "var(--text)", border: sendId === t.id || inProfit ? "none" : "1px solid var(--accent)", borderRadius: 6, padding: "3px 8px", cursor: "pointer", fontWeight: 700 }}>
+                                  💵 Ejecutar
+                                </button>
+                                <button type="button" onClick={() => close(t)} disabled={t.live == null}
+                                  style={{ fontSize: 11, background: "transparent", border: "1px solid var(--border)", borderRadius: 6, color: "var(--text)", padding: "3px 8px", cursor: "pointer" }}>
+                                  Cerrar
+                                </button>
+                              </div>
+                            </td>
+                          </tr>
+                          {(sendId === t.id || isOpen) && (
+                            <tr>
+                              <td colSpan={7} style={{ padding: "0 10px 10px", background: "var(--panel-2)", borderBottom: "1px solid var(--border-soft)" }}>
+                                {sendId === t.id && <SendPaperPanel t={t} />}
+                                {isOpen && <TradeDetail t={t} />}
+                              </td>
+                            </tr>
+                          )}
+                        </Fragment>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
             </div>
           )}
 
           {closed.length > 0 && (
             <div>
               <div className="news-head">Cerrados ({closed.length})</div>
-              {closed.map((t) => {
-                const pl = plOf(t);
-                const isOpen = openId === t.id;
-                return (
-                  <div key={t.id} style={{ borderTop: "1px solid var(--border-soft)", padding: "6px 0" }}>
-                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 8 }}>
-                      <div onClick={() => setOpenId(isOpen ? null : t.id)} style={{ cursor: "pointer", fontSize: 12.5, flex: 1 }}
-                        title="Toca para ver por qué el motor eligió este trade">
-                        <span style={{ color: "var(--accent)", marginRight: 4 }}>{isOpen ? "▾" : "▸"}</span>
-                        {t.ticker} · {t.label}
-                      </div>
-                      <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                        <span style={{ fontWeight: 700, color: pl != null && pl >= 0 ? "#12b76a" : "#f04438" }}>
-                          {pl == null ? "—" : money0.format(pl)}
-                        </span>
-                        <button type="button" onClick={() => del(t.id)}
-                          style={{ fontSize: 11, background: "transparent", border: "none", color: "var(--muted)", cursor: "pointer" }}>✕</button>
-                      </div>
-                    </div>
-                    {isOpen && <TradeDetail t={t} />}
-                  </div>
-                );
-              })}
+              <div style={{ overflowX: "auto", border: "1px solid var(--border)", borderRadius: 12, marginTop: 6 }}>
+                <table style={{ width: "100%", borderCollapse: "collapse", background: "var(--panel)" }}>
+                  <thead><tr>
+                    <th style={{ ...pth, textAlign: "left", cursor: "pointer" }} onClick={() => sortBy("ticker")}>Trade{arrow("ticker")}</th>
+                    <th style={{ ...pth, cursor: "pointer" }} onClick={() => sortBy("pl")}>P/L{arrow("pl")}</th>
+                    <th style={pth}>Fuente</th>
+                    <th style={pth}></th>
+                  </tr></thead>
+                  <tbody>
+                    {sortRows(closed).map((t) => {
+                      const pl = plOf(t);
+                      const isOpen = openId === t.id;
+                      return (
+                        <Fragment key={t.id}>
+                          <tr style={{ borderTop: "1px solid var(--border-soft)", background: isOpen ? "var(--panel-2)" : "transparent" }}>
+                            <td style={{ ...ptd, textAlign: "left", cursor: "pointer", maxWidth: 260, whiteSpace: "normal" }} onClick={() => setOpenId(isOpen ? null : t.id)}>
+                              <span style={{ color: "var(--accent)", marginRight: 4 }}>{isOpen ? "▾" : "▸"}</span>
+                              <b>{t.ticker}</b> <span style={{ color: "var(--muted)", fontSize: 12 }}>{t.label}</span>
+                            </td>
+                            <td style={{ ...ptd, color: pl != null && pl >= 0 ? "#12b76a" : "#f04438", fontWeight: 700 }}>{pl == null ? "—" : money0.format(pl)}</td>
+                            <td style={{ ...ptd, textAlign: "center" }}>{t.source === "motor" ? "🤖" : "✍️"}</td>
+                            <td style={{ ...ptd, textAlign: "center" }}>
+                              <button type="button" onClick={() => del(t.id)} title="Borrar"
+                                style={{ fontSize: 12, background: "transparent", border: "none", color: "var(--muted)", cursor: "pointer" }}>✕</button>
+                            </td>
+                          </tr>
+                          {isOpen && (
+                            <tr><td colSpan={4} style={{ padding: "0 10px 10px", background: "var(--panel-2)", borderBottom: "1px solid var(--border-soft)" }}><TradeDetail t={t} /></td></tr>
+                          )}
+                        </Fragment>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
             </div>
           )}
         </>
