@@ -11,14 +11,18 @@ const POP_KEY = "nagimi.paperMinPop";
 const RET_KEY = "nagimi.paperMinReturn";
 const TERM_KEY = "nagimi.paperTerm";
 
+interface CandLeg { type: "call" | "put"; side: "buy" | "sell"; strike: number; }
 interface Candidate {
   ticker: string;
+  kind?: "iron_condor" | "put_credit" | "call_credit";
   label: string;
   pop: number;
   maxLoss: number;
   maxGain: number;
   dte: number;
   note: string;
+  rationale?: string;
+  legs?: { optionType: "call" | "put"; side: "buy" | "sell"; strike: number }[];
 }
 
 interface ScanState {
@@ -46,10 +50,15 @@ export default function AutoScanCard({ onRegistered }: { onRegistered?: () => vo
   const [minPop, setMinPop] = useState(60);    // POP mínimo aceptado (%)
   const [minRet, setMinRet] = useState(25);    // ganancia mínima como % del riesgo
   const [term, setTerm] = useState<"0dte" | "corto" | "normal">("normal"); // plazo de los trades
+  const [strategies, setStrategies] = useState<Set<string>>(new Set(["iron_condor", "put_credit", "call_credit"]));
+  const [openCand, setOpenCand] = useState<number | null>(null); // candidato expandido en detalle
+  const [trendGate, setTrendGate] = useState(true); // solo a favor de la tendencia
   const riskRef = useRef(100);
   const popRef = useRef(60);
   const retRef = useRef(25);
   const termRef = useRef<"0dte" | "corto" | "normal">("normal");
+  const stratRef = useRef<string[]>(["iron_condor", "put_credit", "call_credit"]);
+  const trendRef = useRef(true);
 
   // Capital, POP mínimo y ganancia mínima (guardados entre sesiones).
   useEffect(() => {
@@ -66,6 +75,15 @@ export default function AutoScanCard({ onRegistered }: { onRegistered?: () => vo
   useEffect(() => { popRef.current = minPop; if (minPop > 0) localStorage.setItem(POP_KEY, String(minPop)); }, [minPop]);
   useEffect(() => { retRef.current = minRet; if (minRet > 0) localStorage.setItem(RET_KEY, String(minRet)); }, [minRet]);
   useEffect(() => { termRef.current = term; localStorage.setItem(TERM_KEY, term); }, [term]);
+  useEffect(() => { stratRef.current = [...strategies]; }, [strategies]);
+  useEffect(() => { trendRef.current = trendGate; }, [trendGate]);
+
+  const toggleStrat = (k: string) => setStrategies((prev) => {
+    const next = new Set(prev);
+    if (next.has(k)) next.delete(k); else next.add(k);
+    if (next.size === 0) return prev; // al menos una
+    return next;
+  });
 
   const run = useCallback(async (force: boolean) => {
     setBusy(true); setErr(null);
@@ -73,7 +91,7 @@ export default function AutoScanCard({ onRegistered }: { onRegistered?: () => vo
       const r = await fetch("/api/paper-scan", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ force, maxRisk: riskRef.current, minPop: popRef.current / 100, minReturn: retRef.current / 100, term: termRef.current }),
+        body: JSON.stringify({ force, maxRisk: riskRef.current, minPop: popRef.current / 100, minReturn: retRef.current / 100, term: termRef.current, strategies: stratRef.current, trendGate: trendRef.current }),
       }).then((x) => x.json());
       setState(r);
       if (r.justRan && r.lastResult?.registered > 0) onRegistered?.();
@@ -142,6 +160,29 @@ export default function AutoScanCard({ onRegistered }: { onRegistered?: () => vo
           style={{ background: "var(--accent)", color: "#fff", border: "none", borderRadius: 8, padding: "9px 14px", fontWeight: 700, cursor: "pointer", fontSize: 13 }}>
           {busy ? "Escaneando el mercado…" : "🔍 Buscar ahora"}
         </button>
+      </div>
+
+      {/* Selector de estrategias a analizar */}
+      <div style={{ display: "flex", gap: 6, alignItems: "center", flexWrap: "wrap" }}>
+        <span style={{ fontSize: 12, color: "var(--muted)", fontWeight: 700 }}>📐 Estrategias:</span>
+        {([
+          ["put_credit", "Credit Put Spread"],
+          ["call_credit", "Credit Call Spread"],
+          ["iron_condor", "Iron Condor"],
+        ] as const).map(([k, lbl]) => {
+          const on = strategies.has(k);
+          return (
+            <button key={k} type="button" onClick={() => toggleStrat(k)}
+              style={{ padding: "5px 11px", borderRadius: 999, cursor: "pointer", fontSize: 12, fontWeight: 700, border: on ? "1px solid var(--accent)" : "1px solid var(--border)", background: on ? "var(--accent)" : "transparent", color: on ? "#fff" : "var(--muted)" }}>
+              {lbl}
+            </button>
+          );
+        })}
+        <button type="button" onClick={() => setTrendGate((v) => !v)}
+          title="Activo: solo trades a favor de la tendencia. Apágalo para ver TODAS las estrategias (más variedad)."
+          style={{ marginLeft: 6, padding: "5px 11px", borderRadius: 999, cursor: "pointer", fontSize: 12, fontWeight: 700, border: trendGate ? "1px solid #4ad991" : "1px solid var(--border)", background: trendGate ? "rgba(74,217,145,0.15)" : "transparent", color: trendGate ? "#4ad991" : "var(--muted)" }}>
+          {trendGate ? "✅ Solo a favor de tendencia" : "🔓 Ver todas"}
+        </button>
         {state && (
           <span style={{ fontSize: 12, color: "var(--muted)" }}>
             {state.lastRunDate
@@ -163,16 +204,41 @@ export default function AutoScanCard({ onRegistered }: { onRegistered?: () => vo
 
           {res.candidates.length > 0 && (
             <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
-              {res.candidates.map((c, i) => (
-                <div key={i} style={{ background: "var(--panel-2)", border: "1px solid var(--border-soft)", borderRadius: 10, padding: "8px 12px", display: "flex", gap: 12, alignItems: "center", flexWrap: "wrap" }}>
-                  <span style={{ fontWeight: 700, minWidth: 46 }}>{c.ticker}</span>
-                  <span style={{ fontSize: 12.5, color: "#4ad991", fontWeight: 700 }}>{Math.round(c.pop * 100)}% POP</span>
-                  <span style={{ fontSize: 12, color: "var(--muted)" }}>{c.label}</span>
-                  <span style={{ marginLeft: "auto", fontSize: 12 }}>
-                    gana máx <b style={{ color: "#4ad991" }}>{money(c.maxGain)}</b> · pierde máx <b style={{ color: "#ff8a82" }}>{money(c.maxLoss)}</b>
-                  </span>
-                </div>
-              ))}
+              {res.candidates.map((c, i) => {
+                const isOpen = openCand === i;
+                return (
+                  <div key={i} style={{ background: "var(--panel-2)", border: `1px solid ${isOpen ? "var(--accent)" : "var(--border-soft)"}`, borderRadius: 10, padding: "8px 12px" }}>
+                    <div onClick={() => setOpenCand(isOpen ? null : i)} style={{ cursor: "pointer", display: "flex", gap: 12, alignItems: "center", flexWrap: "wrap" }}
+                      title="Toca para ver el detalle de este trade">
+                      <span style={{ color: "var(--accent)" }}>{isOpen ? "▾" : "▸"}</span>
+                      <span style={{ fontWeight: 700, minWidth: 42 }}>{c.ticker}</span>
+                      <span style={{ fontSize: 12.5, color: "#4ad991", fontWeight: 700 }}>{Math.round(c.pop * 100)}% POP</span>
+                      <span style={{ fontSize: 12, color: "var(--muted)" }}>{c.label.split(" · ")[0]}</span>
+                      <span style={{ marginLeft: "auto", fontSize: 12 }}>
+                        gana <b style={{ color: "#4ad991" }}>{money(c.maxGain)}</b> · pierde <b style={{ color: "#ff8a82" }}>{money(c.maxLoss)}</b>
+                      </span>
+                    </div>
+                    {isOpen && (
+                      <div style={{ marginTop: 8, borderTop: "1px solid var(--border-soft)", paddingTop: 8 }}>
+                        {c.legs && c.legs.length > 0 && (
+                          <div style={{ fontSize: 12, marginBottom: 6 }}>
+                            {c.legs.map((l, j) => (
+                              <div key={j} style={{ color: l.side === "buy" ? "#4ad991" : "#ff8a82" }}>
+                                • {l.side === "buy" ? "Compra" : "Vende"} {l.optionType.toUpperCase()} ${l.strike}
+                              </div>
+                            ))}
+                            <div style={{ color: "var(--muted)", marginTop: 2 }}>Vence {c.label.split(" · ").pop()}</div>
+                          </div>
+                        )}
+                        <div style={{ fontSize: 12, lineHeight: 1.55, whiteSpace: "pre-wrap", color: "var(--text)" }}>{c.rationale ?? c.note}</div>
+                        <div style={{ fontSize: 11, color: "var(--muted)", marginTop: 6 }}>
+                          💡 Este trade ya quedó en tu <b style={{ color: "var(--text)" }}>📝 Paper Trading</b> abajo — ahí puedes seguirlo y tocarlo para <b style={{ color: "var(--text)" }}>ejecutarlo</b> en real.
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
             </div>
           )}
 

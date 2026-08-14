@@ -24,8 +24,11 @@ interface RawContract {
   last_quote?: { bid?: number; ask?: number; mid?: number };
 }
 
+export type StratKind = "iron_condor" | "put_credit" | "call_credit";
+
 export interface ScanCandidate {
   ticker: string;
+  kind: StratKind;      // tipo de estrategia (para variedad y dedup)
   label: string;
   expiration: string;
   dte: number;
@@ -103,7 +106,7 @@ function trendLabel(t: Trend): string {
  * desviaciones del precio (mientras más lejos, más POP) y las alas un paso más
  * afuera. Sube las sigmas hasta alcanzar el POP objetivo.
  */
-type FindResult = { ok: ScanCandidate } | { skip: string };
+type FindResult = { ok: ScanCandidate[] } | { skip: string };
 
 async function findHighPopCondor(
   ticker: string,
@@ -111,6 +114,8 @@ async function findHighPopCondor(
   maxRisk: number,
   minReturn: number,
   term: { min: number; max: number; target: number },
+  strategies: StratKind[],
+  trendGate: boolean,
   now: Date,
 ): Promise<FindResult> {
   const g = await fetchMsGex(ticker).catch(() => null);
@@ -156,13 +161,14 @@ async function findHighPopCondor(
   const T = dte / 365;
   const sd = spot * ivAtm * Math.sqrt(T); // 1σ esperado en $
 
-  type Kind = "iron_condor" | "put_credit" | "call_credit";
+  type Kind = StratKind;
   interface Best {
     kind: Kind; legs: PayoffLeg[]; a: ReturnType<typeof analyzeStrategy>; maxLoss: number;
     sig: number; shortPut: number; longPut: number; shortCall: number; longCall: number; score: number;
   }
+  const allow = new Set<Kind>(strategies.length ? strategies : ["iron_condor", "put_credit", "call_credit"]);
   let cheapestOverBudget = Infinity; // el riesgo más chico que SÍ llegó a POP pero no cupo
-  let best: Best | null = null;
+  const bestByKind = new Map<Kind, Best>(); // la MEJOR de cada tipo de estrategia
   let trendBlocked = false; // hubo candidatos pero la tendencia no los apoyó
   let lowReturn = false;    // hubo candidatos pero pagaban menos del mínimo
 
@@ -193,8 +199,9 @@ async function findHighPopCondor(
     }
 
     for (const spec of specs) {
-      // Confirmación de tendencia: el agente solo entra a favor de lo que ve.
-      if (!trendConfirms(spec.kind, trend)) { trendBlocked = true; continue; }
+      if (!allow.has(spec.kind)) continue; // solo las estrategias que la usuaria eligió
+      // Confirmación de tendencia (si está activada): el agente solo entra a favor de lo que ve.
+      if (trendGate && !trendConfirms(spec.kind, trend)) { trendBlocked = true; continue; }
 
       const legs: PayoffLeg[] = [];
       let ok = true;
@@ -224,19 +231,22 @@ async function findHighPopCondor(
 
       // Ya todos superan el POP objetivo → gana el que MEJOR paga por dólar arriesgado.
       const score = a.maxGain / maxLoss;
-      if (!best || score > best.score) {
-        best = { kind: spec.kind, legs, a, maxLoss, sig, shortPut, longPut, shortCall, longCall, score };
+      const cur = bestByKind.get(spec.kind);
+      if (!cur || score > cur.score) {
+        bestByKind.set(spec.kind, { kind: spec.kind, legs, a, maxLoss, sig, shortPut, longPut, shortCall, longCall, score });
       }
     }
   }
 
-  if (!best) {
+  if (bestByKind.size === 0) {
     if (cheapestOverBudget < Infinity) return { skip: `no cabe: arriesga $${Math.round(cheapestOverBudget)} (tu límite $${Math.round(maxRisk)})` };
     if (lowReturn) return { skip: `paga menos del ${Math.round(minReturn * 100)}% mínimo de ganancia` };
     if (trendBlocked) return { skip: `la tendencia (${trendLabel(trend)}) no apoya ningún trade` };
     return { skip: `sin estructura ≥${Math.round(popTarget * 100)}% POP` };
   }
 
+  // Arma una candidata (con su explicación) por cada tipo de estrategia encontrado.
+  function toCandidate(best: Best): ScanCandidate {
   const { kind, legs, a, maxLoss, sig, shortPut, longPut, shortCall, longCall } = best;
   const entryNet = legs.reduce((s, l) => s + (l.side === "buy" ? 1 : -1) * l.limitPrice * MULT * l.quantity, 0);
   const credit = Math.round(a.maxGain);
@@ -293,13 +303,18 @@ async function findHighPopCondor(
   ].filter((x) => x !== "").join("\n");
 
   return {
-    ok: {
-      ticker, label, expiration, dte, legs,
-      pop: a.pop, maxLoss, maxGain: a.maxGain, entryNet, spot,
-      note: `${shortName[kind]} · POP ${Math.round(a.pop * 100)}% · ${sig}σ · stop $${stopLoss}`,
-      rationale,
-    },
+    ticker, kind, label, expiration, dte, legs,
+    pop: a.pop, maxLoss, maxGain: a.maxGain, entryNet, spot,
+    note: `${shortName[kind]} · POP ${Math.round(a.pop * 100)}% · ${sig}σ · stop $${stopLoss}`,
+    rationale,
   };
+  } // fin toCandidate
+
+  // Mejor de cada tipo, ordenadas por premio:riesgo (mejor primero).
+  const candidates = [...bestByKind.values()]
+    .sort((x, y) => y.score - x.score)
+    .map(toCandidate);
+  return { ok: candidates };
 }
 
 function putStr(long: number, short: number): string { return `${long}/${short}p`; }
@@ -368,7 +383,7 @@ async function buildUniverse(maxNames: number): Promise<string[]> {
  * Corre el escaneo completo y registra en paper las estructuras nuevas.
  * Dedup: no re-registra si ya hay un trade ABIERTO del mismo ticker + vencimiento.
  */
-export async function runAutoScan(opts: { popTarget?: number; maxNames?: number; maxRisk?: number; minReturn?: number; term?: "0dte" | "corto" | "normal"; now?: Date } = {}): Promise<ScanResult> {
+export async function runAutoScan(opts: { popTarget?: number; maxNames?: number; maxRisk?: number; minReturn?: number; term?: "0dte" | "corto" | "normal"; strategies?: StratKind[]; trendGate?: boolean; now?: Date } = {}): Promise<ScanResult> {
   // Plazo: "0dte" = vence hoy-mañana; "corto" = 3-14 días (dinero rápido);
   // "normal" = 14-45 días (~1 mes).
   const term = opts.term === "0dte"
@@ -382,6 +397,10 @@ export async function runAutoScan(opts: { popTarget?: number; maxNames?: number;
   const maxRisk = opts.maxRisk && opts.maxRisk > 0 ? opts.maxRisk : 100;
   // Ganancia mínima como % del riesgo (25% por defecto). Por debajo, no vale la pena.
   const minReturn = opts.minReturn && opts.minReturn > 0 ? opts.minReturn : 0.25;
+  // Estrategias a considerar (por defecto las 3).
+  const strategies: StratKind[] = opts.strategies && opts.strategies.length ? opts.strategies : ["iron_condor", "put_credit", "call_credit"];
+  // ¿Solo trades a favor de la tendencia? (por defecto sí; apagarlo da más variedad).
+  const trendGate = opts.trendGate !== false;
   const now = opts.now ?? new Date();
 
   const universe = await buildUniverse(maxNames);
@@ -393,31 +412,38 @@ export async function runAutoScan(opts: { popTarget?: number; maxNames?: number;
   for (const ticker of universe) {
     let result: FindResult;
     try {
-      result = await findHighPopCondor(ticker, popTarget, maxRisk, minReturn, term, now);
+      result = await findHighPopCondor(ticker, popTarget, maxRisk, minReturn, term, strategies, trendGate, now);
     } catch (e) {
       skipped.push({ ticker, reason: `error: ${e instanceof Error ? e.message : String(e)}`.slice(0, 160) });
       continue;
     }
     if ("skip" in result) { skipped.push({ ticker, reason: result.skip }); continue; }
-    const cand = result.ok;
-    candidates.push(cand);
 
-    const dup = open.some((t) => t.ticker === ticker && t.legs.some((l) => l.expiration === cand.expiration) && t.status === "open");
-    if (dup) continue;
+    // result.ok es un array: la mejor de CADA estrategia para este ticker.
+    for (const cand of result.ok) {
+      candidates.push(cand);
+      // Dedup por ticker + vencimiento + TIPO de estrategia (permite varias por ticker).
+      const dup = open.some((t) =>
+        t.ticker === ticker && t.status === "open" &&
+        t.legs.some((l) => l.expiration === cand.expiration) &&
+        (t.note ?? "").includes(cand.kind === "iron_condor" ? "Iron Condor" : cand.kind === "put_credit" ? "Credit Put Spread" : "Credit Call Spread"),
+      );
+      if (dup) continue;
 
-    await openPaper({
-      ticker,
-      label: cand.label,
-      legs: toPaperLegs(cand.legs, cand.expiration),
-      entryNet: Math.round((cand.entryNet / MULT) * 100) / 100, // por contrato, como el resto del diario
-      qtyContracts: 1,
-      entryTime: now.toISOString(),
-      entrySpot: cand.spot,
-      note: `🤖 auto · ${cand.note} · riesgo $${Math.round(cand.maxLoss)}`,
-      rationale: cand.rationale,
-      source: "motor",
-    });
-    registered += 1;
+      await openPaper({
+        ticker,
+        label: cand.label,
+        legs: toPaperLegs(cand.legs, cand.expiration),
+        entryNet: Math.round((cand.entryNet / MULT) * 100) / 100, // por contrato, como el resto del diario
+        qtyContracts: 1,
+        entryTime: now.toISOString(),
+        entrySpot: cand.spot,
+        note: `🤖 auto · ${cand.note} · riesgo $${Math.round(cand.maxLoss)}`,
+        rationale: cand.rationale,
+        source: "motor",
+      });
+      registered += 1;
+    }
   }
 
   return { ranAt: now.toISOString(), scanned: universe.length, candidates, registered, popTarget, maxRisk, minReturn, skipped };
