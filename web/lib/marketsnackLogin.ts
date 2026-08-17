@@ -101,20 +101,15 @@ async function doRelogin(): Promise<boolean> {
     const eVal = await emailEl.inputValue().catch(() => "");
     const pLen = (await passEl.inputValue().catch(() => "")).length;
     console.error("[MS-LOGIN] campos llenos → email:", eVal, "| largo contraseña:", pLen);
-    // Enviar: el botón "Log in" EXACTO (ojo: hay un botón vacío y uno de Google
-    // que NO son el de entrar). Priorizamos el de texto "Log in".
-    // 1) Enter en la contraseña (envía el formulario al que pertenece el campo).
-    await passEl.press("Enter");
-    await page.waitForTimeout(2500);
-    // 2) Si sigue en login, intenta clickear el botón "Log in".
-    if (page.url().includes("/login")) {
-      const submit = await firstVisible(page, [
-        'button:has-text("Log in")', 'button:has-text("Log In")',
-        'button[type="submit"]:not(:has-text("Google"))',
-      ], 3000);
-      console.error("[MS-LOGIN] Enter no bastó; botón Log in?", !!submit);
-      if (submit) await submit.click();
-    }
+    // SOLO clic en el botón "Log in" (corre el handler JS real). NO usar Enter ni
+    // submit nativo: eso hace un GET que recarga /login con los datos en la URL y
+    // borra los campos (por eso antes nunca entraba, aunque la contraseña fuera buena).
+    const btn = page.getByRole("button", { name: /^\s*log in\s*$/i }).first();
+    await btn.click({ timeout: 8000 }).catch(async () => {
+      await page.locator('button:has-text("Log in")').first().click({ timeout: 5000 }).catch(() => {});
+    });
+    console.error("[MS-LOGIN] clic en Log in enviado");
+    await page.waitForTimeout(3500);
 
     // Espera a que se asiente la sesión (redirección o cookie con valor).
     await waitForSession(context, page);
