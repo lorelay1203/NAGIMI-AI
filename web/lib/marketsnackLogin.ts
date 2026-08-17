@@ -86,25 +86,62 @@ async function doRelogin(): Promise<boolean> {
       'input[name="password"]', 'input[type="password"]',
       'input[autocomplete="current-password"]', 'input[placeholder*="pass" i]',
     ]);
+    console.error("[MS-LOGIN] página cargada:", page.url(), "| email?", !!emailEl, "| pass?", !!passEl);
     if (!emailEl || !passEl) {
       throw new Error("No se encontró el formulario de login de MarketSnack (¿cambió la página?).");
     }
-    await emailEl.fill(login.email);
-    await passEl.fill(login.password);
-    // Enviar: botón de submit si existe, si no, Enter en la contraseña.
-    const submit = await firstVisible(page, ['button[type="submit"]', 'button:has-text("Log")', 'button:has-text("Sign")', 'input[type="submit"]'], 3000);
-    if (submit) await submit.click(); else await passEl.press("Enter");
+    // Escribir tecla por tecla (React a veces ignora el fill directo).
+    await emailEl.click();
+    await emailEl.fill("");
+    await emailEl.pressSequentially(login.email, { delay: 25 });
+    await passEl.click();
+    await passEl.fill("");
+    await passEl.pressSequentially(login.password, { delay: 25 });
+    await page.waitForTimeout(300);
+    const eVal = await emailEl.inputValue().catch(() => "");
+    const pLen = (await passEl.inputValue().catch(() => "")).length;
+    console.error("[MS-LOGIN] campos llenos → email:", eVal, "| largo contraseña:", pLen);
+    // Enviar: el botón "Log in" EXACTO (ojo: hay un botón vacío y uno de Google
+    // que NO son el de entrar). Priorizamos el de texto "Log in".
+    // 1) Enter en la contraseña (envía el formulario al que pertenece el campo).
+    await passEl.press("Enter");
+    await page.waitForTimeout(2500);
+    // 2) Si sigue en login, intenta clickear el botón "Log in".
+    if (page.url().includes("/login")) {
+      const submit = await firstVisible(page, [
+        'button:has-text("Log in")', 'button:has-text("Log In")',
+        'button[type="submit"]:not(:has-text("Google"))',
+      ], 3000);
+      console.error("[MS-LOGIN] Enter no bastó; botón Log in?", !!submit);
+      if (submit) await submit.click();
+    }
 
     // Espera a que se asiente la sesión (redirección o cookie con valor).
     await waitForSession(context, page);
+    // Captura cualquier mensaje de error que MarketSnack muestre (contraseña mala, etc.)
+    await page.waitForTimeout(1000);
+    const errText = await page.locator('[class*="error" i], [role="alert"], .text-red-500, [class*="invalid" i]').first().innerText().catch(() => "");
+    if (errText) console.error("[MS-LOGIN] MENSAJE DE ERROR de MarketSnack:", errText.slice(0, 120));
+
+    // Diagnóstico: dónde quedó y si hay mensaje de error visible en la página.
+    const finalUrl = page.url();
+    const bodyText = await page.locator("body").innerText().catch(() => "");
+    const btnTexts = await page.locator("button").allInnerTexts().catch(() => []);
+    console.error("[MS-LOGIN] tras submit → url:", finalUrl);
+    console.error("[MS-LOGIN] BOTONES en pantalla:", JSON.stringify(btnTexts.slice(0, 8)));
+    console.error("[MS-LOGIN] TEXTO de la página (300):", bodyText.replace(/\s+/g, " ").slice(0, 300));
 
     const cookies = await context.cookies("https://app.marketsnack.com");
     const header = cookies.map((c) => `${c.name}=${c.value}`).join("; ");
-    if (!header.includes("_market_snack_session=")) return false;
+    const hasSess = header.includes("_market_snack_session=");
+    console.error("[MS-LOGIN] cookie de sesión presente?", hasSess);
+    if (!hasSess) return false;
 
     // OJO: Rails pone la cookie de sesión incluso para anónimos. La cookie SOLO
     // vale si autentica de verdad → validar ANTES de guardar (no pisar una buena).
-    if (!(await validateMarketsnackCookie(header))) return false;
+    const valid = await validateMarketsnackCookie(header);
+    console.error("[MS-LOGIN] cookie válida (autentica)?", valid);
+    if (!valid) return false;
     await setMarketsnackCookie(header);
     return true;
   } finally {
