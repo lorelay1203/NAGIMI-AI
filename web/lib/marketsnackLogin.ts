@@ -71,13 +71,29 @@ async function doRelogin(): Promise<boolean> {
 
   const browser = await launchBrowser();
   try {
-    const context = await browser.newContext({ userAgent: "Mozilla/5.0" });
+    const context = await browser.newContext({ userAgent: "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0 Safari/537.36" });
     const page = await context.newPage();
-    await page.goto("https://app.marketsnack.com/login", { waitUntil: "domcontentloaded", timeout: 30000 });
+    // La página de login es una app JS: hay que esperar a que el formulario se dibuje.
+    await page.goto("https://app.marketsnack.com/login", { waitUntil: "networkidle", timeout: 45000 });
 
-    await page.fill('input[name="email"]', login.email);
-    await page.fill('input[name="password"]', login.password);
-    await page.click('button[type="submit"]');
+    // Busca el campo de correo probando varios selectores (por si cambió el nombre).
+    const emailEl = await firstVisible(page, [
+      'input[name="email"]', 'input[type="email"]',
+      'input[autocomplete="email"]', 'input[autocomplete="username"]',
+      'input[placeholder*="mail" i]', 'input[id*="email" i]',
+    ]);
+    const passEl = await firstVisible(page, [
+      'input[name="password"]', 'input[type="password"]',
+      'input[autocomplete="current-password"]', 'input[placeholder*="pass" i]',
+    ]);
+    if (!emailEl || !passEl) {
+      throw new Error("No se encontró el formulario de login de MarketSnack (¿cambió la página?).");
+    }
+    await emailEl.fill(login.email);
+    await passEl.fill(login.password);
+    // Enviar: botón de submit si existe, si no, Enter en la contraseña.
+    const submit = await firstVisible(page, ['button[type="submit"]', 'button:has-text("Log")', 'button:has-text("Sign")', 'input[type="submit"]'], 3000);
+    if (submit) await submit.click(); else await passEl.press("Enter");
 
     // Espera a que se asiente la sesión (redirección o cookie con valor).
     await waitForSession(context, page);
@@ -94,6 +110,22 @@ async function doRelogin(): Promise<boolean> {
   } finally {
     await browser.close();
   }
+}
+
+/** Devuelve el primer selector que se vuelve VISIBLE, probándolos en orden. */
+async function firstVisible(
+  page: import("playwright").Page,
+  selectors: string[],
+  timeoutEach = 5000,
+): Promise<import("playwright").Locator | null> {
+  for (const sel of selectors) {
+    try {
+      const loc = page.locator(sel).first();
+      await loc.waitFor({ state: "visible", timeout: timeoutEach });
+      return loc;
+    } catch { /* prueba el siguiente selector */ }
+  }
+  return null;
 }
 
 async function waitForSession(
