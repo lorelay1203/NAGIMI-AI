@@ -86,57 +86,42 @@ async function doRelogin(): Promise<boolean> {
       'input[name="password"]', 'input[type="password"]',
       'input[autocomplete="current-password"]', 'input[placeholder*="pass" i]',
     ]);
-    console.error("[MS-LOGIN] página cargada:", page.url(), "| email?", !!emailEl, "| pass?", !!passEl);
     if (!emailEl || !passEl) {
       throw new Error("No se encontró el formulario de login de MarketSnack (¿cambió la página?).");
     }
-    // Escribir tecla por tecla (React a veces ignora el fill directo).
-    await emailEl.click();
-    await emailEl.fill("");
-    await emailEl.pressSequentially(login.email, { delay: 25 });
-    await passEl.click();
-    await passEl.fill("");
-    await passEl.pressSequentially(login.password, { delay: 25 });
-    await page.waitForTimeout(300);
-    const eVal = await emailEl.inputValue().catch(() => "");
-    const pLen = (await passEl.inputValue().catch(() => "")).length;
-    console.error("[MS-LOGIN] campos llenos → email:", eVal, "| largo contraseña:", pLen);
+    // React controla los inputs: hay que setear el valor con el SETTER NATIVO y
+    // disparar los eventos que React escucha; si no, el handler de "Log in" lee
+    // los campos vacíos y no autentica (aunque en pantalla se vean llenos).
+    const reactType = async (el: import("playwright").Locator, val: string) => {
+      await el.click();
+      await el.pressSequentially(val, { delay: 15 });
+      await el.evaluate((node, v) => {
+        const proto = Object.getPrototypeOf(node);
+        const setter = Object.getOwnPropertyDescriptor(proto, "value")?.set;
+        if (setter) setter.call(node, v);
+        node.dispatchEvent(new Event("input", { bubbles: true }));
+        node.dispatchEvent(new Event("change", { bubbles: true }));
+      }, val);
+    };
+    await reactType(emailEl, login.email);
+    await reactType(passEl, login.password);
+    await page.waitForTimeout(400);
     // SOLO clic en el botón "Log in" (corre el handler JS real). NO usar Enter ni
-    // submit nativo: eso hace un GET que recarga /login con los datos en la URL y
-    // borra los campos (por eso antes nunca entraba, aunque la contraseña fuera buena).
+    // submit nativo: eso hace un GET que recarga /login y borra los campos.
     const btn = page.getByRole("button", { name: /^\s*log in\s*$/i }).first();
     await btn.click({ timeout: 8000 }).catch(async () => {
       await page.locator('button:has-text("Log in")').first().click({ timeout: 5000 }).catch(() => {});
     });
-    console.error("[MS-LOGIN] clic en Log in enviado");
-    await page.waitForTimeout(3500);
+    await page.waitForTimeout(3000);
 
     // Espera a que se asiente la sesión (redirección o cookie con valor).
     await waitForSession(context, page);
-    // Captura cualquier mensaje de error que MarketSnack muestre (contraseña mala, etc.)
-    await page.waitForTimeout(1000);
-    const errText = await page.locator('[class*="error" i], [role="alert"], .text-red-500, [class*="invalid" i]').first().innerText().catch(() => "");
-    if (errText) console.error("[MS-LOGIN] MENSAJE DE ERROR de MarketSnack:", errText.slice(0, 120));
-
-    // Diagnóstico: dónde quedó y si hay mensaje de error visible en la página.
-    const finalUrl = page.url();
-    const bodyText = await page.locator("body").innerText().catch(() => "");
-    const btnTexts = await page.locator("button").allInnerTexts().catch(() => []);
-    console.error("[MS-LOGIN] tras submit → url:", finalUrl);
-    console.error("[MS-LOGIN] BOTONES en pantalla:", JSON.stringify(btnTexts.slice(0, 8)));
-    console.error("[MS-LOGIN] TEXTO de la página (300):", bodyText.replace(/\s+/g, " ").slice(0, 300));
 
     const cookies = await context.cookies("https://app.marketsnack.com");
     const header = cookies.map((c) => `${c.name}=${c.value}`).join("; ");
-    const hasSess = header.includes("_market_snack_session=");
-    console.error("[MS-LOGIN] cookie de sesión presente?", hasSess);
-    if (!hasSess) return false;
-
-    // OJO: Rails pone la cookie de sesión incluso para anónimos. La cookie SOLO
-    // vale si autentica de verdad → validar ANTES de guardar (no pisar una buena).
-    const valid = await validateMarketsnackCookie(header);
-    console.error("[MS-LOGIN] cookie válida (autentica)?", valid);
-    if (!valid) return false;
+    if (!header.includes("_market_snack_session=")) return false;
+    // La cookie de Rails existe incluso para anónimos → validar que autentique de verdad.
+    if (!(await validateMarketsnackCookie(header))) return false;
     await setMarketsnackCookie(header);
     return true;
   } finally {
