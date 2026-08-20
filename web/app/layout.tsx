@@ -8,7 +8,7 @@ const spaceGrotesk = Space_Grotesk({
 });
 
 export const metadata: Metadata = {
-  title: "Nagimi AI Investing",
+  title: "Nagimi AI",
   description: "Análisis de flujo de opciones, niveles GEX y planificación de operaciones.",
 };
 

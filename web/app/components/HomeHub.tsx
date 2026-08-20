@@ -34,7 +34,7 @@ export default function HomeHub({ onSearch }: HomeHubProps) {
   return (
     <section className="home-hub" aria-labelledby="home-title">
       <div className="home-hero">
-        <div className="home-kicker">NAGIMI AI INVESTING</div>
+        <div className="home-kicker">NAGIMI AI</div>
         <h1 id="home-title">¿Qué quieres hacer hoy?</h1>
         <p>
           Empieza por una sola tarea. Nagimi organiza el análisis y deja el detalle

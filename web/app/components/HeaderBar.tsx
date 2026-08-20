@@ -30,7 +30,7 @@ export default function HeaderBar({
     <div className="hb">
       <div className="hb-brand" onClick={() => onHome?.()} style={{ cursor: onHome ? "pointer" : "default" }} title="Ir al inicio">
         <div className="hb-logo">N</div>
-        <div className="hb-name">Nagimi AI Investing</div>
+        <div className="hb-name">Nagimi AI</div>
       </div>
       <nav className="hb-nav" aria-label="Navegación principal">
         <a className="hb-link" href="/">INICIO</a>
