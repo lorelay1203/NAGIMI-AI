@@ -30,9 +30,13 @@ export default function HeaderBar({
     <div className="hb">
       <div className="hb-brand" onClick={() => onHome?.()} style={{ cursor: onHome ? "pointer" : "default" }} title="Ir al inicio">
         <div className="hb-logo">N</div>
-        <div className="hb-name">Nagimi AI</div>
-        <div className="hb-chip">AI Options Agent</div>
+        <div className="hb-name">Nagimi AI Investing</div>
       </div>
+      <nav className="hb-nav" aria-label="Navegación principal">
+        <a className="hb-link" href="/">INICIO</a>
+        <a className="hb-link" href="/cookie">COOKIE</a>
+        <a className="hb-link" href="/flow">TIME &amp; SALES</a>
+      </nav>
       <input
         className="hb-search"
         value={q}
@@ -53,12 +57,6 @@ export default function HeaderBar({
             )}
           </>
         )}
-        <a className="hb-link" href="/bienvenida" title="Portada de presentación">✨ Portada</a>
-        <a className="hb-link" href="/" title="Volver al inicio">🏠 Inicio</a>
-        <a className="hb-link" href="/daytrades" title="Muros de gamma del día + ideas 0DTE">⚡ Day Trades</a>
-        <a className="hb-link" href="/guia" title="Cómo funciona Nagimi, explicado simple">📚 Guía</a>
-        <a className="hb-link" href="/cookie" title="Renovar cookie de MarketSnack">🍪 Cookie</a>
-        <a className="hb-link" href="/watchlist" title="Tu lista de seguimiento">⭐ Watchlist</a>
       </div>
     </div>
   );

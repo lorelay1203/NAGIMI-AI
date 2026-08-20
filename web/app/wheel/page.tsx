@@ -7,9 +7,10 @@ import WheelTable from "@/app/components/WheelTable";
 import { sortByAffordThenScore } from "@/lib/wheelAfford";
 import type { PresetId, WheelCandidate } from "@/lib/wheel";
 import type { RiskProfile } from "@/lib/risk";
+import { migrateLegacyValue } from "@/lib/storageMigration";
 import type { WheelSseEvent } from "./types";
 
-const KEY_PRESET = "tito.wheel.preset";
+const KEY_PRESET = "nagimi.wheel.preset";
 const KEY_MODE = "nagimi.wheel.mode";
 type WheelMeta = { scanned: number; failed: number; withCandidates: number; degraded: boolean };
 
@@ -26,6 +27,7 @@ export default function WheelPage() {
 
   useEffect(() => {
     setProfile(loadProfile());
+    migrateLegacyValue("wheel.preset", KEY_PRESET);
     const p = window.localStorage.getItem(KEY_PRESET);
     if (p === "corto" || p === "conservador" || p === "balanceado" || p === "agresivo") setPreset(p);
     const m = window.localStorage.getItem(KEY_MODE);

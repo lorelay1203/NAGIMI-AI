@@ -16,7 +16,7 @@ Las 4 fuentes funcionan end-to-end con INTC y SPY:
 - **Memoria auto-correctiva:** viva (guarda predicciones, compara vs real)
 - **Conclusión:** motor apto para construir encima.
 
-## 🔎 Repo GitHub (infusionvictor/agente-tito-metralleta)
+## 🔎 Repositorio de origen
 Es el ANCESTRO de Nagimi AI. Features que tu versión NO tiene:
 - **/wheel** — screener de cash-secured puts (universo 40 tickers, score)
 - **/ideas** — panel de riesgo/screener de mercado (mejorado 3-ago para cuenta chica)
@@ -110,7 +110,7 @@ Es el ANCESTRO de Nagimi AI. Features que tu versión NO tiene:
   Vol 0 / OI<100 se marcan en color (aviso de liquidez). El OrderBuilder YA tenía
   PoP (por IV + ajustada), break-even, ganancia/pérdida máx.
 
-## 💡 Feature /ideas PORTADO del repo tito-metralleta (2026-08-07)
+## 💡 Feature /ideas portada del repositorio de origen (2026-08-07)
 - Commit "feat(ideas): screener más accesible para cuenta chica" (3-ago) traído.
 - **lib/risk.ts** (drop-in, depende solo de flow.ts que ya era compatible):
   passesQualityFilter · isTradeableIdea · withinMoneyness · sizeFlow · budgetsOf.

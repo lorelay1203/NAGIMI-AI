@@ -1,10 +1,10 @@
 T
-Agente Tito Metralleta PRO
+Nagimi AI Investing PRO
 Mapa de nodos GEX y predicción de precio — guía técnica para estudiantes. Cómo el agente lee el flujo de opciones, dónde se concentra el dinero, y cómo estima hacia dónde tiende el precio.
 Sistema multi-agente de análisis de options flow · Documento de referencia · Julio 2026 Preparado para estudiantes · Infusion Investments
 
 1 Qué es el sistema
-Tito Metralleta es un agente que analiza la actividad de opciones de una acción para identificar dónde están apostando los grandes jugadores y qué significa. Combina varios sub-agentes; cada uno responde una pregunta y da una nota de 0 a 10.
+Nagimi AI Investing es un agente que analiza la actividad de opciones de una acción para identificar dónde están apostando los grandes jugadores y qué significa. Combina varios sub-agentes; cada uno responde una pregunta y da una nota de 0 a 10.
 
 Agresividad ¿Compran al ask con fuerza? (urgencia del comprador)
 
@@ -144,6 +144,6 @@ Muchas burbujas ↻ en un strike Insistencia de un jugador sobre ese contrato �
 
 Filosofía: primero se lee la estructura del precio; el GEX confirma, no adivina. Es una capa de contexto, no una bola de cristal.
 
-Las predicciones son estimaciones de una IA basadas en datos de mercado, no constituyen consejo financiero. La gamma y la volatilidad implícita son estimaciones (volatilidad realizada + Black-Scholes), ancladas a datos reales cuando existen. Material educativo de Agente Tito Metralleta.
+Las predicciones son estimaciones de una IA basadas en datos de mercado, no constituyen consejo financiero. La gamma y la volatilidad implícita son estimaciones (volatilidad realizada + Black-Scholes), ancladas a datos reales cuando existen. Material educativo de Nagimi AI Investing.
 
 

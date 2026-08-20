@@ -335,7 +335,7 @@ function describeStatus(status: number, ticker: string, body: string): string {
 
 // ============================================================================
 //  Wheel — cadena de PUTS OTM para el screener de cash-secured puts (/wheel).
-//  Portado del repo ancestro (Tito Metralleta). El delta NO viene de aquí:
+//  Portado del repositorio de origen. El delta NO viene de aquí:
 //  se calcula por Black-Scholes en lib/wheel.ts.
 // ============================================================================
 export interface WheelChainResult {

@@ -1,6 +1,6 @@
 // El watchlist del estudiante, en su navegador.
 //
-// Vive en localStorage por la misma razón que el perfil de riesgo (`tito.risk.*`): la
+// Vive en localStorage por la misma razón que el perfil de riesgo (`nagimi.risk.*`): la
 // entrada guarda tu saldo y tu sizing del momento, y eso no tiene por qué llegar al
 // servidor. De paso resuelve el despliegue compartido — con un archivo único en el
 // servidor toda la clase escribía en el mismo watchlist.
@@ -8,14 +8,22 @@
 // Contrapartida asumida: no cruza dispositivos y limpiar el navegador lo borra.
 
 import { sortEntries, type WatchlistEntry } from "./watchlist";
+import { migrateLegacyValue } from "./storageMigration";
 
-const KEY = "tito.watchlist";
-const KEY_BROKER = "tito.watchlist.broker";
+const KEY = "nagimi.watchlist";
+const KEY_BROKER = "nagimi.watchlist.broker";
 /** Marca de la importación única desde el viejo data/watchlist.json. */
-const KEY_MIGRATED = "tito.watchlist.migrated";
+const KEY_MIGRATED = "nagimi.watchlist.migrated";
+
+function migrateWatchlistStorage(): void {
+  migrateLegacyValue("watchlist", KEY);
+  migrateLegacyValue("watchlist.broker", KEY_BROKER);
+  migrateLegacyValue("watchlist.migrated", KEY_MIGRATED);
+}
 
 export function loadEntries(): WatchlistEntry[] {
   if (typeof window === "undefined") return [];
+  migrateWatchlistStorage();
   try {
     const raw = window.localStorage.getItem(KEY);
     if (!raw) return [];
@@ -37,6 +45,7 @@ export function saveEntries(entries: WatchlistEntry[]): void {
 
 export function loadBroker(): string {
   if (typeof window === "undefined") return "none";
+  migrateWatchlistStorage();
   return window.localStorage.getItem(KEY_BROKER) ?? "none";
 }
 
@@ -52,6 +61,7 @@ export function saveBroker(id: string): void {
 /** ¿Ya importamos el watchlist viejo del servidor? Solo se hace una vez. */
 export function hasMigrated(): boolean {
   if (typeof window === "undefined") return true;
+  migrateWatchlistStorage();
   return window.localStorage.getItem(KEY_MIGRATED) === "1";
 }
 

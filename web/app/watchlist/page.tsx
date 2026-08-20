@@ -2,7 +2,7 @@
 
 // Lista de seguimiento (Watchlist) — tickers/contratos que marcaste como favoritos.
 // Vive en tu navegador (localStorage); al servidor solo sube el ticker si el broker
-// elegido sincroniza por MCP. Portada del repo ancestro (Tito Metralleta).
+// elegido sincroniza por MCP. Portada del repositorio de origen.
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import WatchlistCard from "@/app/components/WatchlistCard";
