@@ -107,9 +107,22 @@ function legText(l: PaperLeg): string {
 }
 
 // Panel de detalle: por qué el motor eligió el trade + sus patas.
-function TradeDetail({ t }: { t: PaperTrade }) {
+function TradeDetail({ t, entry }: { t: PaperTrade; entry?: EntryInfo }) {
+  const maxP = maxProfitOf(t);
   return (
     <div style={{ background: "var(--panel-2)", border: "1px solid var(--border-soft)", borderRadius: 10, padding: "12px 14px", marginTop: 6, display: "flex", flexDirection: "column", gap: 10 }}>
+      {entry && (
+        <div style={{ background: "var(--panel)", border: `1px solid ${entry.color}55`, borderRadius: 8, padding: "10px 12px" }}>
+          <div style={{ fontSize: 12.5, fontWeight: 700, color: entry.color, marginBottom: 3 }}>
+            {entry.emoji} ¿Puedo entrar a este trade? — {entry.label}
+          </div>
+          <div style={{ fontSize: 12, lineHeight: 1.55, color: "var(--text)" }}>{entry.tip}</div>
+          <div style={{ fontSize: 11.5, color: "var(--muted)", marginTop: 6, lineHeight: 1.5 }}>
+            El <b>P/L</b> que ves es la ganancia <b>en papel desde que Nagimi encontró la idea</b> — no es lo que ganarías entrando hoy.
+            {maxP != null && <> En este crédito lo <b>máximo</b> que se puede ganar son <b>${px.format(maxP)}</b> (la prima). Nunca más que eso.</>}
+          </div>
+        </div>
+      )}
       <div>
         <div style={{ fontSize: 11, fontWeight: 700, color: "var(--muted)", textTransform: "uppercase", letterSpacing: ".03em", marginBottom: 4 }}>Las patas de la orden</div>
         <div style={{ display: "flex", flexDirection: "column", gap: 3 }}>
@@ -155,6 +168,36 @@ const expOf = (t: PaperTrade): string => {
 // Nombre del trade SIN la fecha (para no duplicarla con la columna Vence).
 const labelNoDate = (label: string): string => label.replace(/\s*·\s*\d{4}-\d{2}-\d{2}\s*$/, "").trim();
 
+// Días que faltan para el vencimiento (según el reloj de la compu).
+const dteOf = (t: PaperTrade): number | null => {
+  const exp = expOf(t);
+  const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(exp);
+  if (!m) return null;
+  const end = new Date(Number(m[1]), Number(m[2]) - 1, Number(m[3]));
+  const now = new Date();
+  const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  return Math.round((end.getTime() - today.getTime()) / 86400000);
+};
+// Ganancia MÁXIMA posible de un crédito ≈ prima recibida (entryNet<0) × 100 × contratos.
+const maxProfitOf = (t: PaperTrade): number | null =>
+  t.entryNet < 0 ? Math.abs(t.entryNet) * 100 * t.qtyContracts : null;
+
+// ¿Todavía se puede ENTRAR a este trade hoy? Semáforo en lenguaje llano.
+interface EntryInfo { emoji: string; label: string; color: string; tip: string }
+function entryStatus(t: PaperTrade, pl: number | null): EntryInfo {
+  const dte = dteOf(t);
+  if (dte != null && dte < 0)
+    return { emoji: "🔴", label: "Venció", color: "#f04438", tip: "Ya pasó la fecha de vencimiento. No se puede entrar — usa 🗑 para quitarlo." };
+  if (dte === 0)
+    return { emoji: "🔴", label: "Vence hoy", color: "#f04438", tip: "Vence hoy: no es momento de abrir esta posición." };
+  const maxP = maxProfitOf(t);
+  if (maxP != null && pl != null && pl >= 0.7 * maxP)
+    return { emoji: "🟡", label: "Ya corrió", color: "#e0a800", tip: "La idea ya casi tocó su ganancia máxima. Si entras ahora recibes MUY poca prima — lo bueno ya pasó. Mejor busca una fresca." };
+  if (dte != null && dte >= 1)
+    return { emoji: "🟢", label: "Se puede", color: "#12b76a", tip: `Quedan ${dte} día${dte === 1 ? "" : "s"}. Todavía puedes entrar, pero recibirás algo menos de prima que cuando Nagimi la encontró.` };
+  return { emoji: "⚪", label: "—", color: "var(--muted)", tip: "Sin fecha de vencimiento clara." };
+}
+
 const pth: React.CSSProperties = { textAlign: "right", padding: "8px 10px", fontSize: 11, color: "var(--muted)", fontWeight: 700, whiteSpace: "nowrap", borderBottom: "1px solid var(--border)", userSelect: "none" };
 const ptd: React.CSSProperties = { textAlign: "right", padding: "9px 10px", fontSize: 12.5, whiteSpace: "nowrap", borderBottom: "1px solid var(--border-soft)" };
 
@@ -195,13 +238,27 @@ export default function PaperTradingCard() {
     });
     load();
   }
+  // Borrar con confirmación (para los trades viejos que ya no tienen precio en vivo).
+  function delConfirm(t: Enriched) {
+    if (window.confirm(`¿Borrar este trade de la lista?\n\n${t.ticker} · ${labelNoDate(t.label)}\n\nSe quita del papel para siempre. No afecta dinero real.`)) {
+      del(t.id);
+    }
+  }
 
   // P/L de un trade por contrato × 100 (multiplicador de opciones) × nº de estructuras.
   const plOf = (t: Enriched): number | null => {
     const exit = t.status === "closed" ? t.exitNet : t.live;
     if (exit == null) return null;
     // Débito: pagas entryNet, vale exit → ganas (exit - entryNet).
-    return (exit - t.entryNet) * 100 * t.qtyContracts;
+    let pl = (exit - t.entryNet) * 100 * t.qtyContracts;
+    // Techo/piso REALES de un crédito: nunca ganas más que la prima recibida, ni
+    // pierdes más que el riesgo. Sin esto, una opción vencida cotiza mal e infla el
+    // P/L a números imposibles (p.ej. $173 en un spread cuyo máximo era $20).
+    const maxProfit = maxProfitOf(t);
+    if (maxProfit != null && pl > maxProfit) pl = maxProfit;
+    const risk = riskOf(t);
+    if (risk != null && pl < -risk * t.qtyContracts) pl = -risk * t.qtyContracts;
+    return pl;
   };
 
   // Marcador: solo cuenta trades con P/L conocido.
@@ -281,6 +338,11 @@ export default function PaperTradingCard() {
                 <span>Abiertos ({open.length})</span>
                 <span style={{ fontSize: 11, color: "var(--muted)", fontWeight: 400 }}>toca un encabezado para ordenar ▲▼</span>
               </div>
+              <div style={{ fontSize: 11, color: "var(--muted)", marginTop: 4, lineHeight: 1.5 }}>
+                Columna <b>¿Entrar?</b>: <span style={{ color: "#12b76a", fontWeight: 700 }}>🟢 Se puede</span> = aún da tiempo ·
+                {" "}<span style={{ color: "#e0a800", fontWeight: 700 }}>🟡 Ya corrió</span> = la idea ya casi ganó todo, entrar ahora deja poco ·
+                {" "}<span style={{ color: "#f04438", fontWeight: 700 }}>🔴 Venció</span> = fuera de tiempo, bórralo con 🗑. Pasa el mouse por encima para el detalle.
+              </div>
               <div style={{ overflowX: "auto", border: "1px solid var(--border)", borderRadius: 12, marginTop: 6 }}>
                 <table style={{ width: "100%", borderCollapse: "collapse", background: "var(--panel)" }}>
                   <thead><tr>
@@ -291,6 +353,7 @@ export default function PaperTradingCard() {
                     <th style={{ ...pth, cursor: "pointer" }} onClick={() => sortBy("entrada")}>Entrada{arrow("entrada")}</th>
                     <th style={{ ...pth, cursor: "pointer" }} onClick={() => sortBy("riesgo")}>Riesgo{arrow("riesgo")}</th>
                     <th style={pth}>Fuente</th>
+                    <th style={{ ...pth, textAlign: "center" }}>¿Entrar?</th>
                     <th style={pth}>Acciones</th>
                   </tr></thead>
                   <tbody>
@@ -312,6 +375,13 @@ export default function PaperTradingCard() {
                             <td style={ptd}>${px.format(t.entryNet)}</td>
                             <td style={ptd}>{risk != null ? `$${risk}` : "—"}</td>
                             <td style={{ ...ptd, textAlign: "center" }}>{t.source === "motor" ? "🤖" : "✍️"}</td>
+                            <td style={{ ...ptd, textAlign: "center" }}>
+                              {(() => { const e = entryStatus(t, pl); return (
+                                <span title={e.tip} style={{ display: "inline-flex", alignItems: "center", gap: 3, fontSize: 11, fontWeight: 700, color: e.color, border: `1px solid ${e.color}55`, borderRadius: 999, padding: "2px 8px", cursor: "help", whiteSpace: "nowrap" }}>
+                                  {e.emoji} {e.label}
+                                </span>
+                              ); })()}
+                            </td>
                             <td style={ptd}>
                               <div style={{ display: "flex", gap: 5, justifyContent: "flex-end" }}>
                                 <button type="button" onClick={() => setSendId(sendId === t.id ? null : t.id)}
@@ -320,17 +390,23 @@ export default function PaperTradingCard() {
                                   💵 Ejecutar
                                 </button>
                                 <button type="button" onClick={() => close(t)} disabled={t.live == null}
-                                  style={{ fontSize: 11, background: "transparent", border: "1px solid var(--border)", borderRadius: 6, color: "var(--text)", padding: "3px 8px", cursor: "pointer" }}>
+                                  title={t.live == null ? "Sin precio en vivo (la opción ya venció) — usa 🗑 para quitarlo" : "Cerrar a precio actual y pasar a Cerrados"}
+                                  style={{ fontSize: 11, background: "transparent", border: "1px solid var(--border)", borderRadius: 6, color: t.live == null ? "var(--muted)" : "var(--text)", padding: "3px 8px", cursor: t.live == null ? "not-allowed" : "pointer", opacity: t.live == null ? 0.5 : 1 }}>
                                   Cerrar
+                                </button>
+                                <button type="button" onClick={() => delConfirm(t)}
+                                  title="Borrar este trade de la lista (para los viejos)"
+                                  style={{ fontSize: 11, background: "transparent", border: "1px solid var(--border)", borderRadius: 6, color: "var(--muted)", padding: "3px 8px", cursor: "pointer" }}>
+                                  🗑
                                 </button>
                               </div>
                             </td>
                           </tr>
                           {(sendId === t.id || isOpen) && (
                             <tr>
-                              <td colSpan={8} style={{ padding: "0 10px 10px", background: "var(--panel-2)", borderBottom: "1px solid var(--border-soft)" }}>
+                              <td colSpan={9} style={{ padding: "0 10px 10px", background: "var(--panel-2)", borderBottom: "1px solid var(--border-soft)" }}>
                                 {sendId === t.id && <SendPaperPanel t={t} />}
-                                {isOpen && <TradeDetail t={t} />}
+                                {isOpen && <TradeDetail t={t} entry={entryStatus(t, pl)} />}
                               </td>
                             </tr>
                           )}

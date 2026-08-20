@@ -3,9 +3,11 @@
 import type { MsGexResult } from "@/lib/marketsnackGex";
 import { px } from "../format";
 
-const RES = "#ff5d52"; // call wall (resistencia)
-const SUP = "#2ec77f"; // put wall (soporte)
-const MAG = "#4d8bff"; // imán
+// Colores como en MarketSnack: CALLS verde, PUTS rojo, imán ámbar, flip tenue.
+const CALL = "#2ec77f";  // call wall (resistencia) — verde
+const PUT = "#ff5d52";   // put wall (soporte) — rojo
+const MAG = "#e0a823";   // imán — ámbar
+const FLIP = "#9a86ff";  // gamma flip — lila
 const PRICE = "#e9ebf2";
 
 function fmtGex(v: number): string {
@@ -22,9 +24,22 @@ function hhmm(iso: string): string {
   } catch { return ""; }
 }
 
+// Un ítem de la barra de niveles (marcador de color + etiqueta + valor).
+function LegendItem({ color, label, value, dashed }: { color: string; label: string; value: string; dashed?: boolean }) {
+  return (
+    <div style={{ display: "flex", alignItems: "center", gap: 7, whiteSpace: "nowrap" }}>
+      <span style={{ width: 14, height: dashed ? 0 : 10, borderRadius: 2,
+        background: dashed ? "transparent" : color,
+        borderTop: dashed ? `2px dashed ${color}` : undefined, display: "inline-block" }} />
+      <span style={{ fontSize: 11, color: "var(--muted)", fontWeight: 700 }}>{label}</span>
+      <span style={{ fontSize: 13, color, fontWeight: 800 }}>{value}</span>
+    </div>
+  );
+}
+
 /**
- * GEX de MarketSnack como GRÁFICA: precio intradía + muros (call/put wall) e imán
- * dibujados como líneas. Se ve al precio moverse entre los muros y hacia el imán.
+ * GEX de MarketSnack como GRÁFICA: barra de niveles arriba (precio, muros, imán,
+ * flip, net GEX) + precio intradía con los muros dibujados como líneas.
  */
 export default function MarketSnackGexCard({ data }: { data: MsGexResult }) {
   const g = data.latest;
@@ -70,17 +85,24 @@ export default function MarketSnackGexCard({ data }: { data: MsGexResult }) {
             <div className="pro-title">GEX en vivo — precio, muros e imán</div>
             <span className="pro-badge">PRO</span>
           </div>
-          <div className="pro-sub">
-            El precio del día (línea clara) entre el <b style={{ color: SUP }}>put wall</b> (soporte) y el
-            {" "}<b style={{ color: RES }}>call wall</b> (resistencia), jalando hacia el <b style={{ color: MAG }}>imán</b>.
-            Datos reales de MarketSnack.
-          </div>
+          <div className="pro-sub">El precio del día entre el put wall (soporte) y el call wall (resistencia), jalando hacia el imán. Datos reales de MarketSnack.</div>
         </div>
+      </div>
+
+      {/* Barra de niveles — soporte y resistencia en formato tipo MarketSnack */}
+      <div style={{ display: "flex", flexWrap: "wrap", gap: "8px 20px", alignItems: "center",
+        padding: "11px 14px", background: "var(--panel-2)", border: "1px solid var(--border)", borderRadius: 10, marginTop: 4 }}>
+        <LegendItem color={PRICE} label="Precio" value={`$${px.format(g.assetPrice)}`} />
+        {g.callWall > 0 && <LegendItem color={CALL} label="Call Wall" value={`$${px.format(g.callWall)}`} />}
+        {g.magnet > 0 && <LegendItem color={MAG} label="🧲 Imán" value={`$${px.format(g.magnet)}`} />}
+        {g.putWall > 0 && <LegendItem color={PUT} label="Put Wall" value={`$${px.format(g.putWall)}`} />}
+        {g.gammaFlip > 0 && <LegendItem color={FLIP} label="Gamma Flip" value={`$${px.format(g.gammaFlip)}`} dashed />}
+        <LegendItem color={posRegime ? CALL : PUT} label="Net GEX" value={fmtGex(g.netGex)} />
+        {g.maxPain > 0 && <LegendItem color="#7a8699" label="Max Pain" value={`$${px.format(g.maxPain)}`} />}
       </div>
 
       <div style={{ overflowX: "auto" }}>
         <svg viewBox={`0 0 ${W} ${H}`} width="100%" role="img" aria-label="GEX intradía" style={{ display: "block", minWidth: 520 }}>
-          {/* rejilla + eje Y */}
           {yTicks.map((v) => (
             <g key={v}>
               <line x1={padL} y1={yOf(v)} x2={W - padR} y2={yOf(v)} stroke="rgba(255,255,255,0.06)" strokeWidth={1} />
@@ -88,17 +110,15 @@ export default function MarketSnackGexCard({ data }: { data: MsGexResult }) {
             </g>
           ))}
 
-          {/* muros e imán */}
-          {Level(g.putWall, SUP, "Put wall")}
-          {Level(g.callWall, RES, "Call wall")}
+          {Level(g.putWall, PUT, "Put wall")}
+          {Level(g.callWall, CALL, "Call wall")}
           {Level(g.magnet, MAG, "Imán", "4 3")}
+          {Level(g.gammaFlip, FLIP, "Flip", "2 3")}
 
-          {/* línea de precio intradía */}
           {series.length > 1 && <path d={pricePath} fill="none" stroke={PRICE} strokeWidth={2} strokeLinejoin="round" strokeLinecap="round" />}
           <circle cx={lastX} cy={lastY} r={3.5} fill={PRICE} />
           <text x={lastX - 6} y={lastY - 8} textAnchor="end" fontSize={10} fontWeight={700} fill={PRICE}>${px.format(g.assetPrice)}</text>
 
-          {/* eje X: primera y última hora */}
           {series.length > 1 && (
             <>
               <text x={padL} y={H - padB + 15} textAnchor="start" fontSize={10} fill="#8a93a6">{hhmm(series[0].t)}</text>
@@ -111,7 +131,7 @@ export default function MarketSnackGexCard({ data }: { data: MsGexResult }) {
       <div className="heat-foot">
         <div>
           <span className="muted">Net GEX: </span>
-          <b style={{ color: posRegime ? SUP : RES }}>{fmtGex(g.netGex)}</b>
+          <b style={{ color: posRegime ? CALL : PUT }}>{fmtGex(g.netGex)}</b>
           <span className="muted"> — {posRegime ? "γ+ estabiliza (rango)" : "γ− amplifica (tendencia)"}</span>
         </div>
         <div className="muted" style={{ fontSize: 11 }}>

@@ -2,6 +2,10 @@
 // Inicia sesión como un humano, captura la cookie de sesión y la guarda con
 // setMarketsnackCookie(). Se usa para renovar la cookie SOLA cuando caduca.
 // Credenciales: data/marketsnack_login.json (local, en .gitignore). Sin ejecución.
+//
+// Reactivado 2026-08-18 con autorización de la usuaria. Incluye un CANDADO de
+// enfriamiento: no reloguea más de una vez cada COOLDOWN_MS, para no crear una
+// tormenta de logins que la saque de su propia sesión a cada rato.
 
 import { promises as fs } from "fs";
 import path from "path";
@@ -29,12 +33,23 @@ export async function hasLogin(): Promise<boolean> {
   return (await getLogin()) != null;
 }
 
+/** Borra las credenciales guardadas (apaga el auto-login). */
+export async function clearLogin(): Promise<void> {
+  await fs.rm(LOGIN_FILE, { force: true });
+}
+
 // Evita abrir varios navegadores a la vez si llegan muchos 401 juntos.
 let inFlight: Promise<boolean> | null = null;
+// Candado de enfriamiento: no reloguear otra vez antes de que pasen estos ms.
+const COOLDOWN_MS = 90_000;
+let lastAttempt = 0;
 
 /** Inicia sesión headless y guarda la cookie fresca. Devuelve true si funcionó. */
-export async function reloginMarketsnack(): Promise<boolean> {
+export async function reloginMarketsnack(force = false): Promise<boolean> {
   if (inFlight) return inFlight;
+  const since = Date.now() - lastAttempt;
+  if (!force && since < COOLDOWN_MS) return false; // aún en enfriamiento
+  lastAttempt = Date.now();
   inFlight = doRelogin().finally(() => { inFlight = null; });
   return inFlight;
 }

@@ -1,6 +1,11 @@
 // fetch compartido para MarketSnack: inyecta la cookie y, si la sesión caducó
 // (401/403/redirección), re-loguea SOLO con Playwright y reintenta UNA vez.
 // Así la cookie se renueva invisible, sin que la usuaria toque nada.
+//
+// NOTA (reactivado 2026-08-18 con autorización de la usuaria): el auto-login
+// mantiene la sesión de MarketSnack de NAGIMI fresca. Como MarketSnack permite
+// una sola sesión por cuenta, conviene que la usuaria NO navegue el sitio de
+// MarketSnack a la vez (deja que Nagimi sea el único con sesión abierta).
 
 import { getMarketsnackCookie } from "./marketsnackCookie";
 import { reloginMarketsnack, hasLogin } from "./marketsnackLogin";

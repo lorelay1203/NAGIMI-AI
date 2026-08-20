@@ -213,6 +213,8 @@ interface AggBar {
   h: number;
   l: number;
   c: number;
+  v?: number;  // volumen (aggs lo incluye)
+  vw?: number; // VWAP del bar
 }
 
 function toDateStr(ms: number): string {
@@ -262,6 +264,42 @@ export async function fetchBars(
     low: b.l,
     close: b.c,
   }));
+}
+
+/** Barra intradía CON volumen y VWAP del bar (para VWAP de sesión, rango, etc.). */
+export interface IntradayBar {
+  t: number; // epoch ms
+  o: number; h: number; l: number; c: number;
+  v: number;  // volumen
+  vw: number; // VWAP del propio bar
+}
+
+/**
+ * Velas intradía (p.ej. 5 min) del subyacente, conservando volumen y VWAP.
+ * En el plan de Massive vienen DELAYED (con retraso), no en vivo tick a tick.
+ */
+export async function fetchIntradayBars(
+  ticker: string,
+  multiplier: number,
+  days: number,
+): Promise<IntradayBar[]> {
+  const clean = ticker.trim().toUpperCase();
+  const to = new Date();
+  const from = new Date(to.getTime() - days * 24 * 60 * 60 * 1000);
+  const path =
+    `/v2/aggs/ticker/${encodeURIComponent(clean)}/range/${multiplier}/minute/` +
+    `${toDateStr(from.getTime())}/${toDateStr(to.getTime())}` +
+    `?adjusted=true&sort=asc&limit=50000`;
+  const json = await getJson<{ results?: AggBar[] }>(path).catch(() => null);
+  const bars = json?.results ?? [];
+  return bars
+    .filter((b) => typeof b.c === "number")
+    .map((b) => ({
+      t: b.t,
+      o: b.o, h: b.h, l: b.l, c: b.c,
+      v: typeof b.v === "number" ? b.v : 0,
+      vw: typeof b.vw === "number" ? b.vw : b.c,
+    }));
 }
 
 /** Descarga la imagen del logo (o icono) para servirla por proxy. */

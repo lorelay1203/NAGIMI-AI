@@ -1,7 +1,8 @@
 "use client";
 
-// Renovar cookie de MarketSnack — sin Claude, sin tocar archivos, sin reiniciar.
-// Pega la cookie de app.marketsnack.com, pulsa Guardar, y la app la usa al instante.
+// Renovar cookie de MarketSnack + AUTO-LOGIN (reactivado 2026-08-18 con permiso
+// de la usuaria). Puede: (a) auto-renovar sola guardando email+contraseña, o
+// (b) pegar la cookie a mano. Todo se guarda solo en el PC (data/, fuera de git).
 
 import { useEffect, useState } from "react";
 import ConexionesCard from "../components/ConexionesCard";
@@ -46,6 +47,15 @@ export default function CookiePage() {
     loadStatus();
   }
 
+  async function apagarAuto() {
+    setAutoBusy(true);
+    await fetch("/api/marketsnack-login", {
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ action: "clear" }),
+    }).catch(() => {});
+    setAutoBusy(false); setAutoMsg("Auto-login apagado. Ya no se guardan tus credenciales."); loadLogin();
+  }
+
   async function save() {
     if (!value.trim()) { setMsg("Pega la cookie primero."); return; }
     setBusy(true); setMsg(null);
@@ -70,9 +80,9 @@ export default function CookiePage() {
     <main className="wrap page-stack" style={{ maxWidth: 720 }}>
       <div>
         <a href="/" style={{ color: "var(--accent)", fontSize: 13, fontWeight: 600 }}>← Volver al inicio</a>
-        <h1 style={{ margin: "8px 0 4px", fontSize: 22 }}>🍪 Renovar cookie de MarketSnack</h1>
-        <p style={{ margin: 0, color: "var(--muted)" }}>
-          La cookie de MarketSnack caduca cada pocas horas. Renuévala aquí — se aplica al instante, sin reiniciar nada.
+        <h1 style={{ margin: "8px 0 4px", fontSize: 22 }}>🍪 MarketSnack — cookie y auto-login</h1>
+        <p style={{ margin: 0, color: "var(--muted)", lineHeight: 1.5 }}>
+          Activa el auto-login para que Nagimi renueve la cookie <b>sola</b>, o pégala a mano. Se aplica al instante.
         </p>
       </div>
 
@@ -104,15 +114,23 @@ export default function CookiePage() {
             {autoBusy ? "Trabajando…" : hasLogin ? "Actualizar acceso" : "Activar auto-login"}
           </button>
           {hasLogin && (
-            <button type="button" onClick={probarAuto} disabled={autoBusy}
-              style={{ background: "transparent", border: "1px solid var(--border)", color: "var(--text)", borderRadius: 10, padding: "10px 14px", fontWeight: 600, cursor: "pointer", fontSize: 13.5 }}>
-              ↻ Renovar ahora
-            </button>
+            <>
+              <button type="button" onClick={probarAuto} disabled={autoBusy}
+                style={{ background: "transparent", border: "1px solid var(--border)", color: "var(--text)", borderRadius: 10, padding: "10px 14px", fontWeight: 600, cursor: "pointer", fontSize: 13.5 }}>
+                ↻ Renovar ahora
+              </button>
+              <button type="button" onClick={apagarAuto} disabled={autoBusy}
+                style={{ background: "transparent", border: "1px solid #ff5d5255", color: "#ff8a82", borderRadius: 10, padding: "10px 14px", fontWeight: 600, cursor: "pointer", fontSize: 13.5 }}>
+                Apagar auto-login
+              </button>
+            </>
           )}
         </div>
         {autoMsg && <div style={{ color: "var(--text)", fontSize: 13.5 }}>{autoMsg}</div>}
-        <div style={{ fontSize: 11.5, color: "var(--muted)" }}>
-          🔒 Tu email y contraseña se guardan <b>solo en tu PC</b> (<code>data\marketsnack_login.json</code>, fuera de git). Nagimi los usa únicamente para iniciar sesión en MarketSnack y leer datos.
+        <div style={{ fontSize: 11.5, color: "var(--muted)", lineHeight: 1.5 }}>
+          🔒 Tu email y contraseña se guardan <b>solo en tu PC</b> (<code>data\marketsnack_login.json</code>, fuera de git).
+          {" "}⚠️ MarketSnack permite <b>una sola sesión</b> por cuenta: si dejas que Nagimi la renueve, no navegues el sitio
+          de MarketSnack al mismo tiempo (déjale la sesión a Nagimi para que no se peleen).
         </div>
       </section>
 
@@ -143,7 +161,7 @@ export default function CookiePage() {
       </section>
 
       <div className="disclaimer">
-        Tu cookie se guarda solo en tu PC (<code>web\data\marketsnack_cookie.txt</code>). No se comparte. Trátala como una contraseña.
+        Tu cookie y credenciales se guardan solo en tu PC. No se comparten. Trátalas como una contraseña.
       </div>
     </main>
   );
