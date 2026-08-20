@@ -25,6 +25,13 @@ const TICKERS: { sym: string; note?: string }[] = [
 const money = (n: number | null): string =>
   n == null ? "—" : `$${n >= 1000 ? n.toLocaleString("en-US", { maximumFractionDigits: 2 }) : n.toFixed(2)}`;
 const scoreColor = (s: number) => (s <= 3.9 ? "#f04438" : s <= 6 ? "#e0a823" : "#12b76a");
+const bigMoney = (v: number): string => {
+  const a = Math.abs(v);
+  if (a >= 1e9) return `$${(a / 1e9).toFixed(1)}B`;
+  if (a >= 1e6) return `$${(a / 1e6).toFixed(1)}M`;
+  if (a >= 1e3) return `$${(a / 1e3).toFixed(0)}K`;
+  return `$${a.toFixed(0)}`;
+};
 
 function SectionHead({ icon, title, sub }: { icon: string; title: string; sub?: string }) {
   return (
@@ -74,6 +81,8 @@ const tile: React.CSSProperties = { background: "var(--panel-2)", border: "1px s
 const tileLabel: React.CSSProperties = { fontSize: 10.5, color: "var(--muted)", fontWeight: 700, textTransform: "uppercase", letterSpacing: ".04em" };
 const tileNote: React.CSSProperties = { fontSize: 11.5, color: "var(--muted)", marginTop: 3, lineHeight: 1.4 };
 const grid4: React.CSSProperties = { display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(150px, 1fr))", gap: 10 };
+const dth: React.CSSProperties = { textAlign: "left", padding: "9px 12px", fontSize: 10.5, color: "var(--muted)", fontWeight: 700, textTransform: "uppercase", letterSpacing: ".03em", borderBottom: "1px solid var(--border)", whiteSpace: "nowrap" };
+const dtd: React.CSSProperties = { textAlign: "left", padding: "9px 12px", fontSize: 12.5, whiteSpace: "nowrap" };
 
 const biasColor = (b: DayIdea["bias"]) => (b === "alcista" ? "#12b76a" : b === "bajista" ? "#f04438" : "#7a8699");
 function IdeaCard({ idea }: { idea: DayIdea }) {
@@ -254,13 +263,42 @@ export default function DayTradesPage() {
             </div>
           </div>
 
-          {/* Dinero de hoy (prints) — necesita MarketSnack */}
+          {/* Dinero de hoy (prints) — flujo real de MarketSnack */}
           <div>
-            <SectionHead icon="💰" title="Dinero de hoy" sub="las apuestas grandes por strike de hoy" />
-            <div className="card" style={{ textAlign: "center", color: "var(--muted)", fontSize: 13, lineHeight: 1.5 }}>
-              ⏳ El flujo de opciones del día (prints por strike, prima total, lado dominante) se llena cuando pegues la
-              cookie de <a href="/cookie" style={{ color: "var(--accent)", fontWeight: 700 }}>MarketSnack 🍪</a>.
-            </div>
+            <SectionHead icon="💰" title="Dinero de hoy"
+              sub={s.prints ? `${s.prints.count} prints · ${bigMoney(s.prints.premiumTotal)} en prima` : "las apuestas grandes por strike de hoy"} />
+            {s.prints && s.prints.byStrike.length > 0 ? (
+              <div className="card" style={{ padding: 0, overflow: "hidden" }}>
+                <div style={{ overflowX: "auto" }}>
+                  <table style={{ width: "100%", borderCollapse: "collapse", minWidth: 460 }}>
+                    <thead><tr>
+                      <th style={dth}>Strike</th>
+                      <th style={{ ...dth, textAlign: "right" }}>Dinero</th>
+                      <th style={{ ...dth, textAlign: "right" }}>En calls</th>
+                      <th style={{ ...dth, textAlign: "right" }}>En puts</th>
+                      <th style={{ ...dth, textAlign: "right" }}>Lado</th>
+                    </tr></thead>
+                    <tbody>
+                      {s.prints.byStrike.map((p) => (
+                        <tr key={p.strike} style={{ borderTop: "1px solid var(--border-soft)" }}>
+                          <td style={{ ...dtd, fontWeight: 800 }}>${money(p.strike)}</td>
+                          <td style={{ ...dtd, textAlign: "right", fontWeight: 700 }}>{bigMoney(p.total)}</td>
+                          <td style={{ ...dtd, textAlign: "right", color: p.call > 0 ? "#12b76a" : "var(--muted)" }}>{p.call > 0 ? bigMoney(p.call) : "$0"}</td>
+                          <td style={{ ...dtd, textAlign: "right", color: p.put > 0 ? "#f04438" : "var(--muted)" }}>{p.put > 0 ? bigMoney(p.put) : "$0"}</td>
+                          <td style={{ ...dtd, textAlign: "right" }}>
+                            <span style={{ fontSize: 10.5, fontWeight: 800, color: p.side === "PUTS" ? "#f04438" : "#12b76a", border: `1px solid ${p.side === "PUTS" ? "#f04438" : "#12b76a"}55`, borderRadius: 5, padding: "1px 6px" }}>{p.side}</span>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            ) : (
+              <div className="card" style={{ textAlign: "center", color: "var(--muted)", fontSize: 13, lineHeight: 1.5 }}>
+                Sin prints grandes en la sesión todavía. Si acabas de conectar la cookie, dale unos segundos y recarga.
+              </div>
+            )}
           </div>
 
           {/* Ideas */}

@@ -11,8 +11,21 @@
 
 import { fetchIntradayBars, fetchDailyBars, type IntradayBar } from "./massive";
 import { getDayGex } from "./dayGex";
+import { fetchFlow } from "./marketsnack";
+import { classifyFlow } from "./flow";
 
 export interface ScoreCard { score: number; note: string }
+
+export interface PrintRow { strike: number; total: number; call: number; put: number; side: "PUTS" | "CALLS" }
+export interface PrintsData { count: number; premiumTotal: number; byStrike: PrintRow[] }
+
+function fmtMoney(v: number): string {
+  const a = Math.abs(v);
+  if (a >= 1e9) return `$${(a / 1e9).toFixed(1)}B`;
+  if (a >= 1e6) return `$${(a / 1e6).toFixed(1)}M`;
+  if (a >= 1e3) return `$${(a / 1e3).toFixed(0)}K`;
+  return `$${a.toFixed(0)}`;
+}
 
 export interface DaySession {
   ticker: string;
@@ -54,8 +67,8 @@ export interface DaySession {
   putWallDeltaPct: number | null;
   gexSource: "massive" | "marketsnack";
 
-  // Dinero de hoy (prints) — se llena con MarketSnack
-  prints: null;
+  // Dinero de hoy (prints) — flujo real de MarketSnack (null si no hay cookie)
+  prints: PrintsData | null;
 }
 
 /** Fecha (YYYY-MM-DD) en horario del este (ET) de un epoch ms. */
@@ -177,8 +190,54 @@ export async function getDaySession(ticker: string): Promise<DaySession> {
       : "en medio del canal",
   };
 
+  // ── Flujo real de MarketSnack (Flujo de hoy, Agresividad, Dinero de hoy) ──
+  let flow: ScoreCard | null = null;
+  let aggression: ScoreCard | null = null;
+  let prints: PrintsData | null = null;
+  try {
+    const { trades } = await fetchFlow(clean, { period: "1d", minPremium: 25_000, maxPages: 6 });
+    const { rows } = classifyFlow(trades, new Date());
+    const use = rows.filter((r) => r.premium > 0 && r.strike != null);
+    if (use.length) {
+      // Agresividad: % de la prima ejecutada AL ASK.
+      let askPrem = 0, totalPrem = 0;
+      for (const r of use) { totalPrem += r.premium; if (r.aggression === "ask") askPrem += r.premium; }
+      const askPct = totalPrem > 0 ? (askPrem / totalPrem) * 100 : 0;
+      aggression = { score: Math.round((askPct / 10) * 10) / 10, note: `${Math.round(askPct)}% al ask` };
+
+      // Flujo: prima alcista (calls al ask + puts al bid) vs bajista.
+      let bull = 0, bear = 0;
+      for (const r of use) {
+        const isCall = r.type === "call", isPut = r.type === "put";
+        if ((isCall && r.aggression === "ask") || (isPut && r.aggression === "bid")) bull += r.premium;
+        else if ((isPut && r.aggression === "ask") || (isCall && r.aggression === "bid")) bear += r.premium;
+      }
+      const net = bull + bear;
+      const bullPct = net > 0 ? bull / net : 0.5;
+      flow = {
+        score: Math.round(bullPct * 10 * 10) / 10,
+        note: `${bullPct >= 0.55 ? "alcista" : bullPct <= 0.45 ? "bajista" : "mixto"} · ${fmtMoney(totalPrem)} en prima`,
+      };
+
+      // Dinero de hoy: prints agregados por strike.
+      const byStrike = new Map<number, { call: number; put: number }>();
+      for (const r of use) {
+        const s = byStrike.get(r.strike!) ?? { call: 0, put: 0 };
+        if (r.type === "call") s.call += r.premium; else if (r.type === "put") s.put += r.premium;
+        byStrike.set(r.strike!, s);
+      }
+      const rowsArr: PrintRow[] = [...byStrike.entries()]
+        .map(([strike, v]) => ({ strike, call: v.call, put: v.put, total: v.call + v.put, side: (v.put > v.call ? "PUTS" : "CALLS") as "PUTS" | "CALLS" }))
+        .sort((a, b) => b.total - a.total)
+        .slice(0, 12);
+      prints = { count: use.length, premiumTotal: totalPrem, byStrike: rowsArr };
+    }
+  } catch { /* sin cookie o error → flow/aggression/prints quedan null */ }
+
   // ── Veredicto: promedio de las señales disponibles ──
   const parts = [vwapCard.score, channelCard.score];
+  if (flow) parts.push(flow.score);
+  if (aggression) parts.push(aggression.score);
   const score = Math.round((parts.reduce((a, b) => a + b, 0) / parts.length) * 10) / 10;
   const bias: DaySession["bias"] = score >= 6 ? "alcista" : score <= 4 ? "bajista" : "neutral";
   const regimeNote = gex.regime === "positive"
@@ -188,13 +247,13 @@ export async function getDaySession(ticker: string): Promise<DaySession> {
   return {
     ticker: clean, sessionDate, delayed: true, price,
     score, bias, regime: gex.regime, regimeNote,
-    flow: null, aggression: null, vwapCard, channelCard,
+    flow, aggression, vwapCard, channelCard,
     vwap, vwapDelta,
     openRangeLow: orLow, openRangeHigh: orHigh, openRangeClosed: true,
     dayHigh, dayLow, rangePct, atrPct,
     open, prevClose,
     callWall, magnet, putWall, channelPct, callWallDeltaPct, putWallDeltaPct,
     gexSource: gex.source,
-    prints: null,
+    prints,
   };
 }
