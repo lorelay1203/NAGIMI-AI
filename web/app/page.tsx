@@ -49,6 +49,7 @@ import AutoScanCard from "./components/AutoScanCard";
 import InstitutionalCard from "./components/InstitutionalCard";
 import JournalCard from "./components/JournalCard";
 import MarketSnackGexCard from "./components/MarketSnackGexCard";
+import ChartZoom from "./components/ChartZoom";
 import HomeHub from "./components/HomeHub";
 import type { MsGexResult } from "@/lib/marketsnackGex";
 
@@ -550,9 +551,9 @@ export default function Dashboard() {
             {/* 3 · Niveles GEX — dónde están los precios clave */}
             <SectionHead n={3} title="Niveles clave (GEX)" sub="Call Wall, Put Wall, Gamma Flip, Max Pain e Imán" />
             {levels && <LevelsCard r={levels} ticker={ticker} />}
-            {structure && <ProWallsCard ticker={ticker} structure={structure} gex={realGex ?? gex} horizonDays={horizonDays} levels={levels} />}
-            {msGex && <MarketSnackGexCard data={msGex} />}
-            {gexChart && <GexHeatmapCard h={gexChart} />}
+            {structure && <ChartZoom label="Muros de strikes (PRO)"><ProWallsCard ticker={ticker} structure={structure} gex={realGex ?? gex} horizonDays={horizonDays} levels={levels} /></ChartZoom>}
+            {msGex && <ChartZoom label="GEX en vivo — precio, muros e imán"><MarketSnackGexCard data={msGex} /></ChartZoom>}
+            {gexChart && <ChartZoom label="GEX por strike — perfil de gamma"><GexHeatmapCard h={gexChart} /></ChartZoom>}
 
             {/* 4 · Estrategia — la acción propuesta o la decisión de esperar */}
             <SectionHead n={4} title="Estrategia o esperar" sub="La idea debe pasar los filtros antes de preparar una orden" />

@@ -13,6 +13,7 @@ import type { MsGexResult } from "@/lib/marketsnackGex";
 import type { GexHeatmap } from "@/lib/gexHeatmap";
 import MarketSnackGexCard from "../components/MarketSnackGexCard";
 import GexLadderCard from "../components/GexLadderCard";
+import ChartZoom from "../components/ChartZoom";
 
 const TICKERS: { sym: string; note?: string }[] = [
   { sym: "SPY", note: "= SPX ÷10 · espejo de /ES y /MES" },
@@ -242,10 +243,10 @@ export default function DayTradesPage() {
           </div>
 
           {/* Gráfica de GEX estilo MarketSnack (precio + muros e imán) */}
-          {msGex && <MarketSnackGexCard data={msGex} />}
+          {msGex && <ChartZoom label="GEX en vivo — precio, muros e imán"><MarketSnackGexCard data={msGex} /></ChartZoom>}
 
           {/* Escalera de gamma por strike (horizontal, tipo MarketSnack) */}
-          {heat && <GexLadderCard h={heat} callWall={s.callWall} putWall={s.putWall} magnet={s.magnet} />}
+          {heat && <ChartZoom label="Escalera de gamma por strike"><GexLadderCard h={heat} callWall={s.callWall} putWall={s.putWall} magnet={s.magnet} /></ChartZoom>}
 
           {/* Canal de gamma en vivo */}
           <div>
