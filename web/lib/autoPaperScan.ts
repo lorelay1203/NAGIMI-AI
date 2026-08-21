@@ -384,10 +384,11 @@ async function buildUniverse(maxNames: number): Promise<string[]> {
  * Dedup: no re-registra si ya hay un trade ABIERTO del mismo ticker + vencimiento.
  */
 export async function runAutoScan(opts: { popTarget?: number; maxNames?: number; maxRisk?: number; minReturn?: number; term?: "0dte" | "corto" | "normal"; strategies?: StratKind[]; trendGate?: boolean; now?: Date } = {}): Promise<ScanResult> {
-  // Plazo: "0dte" = vence hoy-mañana; "corto" = 3-14 días (dinero rápido);
-  // "normal" = 14-45 días (~1 mes).
+  // Plazo: "0dte" = usa la PRÓXIMA expiración (1DTE): mañana entre semana, o el
+  // lunes si hoy es viernes. NUNCA el mismo día (min:1) — más seguro que el 0DTE
+  // real. "corto" = 3-14 días (dinero rápido); "normal" = 14-45 días (~1 mes).
   const term = opts.term === "0dte"
-    ? { min: 0, max: 2, target: 0 }
+    ? { min: 1, max: 5, target: 1 }
     : opts.term === "corto"
       ? { min: 3, max: 14, target: 7 }
       : { min: 14, max: 45, target: 28 };

@@ -304,7 +304,7 @@ export default function DayTradesPage() {
 
           {/* Ideas */}
           <div>
-            <SectionHead icon="💡" title="Ideas de la sesión" sub="0DTE / corto, con stop-loss" />
+            <SectionHead icon="💡" title="Ideas de la sesión" sub="arma la orden con vencimiento de mañana (1DTE), con stop-loss" />
             {data!.ideas.length === 0 ? (
               <div className="card" style={{ color: "var(--muted)", fontSize: 13 }}>Sin ideas claras ahora. Espera a que el precio se acerque a un muro.</div>
             ) : (

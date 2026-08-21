@@ -152,7 +152,7 @@ export default function AutoScanCard({ onRegistered }: { onRegistered?: () => vo
           {(["0dte", "corto", "normal"] as const).map((tm) => (
             <button key={tm} type="button" onClick={() => setTerm(tm)}
               style={{ padding: "6px 11px", borderRadius: 8, cursor: "pointer", fontSize: 12, fontWeight: 700, border: term === tm ? "1px solid var(--accent)" : "1px solid var(--border)", background: term === tm ? "var(--accent)" : "transparent", color: term === tm ? "#fff" : "var(--text)" }}>
-              {tm === "0dte" ? "0DTE (hoy)" : tm === "corto" ? "Corto (3-14d)" : "~1 mes (14-45d)"}
+              {tm === "0dte" ? "0DTE → 1DTE (mañana)" : tm === "corto" ? "Corto (3-14d)" : "~1 mes (14-45d)"}
             </button>
           ))}
         </div>
