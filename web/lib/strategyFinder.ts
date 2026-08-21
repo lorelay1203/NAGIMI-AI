@@ -70,9 +70,19 @@ function todayET(now: Date): string {
   return new Intl.DateTimeFormat("en-CA", { timeZone: "America/New_York", year: "numeric", month: "2-digit", day: "2-digit" }).format(now);
 }
 
+export type FinderTerm = "1dte" | "corto" | "mes";
+// Ventanas de vencimiento por plazo. "1dte" = la próxima expiración (mañana entre
+// semana, lunes si es viernes), NUNCA el mismo día. Es el default (prioriza 1DTE).
+const TERM_WINDOWS: Record<FinderTerm, { min: number; max: number; target: number }> = {
+  "1dte": { min: 1, max: 5, target: 1 },
+  "corto": { min: 3, max: 14, target: 7 },
+  "mes": { min: 20, max: 45, target: 30 },
+};
+
 export async function findStrategies(
   ticker: string,
   budget: number,
+  term: FinderTerm = "1dte",
   now: Date = new Date(),
 ): Promise<FinderResult | { error: string }> {
   const clean = ticker.trim().toUpperCase();
@@ -87,11 +97,12 @@ export async function findStrategies(
   if (!expRes.ok) return { error: "No se pudieron leer los vencimientos." };
   const expJson = (await expRes.json()) as { date?: string }[];
   const dates = (expJson ?? []).map((e) => e.date).filter((d): d is string => !!d);
+  const win = TERM_WINDOWS[term] ?? TERM_WINDOWS["1dte"];
   const dated = dates
     .map((d) => ({ d, dte: Math.round((Date.parse(`${d}T00:00:00Z`) - Date.parse(`${todayET(now)}T00:00:00Z`)) / 86_400_000) }))
-    .filter((x) => x.dte >= 20 && x.dte <= 45)
-    .sort((a, b) => Math.abs(a.dte - 30) - Math.abs(b.dte - 30));
-  if (dated.length === 0) return { error: "No hay vencimientos en 20-45 días para este ticker." };
+    .filter((x) => x.dte >= win.min && x.dte <= win.max)
+    .sort((a, b) => Math.abs(a.dte - win.target) - Math.abs(b.dte - win.target));
+  if (dated.length === 0) return { error: `No hay vencimientos en ${win.min}-${win.max} días para este ticker.` };
 
   const { d: expiration, dte } = dated[0];
   const res = await msFetch(`/api/assets/${encodeURIComponent(clean)}/option_chain_extended?expiration_date=${encodeURIComponent(expiration)}`);

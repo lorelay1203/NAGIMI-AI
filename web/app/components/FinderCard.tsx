@@ -36,6 +36,7 @@ const DIR_ICON: Record<string, string> = { alcista: "📈 sube", bajista: "📉 
 export default function FinderCard() {
   const [ticker, setTicker] = useState("");
   const [budget, setBudget] = useState(100);
+  const [term, setTerm] = useState<"1dte" | "corto" | "mes">("1dte"); // plazo (default: prioriza 1DTE)
   const [res, setRes] = useState<FinderResult | null>(null);
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState<string | null>(null);
@@ -46,7 +47,7 @@ export default function FinderCard() {
     if (!t || !(budget > 0) || busy) return;
     setBusy(true); setErr(null); setRes(null); setOpen(null);
     try {
-      const r = await fetch(`/api/finder?ticker=${encodeURIComponent(t)}&budget=${budget}`).then((x) => x.json());
+      const r = await fetch(`/api/finder?ticker=${encodeURIComponent(t)}&budget=${budget}&term=${term}`).then((x) => x.json());
       if (r.error) setErr(r.error); else setRes(r);
     } catch {
       setErr("No se pudo buscar. Revisa la cookie de MarketSnack.");
@@ -81,6 +82,17 @@ export default function FinderCard() {
             <input type="number" min={1} value={budget || ""} onChange={(e) => setBudget(Number(e.target.value))}
               onKeyDown={(e) => { if (e.key === "Enter") search(); }}
               style={{ marginTop: 4, width: 100, background: "var(--panel)", border: "1px solid var(--border)", borderRadius: 6, color: "var(--text)", padding: "7px 9px", fontSize: 14, fontWeight: 700 }} />
+          </div>
+        </label>
+        <label style={{ fontSize: 12, color: "var(--muted)", fontWeight: 700 }}>
+          Plazo
+          <div style={{ display: "flex", gap: 5, marginTop: 4 }}>
+            {([["1dte", "1DTE (mañana)"], ["corto", "Corto (3-14d)"], ["mes", "~1 mes"]] as const).map(([tm, lbl]) => (
+              <button key={tm} type="button" onClick={() => setTerm(tm)}
+                style={{ padding: "6px 10px", borderRadius: 6, cursor: "pointer", fontSize: 12, fontWeight: 700, border: term === tm ? "1px solid var(--accent)" : "1px solid var(--border)", background: term === tm ? "var(--accent)" : "transparent", color: term === tm ? "#fff" : "var(--text)" }}>
+                {lbl}
+              </button>
+            ))}
           </div>
         </label>
         <button type="button" onClick={search} disabled={busy}
