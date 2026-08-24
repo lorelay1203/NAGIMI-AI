@@ -104,11 +104,15 @@ async function doRelogin(): Promise<boolean> {
     if (!emailEl || !passEl) {
       throw new Error("No se encontró el formulario de login de MarketSnack (¿cambió la página?).");
     }
+    // MarketSnack ahora muestra popups de marketing (Amplitude "engagement nudge")
+    // que TAPAN el formulario e interceptan los clics. Los quitamos del DOM antes
+    // de interactuar (y de nuevo antes de enviar) para que el login no se trabe.
+    await dismissOverlays(page);
     // React controla los inputs: hay que setear el valor con el SETTER NATIVO y
     // disparar los eventos que React escucha; si no, el handler de "Log in" lee
     // los campos vacíos y no autentica (aunque en pantalla se vean llenos).
     const reactType = async (el: import("playwright").Locator, val: string) => {
-      await el.click();
+      await el.click({ force: true }); // force: por si un overlay resurge
       await el.pressSequentially(val, { delay: 15 });
       await el.evaluate((node, v) => {
         const proto = Object.getPrototypeOf(node);
@@ -121,11 +125,12 @@ async function doRelogin(): Promise<boolean> {
     await reactType(emailEl, login.email);
     await reactType(passEl, login.password);
     await page.waitForTimeout(400);
+    await dismissOverlays(page);
     // SOLO clic en el botón "Log in" (corre el handler JS real). NO usar Enter ni
     // submit nativo: eso hace un GET que recarga /login y borra los campos.
     const btn = page.getByRole("button", { name: /^\s*log in\s*$/i }).first();
-    await btn.click({ timeout: 8000 }).catch(async () => {
-      await page.locator('button:has-text("Log in")').first().click({ timeout: 5000 }).catch(() => {});
+    await btn.click({ timeout: 8000, force: true }).catch(async () => {
+      await page.locator('button:has-text("Log in")').first().click({ timeout: 5000, force: true }).catch(() => {});
     });
     await page.waitForTimeout(3000);
 
@@ -158,6 +163,21 @@ async function firstVisible(
     } catch { /* prueba el siguiente selector */ }
   }
   return null;
+}
+
+/** Quita los popups de marketing (Amplitude "engagement nudge") que tapan el login. */
+async function dismissOverlays(page: import("playwright").Page): Promise<void> {
+  try {
+    await page.keyboard.press("Escape").catch(() => {});
+    await page.evaluate(() => {
+      const sels = [
+        ".rc-dialog-wrap", ".rc-dialog-mask", "#engagement-wrapper",
+        ".amplitude-engagement-modal-container", '[class*="engagement"]', '[class*="nudge"]',
+      ];
+      for (const s of sels) document.querySelectorAll(s).forEach((el) => el.remove());
+      document.body.style.overflow = ""; // por si el modal bloqueó el scroll
+    }).catch(() => {});
+  } catch { /* si falla, los clics usan force:true de respaldo */ }
 }
 
 async function waitForSession(
