@@ -9,6 +9,7 @@ type HomeHubProps = {
 const LINKS = {
   opportunities: [
     { href: "/daytrades", label: "Day Trades" },
+    { href: "/grandes", label: "🐋 Sigue a los grandes" },
     { href: "/ideas", label: "Ideas" },
     { href: "/watchlist", label: "Watchlist" },
   ],

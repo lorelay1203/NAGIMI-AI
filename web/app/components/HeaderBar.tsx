@@ -34,6 +34,7 @@ export default function HeaderBar({
       </div>
       <nav className="hb-nav" aria-label="Navegación principal">
         <a className="hb-link" href="/">INICIO</a>
+        <a className="hb-link" href="/grandes">🐋 GRANDES</a>
         <a className="hb-link" href="/cookie">COOKIE</a>
         <a className="hb-link" href="/flow">TIME &amp; SALES</a>
       </nav>

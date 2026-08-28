@@ -131,6 +131,15 @@ export default function Dashboard() {
       localStorage.setItem("nagimi.tab", tab);
     } catch { /* sin localStorage */ }
   }, [tab]);
+
+  // Si llega ?ticker=XXX en la URL (p.ej. desde "🐋 Sigue a los Grandes"), analiza solo.
+  useEffect(() => {
+    try {
+      const t = new URLSearchParams(window.location.search).get("ticker");
+      if (t) runSearch(t);
+    } catch { /* no-op */ }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
   // Sesgo histórico (memoria) para auto-corregir los targets, y si ya se leyó.
   const [calib, setCalib] = useState<{ biasPct: number | null; samples: number }>({ biasPct: null, samples: 0 });
   const [calibReady, setCalibReady] = useState(false);
