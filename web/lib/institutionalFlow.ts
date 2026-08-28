@@ -24,6 +24,9 @@ export interface InstitutionalRead {
   plainLanguage: string;
   whyItMatters: { grade: string; positives: string[]; missing: string[]; action: string };
   recommendation: "HIGH CONVICTION" | "WATCH" | "WAIT" | "IGNORE";
+  // Escenario en lenguaje simple: si fue COMPRA o VENTA, qué podría pasar con la
+  // acción y qué podrías hacer TÚ para seguir (o desvanecer) esa jugada.
+  scenario: { move: "compra" | "venta" | "mixto"; whatCouldHappen: string; whatYouCanDo: string; bias: "alcista" | "bajista" | "neutral" };
 }
 
 const clamp = (n: number, lo: number, hi: number) => Math.max(lo, Math.min(hi, n));
@@ -209,8 +212,10 @@ export function analyzeInstitutionalFlow(row: FlowRow): InstitutionalRead {
     : "Ignorar: baja calidad o contrato vencido. No aporta a la tesis.";
 
   const plainLanguage = buildPlain(row, dir, dteInfo.bucket, newPos, notional);
+  const scenario = buildScenario(row, aggr);
 
   return {
+    scenario,
     flowScore, grade, components: comps,
     premium: { value: row.premium, stars: premiumStars(row.premium) },
     size: { contracts: row.size, shares, notional },
@@ -225,6 +230,43 @@ export function analyzeInstitutionalFlow(row: FlowRow): InstitutionalRead {
     whyItMatters: { grade, positives, missing, action },
     recommendation,
   };
+}
+
+/**
+ * Escenario en lenguaje simple: ¿fue COMPRA (al ask) o VENTA (al bid)? ¿Qué podría
+ * pasar con la acción, y qué podrías hacer TÚ para seguir la misma estructura?
+ * Convención: comprar calls / vender puts = alcista; comprar puts / vender calls = bajista.
+ */
+function buildScenario(row: FlowRow, aggr: string): InstitutionalRead["scenario"] {
+  const tk = row.underlying || row.symbol || "la acción";
+  const isCall = row.type === "call";
+  const isPut = row.type === "put";
+  const strike = row.strike != null ? `$${row.strike}` : "ese strike";
+  const exp = row.expiration || "su vencimiento";
+  const move: "compra" | "venta" | "mixto" = aggr === "ask" ? "compra" : aggr === "bid" ? "venta" : "mixto";
+
+  // Idea para cuenta chica según la dirección.
+  const bullDo = `Para seguir esa dirección (alcista) con cuenta chica: un CALL barato o un CALL DEBIT SPREAD (riesgo topado) en ${tk}, con vencimiento parecido. Pon stop-loss y pruébalo en paper primero. Toca ${tk} para ver contratos que te alcanzan.`;
+  const bearDo = `Para seguir esa dirección (bajista) con cuenta chica: un PUT barato o un PUT DEBIT SPREAD (riesgo topado) en ${tk}, con vencimiento parecido. Pon stop-loss y pruébalo en paper primero. Toca ${tk} para ver contratos que te alcanzan.`;
+  const wait = `No está claro si compró o vendió (se ejecutó en medio del bid/ask). Mejor espera a que el precio confirme antes de entrar.`;
+
+  if (move === "compra" && isCall)
+    return { move, bias: "alcista",
+      whatCouldHappen: `Alguien PAGÓ por comprar calls ${strike} que vencen el ${exp}. Es una apuesta a que ${tk} SUBE por encima de ${strike} antes de esa fecha — si aciertan, el precio empuja hacia arriba.`,
+      whatYouCanDo: bullDo };
+  if (move === "compra" && isPut)
+    return { move, bias: "bajista",
+      whatCouldHappen: `Alguien PAGÓ por comprar puts ${strike} que vencen el ${exp}. Es una apuesta a que ${tk} BAJA de ${strike} antes de esa fecha — o una cobertura. Si aciertan, el precio cae.`,
+      whatYouCanDo: bearDo };
+  if (move === "venta" && isCall)
+    return { move, bias: "bajista",
+      whatCouldHappen: `Alguien VENDIÓ calls ${strike} (${exp}). Apuesta a que ${tk} NO sube de ${strike} (bajista o cobertura). El precio podría quedarse quieto o bajar.`,
+      whatYouCanDo: `Ojo: vender calls puede ser cobertura, no siempre apuesta pura. Si el resto del flujo confirma bajista, ${bearDo}` };
+  if (move === "venta" && isPut)
+    return { move, bias: "alcista",
+      whatCouldHappen: `Alguien VENDIÓ puts ${strike} (${exp}). Apuesta a que ${tk} NO baja de ${strike} (alcista) — suele marcar un piso de soporte.`,
+      whatYouCanDo: bullDo };
+  return { move: "mixto", bias: "neutral", whatCouldHappen: `Operación en ${tk} sin dirección clara (${strike}, ${exp}).`, whatYouCanDo: wait };
 }
 
 function buildPlain(row: FlowRow, dir: { label: string }, bucket: string, newPos: boolean, notional: number): string {

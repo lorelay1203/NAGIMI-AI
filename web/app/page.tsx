@@ -591,7 +591,7 @@ export default function Dashboard() {
                   </div>
                 )}
                 <NewsCard ticker={ticker} company={company} callPct={callPct} />
-                {instRow && <InstitutionalCard row={instRow} onClose={() => setInstRow(null)} />}
+                {instRow && <InstitutionalCard row={instRow} onClose={() => setInstRow(null)} onPick={runSearch} />}
                 {unusualRows && <TradesFeed rows={unusualRows} />}
               </div>
             </details>

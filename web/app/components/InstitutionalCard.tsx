@@ -46,7 +46,7 @@ function Read({ label, value, note, color }: { label: string; value: string; not
   );
 }
 
-export default function InstitutionalCard({ row, onClose }: { row: FlowRow; onClose?: () => void }) {
+export default function InstitutionalCard({ row, onClose, onPick }: { row: FlowRow; onClose?: () => void; onPick?: (t: string) => void }) {
   const a = useMemo(() => analyzeInstitutionalFlow(row), [row]);
   const [showComps, setShowComps] = useState(false);
   const reco = RECO_STYLE[a.recommendation] ?? RECO_STYLE.WAIT;
@@ -134,6 +134,30 @@ export default function InstitutionalCard({ row, onClose }: { row: FlowRow; onCl
         <div style={{ fontSize: 12.5, fontWeight: 700, marginBottom: 5 }}>💬 ¿Qué significa?</div>
         <div style={{ fontSize: 13, lineHeight: 1.6, color: "var(--text)" }}>{a.plainLanguage}</div>
       </div>
+
+      {/* Escenario: ¿compra o venta? ¿qué podría pasar? ¿qué puedes hacer TÚ? */}
+      {(() => {
+        const s = a.scenario;
+        const c = s.bias === "alcista" ? "#12b76a" : s.bias === "bajista" ? "#f04438" : "#e0a800";
+        const tag = s.move === "compra" ? "🟢 COMPRA" : s.move === "venta" ? "🔴 VENTA" : "➖ MIXTO";
+        return (
+          <div style={{ border: `1px solid ${c}55`, background: `${c}10`, borderRadius: 10, padding: 14, display: "flex", flexDirection: "column", gap: 8 }}>
+            <div style={{ fontSize: 13.5, fontWeight: 800 }}>
+              🔮 ¿Qué podría pasar? <span style={{ color: c }}>{tag} · {s.bias}</span>
+            </div>
+            <div style={{ fontSize: 13, lineHeight: 1.55 }}>{s.whatCouldHappen}</div>
+            <div style={{ fontSize: 12.5, lineHeight: 1.55, borderTop: "1px solid var(--border-soft)", paddingTop: 8 }}>
+              <b style={{ color: c }}>💡 ¿Qué puedes hacer tú?</b> {s.whatYouCanDo}
+            </div>
+            {onPick && s.move !== "mixto" && (
+              <button type="button" onClick={() => onPick(row.underlying)}
+                style={{ alignSelf: "flex-start", background: c, color: "#fff", border: "none", borderRadius: 8, padding: "6px 13px", fontWeight: 700, fontSize: 12.5, cursor: "pointer" }}>
+                📈 Analizar {row.underlying} y ver contratos
+              </button>
+            )}
+          </div>
+        );
+      })()}
 
       {/* ¿Por qué importa? */}
       <div style={{ border: `1px solid ${gradeColor}55`, background: `${gradeColor}10`, borderRadius: 10, padding: 14 }}>
