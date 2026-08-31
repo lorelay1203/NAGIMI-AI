@@ -47,6 +47,7 @@ import TastytradeCard from "./components/TastytradeCard";
 import PaperTradingCard from "./components/PaperTradingCard";
 import AutoScanCard from "./components/AutoScanCard";
 import InstitutionalCard from "./components/InstitutionalCard";
+import PressureCard from "./components/PressureCard";
 import JournalCard from "./components/JournalCard";
 import MarketSnackGexCard from "./components/MarketSnackGexCard";
 import ChartZoom from "./components/ChartZoom";
@@ -624,6 +625,7 @@ export default function Dashboard() {
                 {structure && <StructureCard s={structure} history={chainHistory} />}
                 {ivContext && ivContext.iv.current != null && <IvContextCard s={ivContext} />}
                 {validation && validation.coverage.flows > 0 && <ValidationCard s={validation} />}
+                {notable && notable.length > 0 && <PressureCard rows={notable} />}
                 {notable && flowMeta && notable.length > 0 && (
                   <FlowPriceChart ticker={flowMeta.ticker} trades={notable} />
                 )}

@@ -2,6 +2,7 @@
 
 import { useRef, useState } from "react";
 import type { AggressionScore, FlowRow } from "@/lib/flow";
+import PressureCard from "../components/PressureCard";
 
 interface StepLine { label: string; detail?: string }
 interface FlowMeta {
@@ -154,6 +155,8 @@ export default function FlowPage() {
       {error && <div className="error">⚠ {error}</div>}
 
       {score && <ScoreCard score={score} />}
+
+      {rows && rows.length > 0 && <PressureCard rows={rows} />}
 
       {rows && meta && (
         <>
