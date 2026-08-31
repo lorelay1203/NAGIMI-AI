@@ -6,7 +6,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 
-interface Investor { id: string; name: string; fund: string; note?: string }
+interface Investor { id: string; name: string; fund: string; group: string; note?: string }
 interface Move {
   name: string; ticker: string | null; kind: string; direction: string;
   value: number; shares: number; prevShares: number; pctOfPortfolio: number; changePct: number | null;
@@ -33,7 +33,13 @@ export default function GrandesPage() {
   const [error, setError] = useState<string | null>(null);
   const [showAll, setShowAll] = useState(false);
 
-  useEffect(() => { fetch("/api/bigmoney").then((r) => r.json()).then((d) => setInvestors(d.investors ?? [])).catch(() => {}); }, []);
+  const [groups, setGroups] = useState<Record<string, string>>({});
+
+  useEffect(() => {
+    fetch("/api/bigmoney").then((r) => r.json())
+      .then((d) => { setInvestors(d.investors ?? []); setGroups(d.groups ?? {}); })
+      .catch(() => {});
+  }, []);
 
   const load = useCallback(async (id: string) => {
     setLoading(true); setError(null); setRep(null); setShowAll(false);
@@ -59,16 +65,27 @@ export default function GrandesPage() {
         </p>
       </div>
 
-      {/* Selector de inversor */}
-      <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
-        {investors.map((i) => (
-          <button key={i.id} type="button" onClick={() => setSel(i.id)} title={i.fund}
-            style={{ padding: "7px 13px", borderRadius: 999, fontSize: 13, fontWeight: 700, cursor: "pointer",
-              border: sel === i.id ? "none" : "1px solid var(--border)",
-              background: sel === i.id ? "var(--brand-grad)" : "var(--panel)", color: sel === i.id ? "#fff" : "var(--text)" }}>
-            {i.name}
-          </button>
-        ))}
+      {/* Selector de inversor, agrupado por estilo */}
+      <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+        {Object.keys(groups).map((g) => {
+          const list = investors.filter((i) => i.group === g);
+          if (!list.length) return null;
+          return (
+            <div key={g}>
+              <div style={{ fontSize: 11.5, color: "var(--muted)", marginBottom: 6, fontWeight: 600 }}>{groups[g]}</div>
+              <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
+                {list.map((i) => (
+                  <button key={i.id} type="button" onClick={() => setSel(i.id)} title={i.fund}
+                    style={{ padding: "7px 13px", borderRadius: 999, fontSize: 13, fontWeight: 700, cursor: "pointer",
+                      border: sel === i.id ? "none" : "1px solid var(--border)",
+                      background: sel === i.id ? "var(--brand-grad)" : "var(--panel)", color: sel === i.id ? "#fff" : "var(--text)" }}>
+                    {i.name}
+                  </button>
+                ))}
+              </div>
+            </div>
+          );
+        })}
       </div>
 
       {/* Aviso honesto */}

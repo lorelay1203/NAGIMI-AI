@@ -1,7 +1,7 @@
 // GET /api/bigmoney            → lista de inversores grandes
 // GET /api/bigmoney?investor=X → sus jugadas del último trimestre (13F de la SEC)
 
-import { INVESTORS, fetchFund } from "@/lib/bigMoney";
+import { GROUP_LABEL, INVESTORS, fetchFund } from "@/lib/bigMoney";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -11,7 +11,10 @@ export async function GET(request: Request) {
   const { searchParams } = new URL(request.url);
   const investor = searchParams.get("investor");
   if (!investor) {
-    return Response.json({ investors: INVESTORS.map(({ id, name, fund, note }) => ({ id, name, fund, note })) });
+    return Response.json({
+      investors: INVESTORS.map(({ id, name, fund, group, note }) => ({ id, name, fund, group, note })),
+      groups: GROUP_LABEL,
+    });
   }
   try {
     const report = await fetchFund(investor);
