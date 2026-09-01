@@ -315,7 +315,7 @@ export default function DayTradesPage() {
           </div>
 
           <div style={{ fontSize: 11, color: "var(--muted)", textAlign: "right" }}>
-            fuente muros: {s.gexSource === "massive" ? "Massive" : "MarketSnack"} · velas: Massive 5 min (con retraso)
+            fuente muros: {s.gexSource === "massive" ? "Massive" : s.gexSource === "schwab" ? "Schwab" : "MarketSnack"} · velas: Massive 5 min (con retraso)
           </div>
         </>
       )}

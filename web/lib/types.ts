@@ -25,6 +25,24 @@ export interface RawContract {
     price?: number;
     ticker?: string;
   };
+  /** Bid/ask reales. Los da Schwab; Massive en este plan no. Opcional. */
+  quote?: {
+    bid?: number;
+    ask?: number;
+  };
+  /** Griegas e IV reales del proveedor (Schwab). Opcional: el GEX las calcula
+   *  por su cuenta con Black-Scholes, esto es un extra que no se tira. */
+  greeks?: ContractGreeks;
+}
+
+export interface ContractGreeks {
+  delta: number | null;
+  gamma: number | null;
+  theta: number | null;
+  vega: number | null;
+  rho: number | null;
+  /** En DECIMAL (0.39), no en porcentaje. */
+  iv: number | null;
 }
 
 /** De dónde salió el precio usado para Open Premium (bid no está disponible en este plan). */

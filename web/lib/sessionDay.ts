@@ -10,7 +10,7 @@
 // ============================================================================
 
 import { fetchIntradayBars, fetchDailyBars, type IntradayBar } from "./massive";
-import { getDayGex } from "./dayGex";
+import { getDayGex, type GexSource } from "./dayGex";
 import { fetchFlow } from "./marketsnack";
 import { classifyFlow } from "./flow";
 
@@ -65,7 +65,7 @@ export interface DaySession {
   channelPct: number | null;     // 0=pegado al put wall · 100=pegado al call wall
   callWallDeltaPct: number | null;
   putWallDeltaPct: number | null;
-  gexSource: "massive" | "marketsnack";
+  gexSource: GexSource;
 
   // Dinero de hoy (prints) — flujo real de MarketSnack (null si no hay cookie)
   prints: PrintsData | null;
