@@ -50,27 +50,28 @@ export default function RecomendacionesCard({ ticker, input }: { ticker: string;
   }, []);
   useEffect(() => { if (loaded) { try { localStorage.setItem(LS_KEY, JSON.stringify(brokers)); } catch {} } }, [brokers, loaded]);
 
-  // Auto: jala el poder de compra REAL de Schwab (si está conectado) para dimensionar los trades.
-  const [schwabBP, setSchwabBP] = useState<number | null>(null);
+  // Saldo REAL de los brokers conectados (Tastytrade y Schwab/TOS). Las ideas se
+  // dimensionan con el dinero que hay de verdad, no con porcentajes.
+  const [avisos, setAvisos] = useState<string[]>([]);
   useEffect(() => {
-    fetch("/api/schwab/accounts").then((x) => x.json()).then((r) => {
-      if (Array.isArray(r)) {
-        const bp = (r as { securitiesAccount?: { currentBalances?: { buyingPower?: number; cashAvailableForTrading?: number } } }[])
-          .reduce((s, a) => s + (a?.securitiesAccount?.currentBalances?.buyingPower ?? a?.securitiesAccount?.currentBalances?.cashAvailableForTrading ?? 0), 0);
-        setSchwabBP(Math.round(bp * 100) / 100);
+    if (!loaded) return;
+    fetch("/api/balances").then((x) => x.json()).then((r: {
+      cuentas?: { brokerNombre: string; cuenta: string; disponible: number }[];
+      problemas?: { brokerNombre: string; motivo: string }[];
+    }) => {
+      const reales = (r.cuentas ?? []).filter((c) => c.disponible > 0);
+      if (reales.length) {
+        setBrokers((prev) => {
+          // Las cuentas leídas del broker mandan; se conservan las añadidas a mano.
+          const auto = reales.map((c) => ({ name: `${c.brokerNombre} ${c.cuenta}`.trim(), cash: c.disponible }));
+          const manuales = prev.filter((b) => b.cash > 0 && !auto.some((a) => a.name === b.name)
+            && !/tastytrade|schwab/i.test(b.name));
+          return [...auto, ...manuales];
+        });
       }
-    }).catch(() => {});
-  }, []);
-  // Cuando llega el saldo real, sincroniza la fila "Schwab" con tu margen de verdad.
-  useEffect(() => {
-    if (schwabBP == null || !loaded) return;
-    setBrokers((prev) => {
-      const has = prev.some((b) => b.name.toLowerCase().includes("schwab"));
-      return has
-        ? prev.map((b) => (b.name.toLowerCase().includes("schwab") ? { ...b, name: "Schwab", cash: schwabBP } : b))
-        : [...prev, { name: "Schwab", cash: schwabBP }];
-    });
-  }, [schwabBP, loaded]);
+      setAvisos((r.problemas ?? []).map((p) => `${p.brokerNombre}: ${p.motivo}`));
+    }).catch(() => { /* sin conexión: se queda lo escrito a mano */ });
+  }, [loaded]);
 
   const setBroker = (i: number, p: Partial<Broker>) => setBrokers((prev) => prev.map((b, idx) => (idx === i ? { ...b, ...p } : b)));
   const addBroker = () => setBrokers((prev) => [...prev, { name: "", cash: 0 }]);
@@ -175,8 +176,13 @@ export default function RecomendacionesCard({ ticker, input }: { ticker: string;
 
       {/* Capital por broker */}
       <div style={{ background: "var(--panel-2)", border: "1px solid var(--border-soft)", borderRadius: 10, padding: 12, display: "flex", flexDirection: "column", gap: 8 }}>
-        <div style={{ fontSize: 12, fontWeight: 700, color: "var(--muted)" }}>💼 Capital disponible por plataforma</div>
-        {schwabBP != null && <div style={{ fontSize: 11, color: "#4ad991" }}>✓ Schwab sincronizado automáticamente ({money(schwabBP)} de poder de compra). Robinhood u otros: agrégalos a mano abajo.</div>}
+        <div style={{ fontSize: 12, fontWeight: 700, color: "var(--muted)" }}>💼 Dinero disponible</div>
+        <div style={{ fontSize: 11, color: "#4ad991" }}>
+          ✓ Se lee solo de tus brokers conectados. Si usas otro (Robinhood…), agrégalo a mano abajo.
+        </div>
+        {avisos.map((a) => (
+          <div key={a} style={{ fontSize: 11, color: "#f5c451" }}>⚠️ {a}</div>
+        ))}
         {brokers.map((b, i) => (
           <div key={i} style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
             <input style={{ ...field, width: 150 }} placeholder="Broker (ej. Robinhood)" value={b.name} onChange={(e) => setBroker(i, { name: e.target.value })} />
@@ -208,7 +214,6 @@ export default function RecomendacionesCard({ ticker, input }: { ticker: string;
             </thead>
             <tbody>
               {recos.map((r, i) => {
-                const over1pct = totalCash > 0 && r.riskOne / totalCash > 0.01;
                 return (
                   <tr key={i}>
                     <td style={td}><span style={{ fontWeight: 700 }}>{r.plazo}</span><div style={{ fontSize: 10.5, color: "var(--muted)" }}>{r.dte}d</div></td>
@@ -218,10 +223,11 @@ export default function RecomendacionesCard({ ticker, input }: { ticker: string;
                     <td style={td}>
                       <span style={{ color: "#ff8a82", fontWeight: 600 }}>{money(r.riskOne)}</span>
                       {r.maxGain != null ? <div style={{ fontSize: 10.5, color: "#4ad991" }}>gana máx {money(r.maxGain)}</div> : <div style={{ fontSize: 10.5, color: "#4ad991" }}>ganancia abierta</div>}
-                      {over1pct && <div style={{ fontSize: 10, color: "#f5c451" }}>⚠ &gt;1% del total</div>}
                     </td>
                     <td style={td}>
-                      {r.broker ? <><b>{r.broker}</b><div style={{ fontSize: 10.5, color: "var(--muted)" }}>{r.contracts}x · {r.pctOfBroker != null ? Math.round(r.pctOfBroker) : 0}% de esa cuenta</div></> : <span style={{ color: "var(--muted)" }}>—</span>}
+                      {r.broker
+                        ? <><b>{r.broker}</b><div style={{ fontSize: 10.5, color: "var(--muted)" }}>caben {r.contracts} contrato{r.contracts === 1 ? "" : "s"}</div></>
+                        : <span style={{ color: "#e0a800", fontSize: 11.5 }}>no te alcanza</span>}
                     </td>
                     <td style={td}>
                       <span style={{ ...SIGNAL_STYLE[r.signal], padding: "2px 8px", borderRadius: 999, fontSize: 11.5, fontWeight: 700, whiteSpace: "nowrap" }}>{r.signal}</span>
@@ -258,7 +264,8 @@ export default function RecomendacionesCard({ ticker, input }: { ticker: string;
         La IA propone · las reglas (Risk Gate) controlan · TÚ apruebas. Nagimi nunca ejecuta. <span style={{ color: "var(--muted)", fontWeight: 400 }}>(Metodología Ruta 2030 · Playbook 3)</span>
       </div>
       <div className="disclaimer">
-        Cada idea pasa el <b>Risk Gate</b>: Perfil · Tamaño ≤2% del capital (regla starter 1-2%) · Riesgo definido · Cabe en tu broker · Datos fiables. Primas estimadas (Black-Scholes); precios exactos en el Order Builder. No es consejo financiero.
+        Cada idea pasa el <b>Risk Gate</b>: Perfil · No arriesga toda la cuenta · Riesgo definido · Cabe en tu dinero · Datos fiables.
+        Se dimensiona con el <b>saldo real</b> de tus brokers, en dólares. Primas estimadas (Black-Scholes); precios exactos en el Order Builder. No es consejo financiero.
       </div>
     </section>
   );

@@ -263,7 +263,11 @@ export function sizeReco(idea: TradeIdea, brokers: Broker[], input: RecoInput): 
   // --- Risk Gate (Playbook 3 · guardrails). El trade solo "pasa" si todo está en verde. ---
   const gates: RiskGate[] = [
     { name: "Perfil", ok: aligned, note: aligned ? "alineado con la lectura de los agentes" : "va contra la dirección leída" },
-    { name: "Tamaño ≤2%", ok: sizePct != null && sizePct <= 2, note: sizePct != null ? `riesga ${sizePct.toFixed(1)}% de tu capital (regla starter 1-2%)` : "captura tu capital por broker" },
+    // Antes esto exigía ≤2% del capital. Con una cuenta chica ese límite son
+    // centavos y bloqueaba todo, así que ahora se razona en DÓLARES: lo que
+    // importa es que quepa y que no se vaya la cuenta entera en una sola idea.
+    { name: "No arriesga todo", ok: chosen != null && riskOne <= chosen.cash * 0.6,
+      note: chosen ? `arriesgas $${riskOne.toFixed(0)} de los $${chosen.cash.toFixed(0)} de esa cuenta` : "sin cuenta que lo cubra" },
     { name: "Riesgo definido", ok: true, note: idea.maxGain != null ? "pérdida y ganancia acotadas" : "pérdida acotada = la prima" },
     { name: "Cabe en broker", ok: !!chosen, note: chosen ? `${chosen.name} lo cubre (${contracts}x)` : `ningún broker cubre 1 contrato (~$${riskOne.toLocaleString("en-US")})` },
     { name: "Datos fiables", ok: !input.caveat && !input.lowLiquidity, note: input.caveat || input.lowLiquidity ? "datos poco fiables — no operar" : "datos ok" },
@@ -280,10 +284,10 @@ export function sizeReco(idea: TradeIdea, brokers: Broker[], input: RecoInput): 
     note = "Red flag: datos poco fiables — espera confirmación.";
   } else if (!chosen) {
     signal = "Esperar";
-    note = "Falta capital: ningún broker cubre 1 contrato.";
-  } else if (sizePct != null && sizePct > 2) {
+    note = `No te alcanza: 1 contrato necesita $${riskOne.toFixed(0)} y no hay cuenta que lo cubra.`;
+  } else if (riskOne > chosen.cash * 0.6) {
     signal = "Esperar";
-    note = `Excede el 2% del capital (${sizePct.toFixed(1)}%). Reduce tamaño o espera más capital.`;
+    note = `Se llevaría casi toda la cuenta: $${riskOne.toFixed(0)} de $${chosen.cash.toFixed(0)}. Busca algo más barato.`;
   } else if (passed && conf >= 55) {
     signal = "Entrar";
     note = `✓ Pasa el Risk Gate · confianza ${Math.round(conf)}%. Falta TU aprobación (la app no ejecuta).`;

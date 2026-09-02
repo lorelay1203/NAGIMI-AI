@@ -45,6 +45,7 @@ import MisPosicionesCard from "./components/MisPosicionesCard";
 import FinderCard from "./components/FinderCard";
 import TastytradeCard from "./components/TastytradeCard";
 import PaperTradingCard from "./components/PaperTradingCard";
+import OportunidadesCard from "./components/OportunidadesCard";
 import AutoScanCard from "./components/AutoScanCard";
 import InstitutionalCard from "./components/InstitutionalCard";
 import PressureCard from "./components/PressureCard";
@@ -508,6 +509,7 @@ export default function Dashboard() {
             <details className="home-drawer" id="practice-tools">
               <summary>Practicar y revisar <span>Paper Trading e historial</span></summary>
               <div className="home-drawer-body">
+                <OportunidadesCard key={`op-${paperKey}`} />
                 <PaperTradingCard key={paperKey} />
                 <JournalCard />
               </div>
