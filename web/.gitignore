@@ -12,3 +12,6 @@ next-env.d.ts
 
 # historial local de transacciones categorizadas
 /data
+
+# certificado local del captador de Schwab — nunca se comparte
+/certs
