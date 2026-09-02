@@ -8,13 +8,22 @@
 import { useCallback, useEffect, useState } from "react";
 
 interface Encaje { cabe: boolean; contratosPosibles: number; resumen: string }
+interface Paso { titulo: string; detalle: string; señal: "ok" | "aviso" | "no" | "info" }
 interface Oportunidad {
   id: string; ticker: string; label: string; expiration: string | null; dias: number;
   estado: "entrable" | "ya_corrio" | "vencido" | "sin_precio";
   motivo: string; netoAhora: number | null; netoOriginal: number;
   desembolso: number | null; maxGanancia: number | null; maxPerdida: number | null;
   pop: number | null; breakevens: number[]; alertar: boolean; encaje: Encaje | null;
+  porQue?: Paso[]; rationale?: string | null;
 }
+
+const SEÑAL: Record<Paso["señal"], { icono: string; color: string }> = {
+  ok:    { icono: "✅", color: "#12b76a" },
+  aviso: { icono: "⏳", color: "#e0a800" },
+  no:    { icono: "🚫", color: "#f04438" },
+  info:  { icono: "•",  color: "var(--muted)" },
+};
 interface Cuenta { brokerNombre: string; cuenta: string; disponible: number }
 interface Resp {
   error?: string; hoy?: string;
@@ -34,6 +43,7 @@ export default function OportunidadesCard() {
   const [data, setData] = useState<Resp | null>(null);
   const [loading, setLoading] = useState(false);
   const [verTodas, setVerTodas] = useState(false);
+  const [abierta, setAbierta] = useState<string | null>(null); // fila con el porqué desplegado
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -141,6 +151,43 @@ export default function OportunidadesCard() {
               {o.encaje && (
                 <div style={{ fontSize: 11.5, marginTop: 6, color: cabe ? "#12b76a" : "#e0a800", lineHeight: 1.45 }}>
                   {cabe ? "✅ " : "🚫 "}{o.encaje.resumen}
+                </div>
+              )}
+
+              {/* El razonamiento completo, desplegable */}
+              {(o.porQue?.length || o.rationale) && (
+                <button type="button" onClick={() => setAbierta(abierta === o.id ? null : o.id)}
+                  style={{ marginTop: 7, background: "none", border: "none", padding: 0, cursor: "pointer",
+                    color: "var(--accent)", fontSize: 11.5, fontWeight: 700, textDecoration: "underline" }}>
+                  {abierta === o.id ? "▾ Ocultar el porqué" : "▸ ¿Por qué esta conclusión?"}
+                </button>
+              )}
+
+              {abierta === o.id && (
+                <div style={{ marginTop: 8, display: "flex", flexDirection: "column", gap: 9 }}>
+                  {/* Cómo se llegó a la conclusión de HOY */}
+                  {o.porQue?.map((p, i) => {
+                    const s = SEÑAL[p.señal];
+                    return (
+                      <div key={i} style={{ display: "flex", gap: 8, fontSize: 11.5, lineHeight: 1.5 }}>
+                        <span style={{ flexShrink: 0 }}>{s.icono}</span>
+                        <span>
+                          <b style={{ color: s.color }}>{p.titulo}</b> — {p.detalle}
+                        </span>
+                      </div>
+                    );
+                  })}
+
+                  {/* Por qué la eligió el motor cuando la encontró */}
+                  {o.rationale && (
+                    <details style={{ fontSize: 11.5 }}>
+                      <summary style={{ cursor: "pointer", color: "var(--muted)", fontWeight: 700 }}>
+                        Por qué el motor la eligió en su momento
+                      </summary>
+                      <pre style={{ whiteSpace: "pre-wrap", fontFamily: "inherit", fontSize: 11.5,
+                        lineHeight: 1.55, margin: "6px 0 0", color: "var(--text)" }}>{o.rationale}</pre>
+                    </details>
+                  )}
                 </div>
               )}
             </div>

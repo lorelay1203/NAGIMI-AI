@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
-  diasRestantes, estadoTiempo, evaluarOportunidad, netoDe, vencimientoDe, yaCorrio,
+  diasRestantes, estadoTiempo, evaluarOportunidad, mejorQueAntes, netoDe, porQueDeLaOportunidad, vencimientoDe, yaCorrio,
   type PrecioPata,
 } from "./paperOpportunity";
 import type { PaperTrade } from "./paper";
@@ -117,5 +117,83 @@ describe("evaluarOportunidad", () => {
     const o = evaluarOportunidad(t, precios(3, 1), 762, 0.2, HOY);
     expect(o.motivo).toMatch(/Vence HOY/);
     expect(o.dias).toBe(0);
+  });
+});
+
+describe("porQueDeLaOportunidad (el razonamiento paso a paso)", () => {
+  it("una vencida se explica y no sigue analizando", () => {
+    const t = trade({ legs: [
+      { type: "call", side: "buy", strike: 760, expiration: "2026-08-20", qty: 1 },
+      { type: "call", side: "sell", strike: 765, expiration: "2026-08-20", qty: 1 },
+    ] });
+    const pasos = porQueDeLaOportunidad(evaluarOportunidad(t, precios(3, 1), 762, 0.2, HOY), HOY);
+    expect(pasos).toHaveLength(1);
+    expect(pasos[0].señal).toBe("no");
+    expect(pasos[0].detalle).toMatch(/Venció el 2026-08-20/);
+  });
+
+  it("una viva explica el calendario, el precio y los números de entrar", () => {
+    const pasos = porQueDeLaOportunidad(evaluarOportunidad(trade(), precios(3, 1), 762, 0.2, HOY), HOY);
+    expect(pasos.map((p) => p.titulo)).toEqual(["¿Sigue viva?", "¿Se movió ya el precio?", "Si entras ahora"]);
+    expect(pasos[0].detalle).toMatch(/quedan 3 días/);
+    expect(pasos[2].detalle).toMatch(/Pones \$/);
+  });
+
+  it("avisa cuando vence hoy", () => {
+    const t = trade({ legs: [
+      { type: "call", side: "buy", strike: 760, expiration: HOY, qty: 1 },
+      { type: "call", side: "sell", strike: 765, expiration: HOY, qty: 1 },
+    ] });
+    const pasos = porQueDeLaOportunidad(evaluarOportunidad(t, precios(3, 1), 762, 0.2, HOY), HOY);
+    expect(pasos[0].señal).toBe("aviso");
+    expect(pasos[0].detalle).toMatch(/vence HOY/i);
+  });
+
+  it("explica por qué una ya corrió, con los dos precios", () => {
+    const pasos = porQueDeLaOportunidad(evaluarOportunidad(trade(), precios(5, 1.5), 770, 0.2, HOY), HOY);
+    const p = pasos.find((x) => x.titulo === "¿Se movió ya el precio?")!;
+    expect(p.señal).toBe("no");
+    expect(p.detalle).toMatch(/ya pasó/);
+    expect(pasos.some((x) => x.titulo === "Si entras ahora")).toBe(false);
+  });
+
+  it("un crédito que se consumió se explica como prima, no como coste", () => {
+    const credito = trade({ entryNet: -2, legs: [
+      { type: "put", side: "sell", strike: 760, expiration: "2026-09-05", qty: 1 },
+      { type: "put", side: "buy", strike: 755, expiration: "2026-09-05", qty: 1 },
+    ] });
+    const o = evaluarOportunidad(credito, [
+      { strike: 760, type: "put", mid: 1.2 }, { strike: 755, type: "put", mid: 0.7 },
+    ], 762, 0.2, HOY);
+    const p = porQueDeLaOportunidad(o, HOY).find((x) => x.titulo === "¿Se movió ya el precio?")!;
+    expect(p.detalle).toMatch(/prima/i);
+  });
+
+  it("sin precios lo dice en vez de callar", () => {
+    const pasos = porQueDeLaOportunidad(evaluarOportunidad(trade(), [], 762, 0.2, HOY), HOY);
+    expect(pasos.some((p) => p.señal === "info" && /falta el precio/i.test(p.detalle))).toBe(true);
+  });
+});
+
+describe("mejorQueAntes (no confundir mejor entrada con 'aún no se movió')", () => {
+  it("en un crédito, cobrar más ahora es mejor", () => {
+    expect(mejorQueAntes(-0.27, -0.60)).toBe(true);
+    expect(mejorQueAntes(-0.60, -0.27)).toBe(false);
+  });
+  it("en un débito, pagar menos ahora es mejor", () => {
+    expect(mejorQueAntes(2.0, 1.2)).toBe(true);
+    expect(mejorQueAntes(1.2, 2.0)).toBe(false);
+  });
+  it("una prima que creció se explica como mejor entrada, no como 'no se movió'", () => {
+    const credito = trade({ entryNet: -0.27, legs: [
+      { type: "put", side: "sell", strike: 760, expiration: "2026-09-05", qty: 1 },
+      { type: "put", side: "buy", strike: 755, expiration: "2026-09-05", qty: 1 },
+    ] });
+    const o = evaluarOportunidad(credito, [
+      { strike: 760, type: "put", mid: 1.0 }, { strike: 755, type: "put", mid: 0.4 },
+    ], 762, 0.2, HOY);
+    const p = porQueDeLaOportunidad(o, HOY).find((x) => x.titulo === "¿Se movió ya el precio?")!;
+    expect(p.detalle).toMatch(/a tu favor/);
+    expect(p.detalle).not.toMatch(/No lo suficiente/);
   });
 });

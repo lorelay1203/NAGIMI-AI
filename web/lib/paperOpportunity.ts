@@ -74,6 +74,79 @@ export interface Oportunidad {
 /** El precio de cada pata AHORA, para valorar la entrada de hoy. */
 export interface PrecioPata { strike: number; type: "call" | "put"; mid: number }
 
+/** Un paso del razonamiento, para poder mostrarlo como lista. */
+export interface PasoPorQue { titulo: string; detalle: string; señal: "ok" | "aviso" | "no" | "info" }
+
+/**
+ * ¿Entrar hoy es mejor que cuando el motor la encontró?
+ * En un crédito, cobrar más es mejor; en un débito, pagar menos.
+ */
+export function mejorQueAntes(netoOriginal: number, netoAhora: number): boolean {
+  if (netoOriginal < 0) return Math.abs(netoAhora) > Math.abs(netoOriginal); // crédito: cobras más
+  return netoAhora < netoOriginal;                                           // débito: pagas menos
+}
+
+/**
+ * Reconstruye CÓMO se llegó a la conclusión de hoy, paso a paso. Es lo que la
+ * pantalla muestra al desplegar «¿Por qué?»: no basta con decir "entrable", hay
+ * que poder ver qué se comprobó y con qué números.
+ */
+export function porQueDeLaOportunidad(o: Oportunidad, hoy = etToday()): PasoPorQue[] {
+  const pasos: PasoPorQue[] = [];
+  const $ = (n: number) => `$${Math.abs(n).toFixed(0)}`;
+
+  // 1) El calendario manda: si venció, no hay nada más que mirar.
+  if (o.expiration) {
+    pasos.push(
+      o.estado === "vencido"
+        ? { titulo: "¿Sigue viva?", señal: "no",
+            detalle: `No. Venció el ${o.expiration} y hoy es ${hoy}, así que ya no se puede entrar.` }
+        : { titulo: "¿Sigue viva?", señal: o.dias <= 1 ? "aviso" : "ok",
+            detalle: o.dias === 0
+              ? `Sí, pero vence HOY (${o.expiration}): se resuelve en horas.`
+              : `Sí. Vence el ${o.expiration}, quedan ${o.dias} día${o.dias === 1 ? "" : "s"}.` },
+    );
+  }
+  if (o.estado === "vencido") return pasos;
+
+  // 2) ¿El precio de entrada sigue siendo parecido al que vio el motor?
+  if (o.netoAhora != null) {
+    const antes = o.netoOriginal * 100, ahora = o.netoAhora * 100;
+    const esCredito = o.netoOriginal < 0;
+    const cambio = Math.abs(antes) > 0 ? ((Math.abs(ahora) - Math.abs(antes)) / Math.abs(antes)) * 100 : 0;
+    pasos.push(
+      o.estado === "ya_corrio"
+        ? { titulo: "¿Se movió ya el precio?", señal: "no",
+            detalle: esCredito
+              ? `Sí, y en tu contra: la prima pasó de ${$(antes)} a ${$(ahora)} (${cambio.toFixed(0)}%). Ya no queda casi nada que cobrar.`
+              : `Sí: entrar costaba ${$(antes)} y ahora cuesta ${$(ahora)} (${cambio > 0 ? "+" : ""}${cambio.toFixed(0)}%). El movimiento que buscabas ya pasó.` }
+        : { titulo: "¿Se movió ya el precio?", señal: "ok",
+            // Ojo con el sentido: en un crédito, cobrar MÁS es mejor; en un
+            // débito, pagar MENOS es mejor. Decir "no se movió lo suficiente"
+            // cuando la entrada mejoró sería engañoso.
+            detalle: mejorQueAntes(o.netoOriginal, o.netoAhora!)
+              ? `Sí, y a tu favor: ${esCredito ? "ahora cobras" : "ahora cuesta"} ${$(ahora)} en vez de ${$(antes)} `
+                + `(${cambio > 0 ? "+" : ""}${cambio.toFixed(0)}%). Entras en mejores condiciones que cuando se detectó.`
+              : `No lo suficiente. ${esCredito ? "La prima" : "El coste"} pasó de ${$(antes)} a ${$(ahora)} `
+                + `(${cambio > 0 ? "+" : ""}${cambio.toFixed(0)}%), así que la idea sigue en pie.` },
+    );
+  } else {
+    pasos.push({ titulo: "¿Se movió ya el precio?", señal: "info",
+      detalle: "No se pudo saber: falta el precio en vivo de alguna pata." });
+  }
+  if (o.estado === "ya_corrio" || o.estado === "sin_precio") return pasos;
+
+  // 3) Los números de entrar hoy.
+  if (o.desembolso != null) {
+    pasos.push({ titulo: "Si entras ahora", señal: "info",
+      detalle: `Pones ${$(o.desembolso)}. Como mucho ganas ${$(o.maxGanancia ?? 0)} y como mucho pierdes `
+        + `${$(o.maxPerdida ?? 0)}${o.pop != null ? `, con ${o.pop.toFixed(0)}% de probabilidad de acabar ganando` : ""}.`
+        + (o.breakevens.length ? ` Empiezas a ganar a partir de ${o.breakevens.map((b) => b.toFixed(2)).join(" y ")}.` : "") });
+  }
+
+  return pasos;
+}
+
 function legsAPayoff(t: PaperTrade, precios: PrecioPata[]): PayoffLeg[] | null {
   const out: PayoffLeg[] = [];
   for (const l of t.legs) {

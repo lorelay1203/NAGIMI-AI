@@ -8,7 +8,7 @@
 // Solo lectura: no abre ni cierra nada.
 
 import { listPaper } from "@/lib/paper";
-import { evaluarOportunidad, etToday, vencimientoDe, type PrecioPata } from "@/lib/paperOpportunity";
+import { evaluarOportunidad, etToday, porQueDeLaOportunidad, vencimientoDe, type PrecioPata } from "@/lib/paperOpportunity";
 import { encajeEnCuentas, getSaldos } from "@/lib/balances";
 import { quoteContract } from "@/lib/marketsnackChain";
 import { fetchSchwabChain } from "@/lib/schwabMarket";
@@ -60,7 +60,7 @@ export async function GET() {
       // Lo vencido no necesita precios: se resuelve por fecha y ahorra llamadas.
       if (exp && exp < hoy) {
         const o = evaluarOportunidad(t, [], 0, 0.2, hoy);
-        return { ...o, encaje: null };
+        return { ...o, encaje: null, porQue: porQueDeLaOportunidad(o, hoy), rationale: t.rationale ?? null };
       }
       const precios = await preciosDe(t.ticker, t.legs);
       // El spot se aproxima con el strike medio: solo se usa para la forma del
@@ -69,7 +69,16 @@ export async function GET() {
       const spot = t.entrySpot ?? (strikes.length ? strikes.reduce((a, b) => a + b, 0) / strikes.length : 0);
       const o = evaluarOportunidad(t, precios, spot, 0.25, hoy);
       const encaje = o.desembolso != null ? encajeEnCuentas(o.desembolso, saldos) : null;
-      return { ...o, encaje };
+      // El razonamiento de hoy + el porqué que guardó el motor cuando la encontró.
+      const porQue = porQueDeLaOportunidad(o, hoy);
+      if (encaje) {
+        porQue.push({
+          titulo: "¿Te alcanza el dinero?",
+          señal: encaje.cabe ? "ok" : "no",
+          detalle: encaje.resumen,
+        });
+      }
+      return { ...o, encaje, porQue, rationale: t.rationale ?? null };
     }));
 
     // Orden: primero lo que se puede hacer y menos tiempo queda.
