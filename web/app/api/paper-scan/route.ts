@@ -4,6 +4,7 @@
 //   POST /api/paper-scan            → corre si no ha corrido hoy
 //   POST /api/paper-scan {force:true} → corre ahora aunque ya haya corrido
 
+import { TODAS, type StratKind } from "@/lib/strategyGuide";
 import { promises as fs } from "fs";
 import path from "path";
 import { runAutoScan, type ScanResult } from "@/lib/autoPaperScan";
@@ -41,7 +42,7 @@ export async function GET() {
 }
 
 export async function POST(request: Request) {
-  const body = (await request.json().catch(() => ({}))) as { force?: boolean; maxRisk?: number; minPop?: number; minReturn?: number; term?: "0dte" | "corto" | "normal"; strategies?: ("iron_condor" | "put_credit" | "call_credit")[]; trendGate?: boolean };
+  const body = (await request.json().catch(() => ({}))) as { force?: boolean; maxRisk?: number; minPop?: number; minReturn?: number; term?: "0dte" | "corto" | "normal"; strategies?: StratKind[]; trendGate?: boolean };
   const today = todayET();
   const state = await readState();
 
@@ -55,8 +56,10 @@ export async function POST(request: Request) {
   // Ganancia mínima como fracción del riesgo (0.25 = 25%).
   const minReturn = body.minReturn && body.minReturn > 0 && body.minReturn <= 5 ? body.minReturn : 0.25;
   const term = body.term === "0dte" ? "0dte" : body.term === "corto" ? "corto" : "normal";
-  const VALID = ["iron_condor", "put_credit", "call_credit"] as const;
-  const strategies = Array.isArray(body.strategies) ? body.strategies.filter((s) => VALID.includes(s)) : undefined;
+  // Se aceptan las 9 estrategias de la guía (venta y compra de prima).
+  const strategies = Array.isArray(body.strategies)
+    ? body.strategies.filter((s): s is StratKind => TODAS.includes(s as StratKind))
+    : undefined;
   const trendGate = body.trendGate !== false;
   const result = await runAutoScan({ popTarget, maxNames: 12, maxRisk, minReturn, term, strategies, trendGate });
   const next: ScanState = { lastRunDate: today, lastResult: result };

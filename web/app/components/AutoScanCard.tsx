@@ -4,6 +4,7 @@
 // (busca estructuras de POP ≥ 90% en el mercado y las registra en el diario de
 // paper). Botón "Buscar ahora" para forzarlo. Todo simulado, sin dinero real.
 
+import { GUIA, TODAS, VENDER, COMPRAR, type StratKind } from "@/lib/strategyGuide";
 import { useCallback, useEffect, useRef, useState } from "react";
 
 const RISK_KEY = "nagimi.paperMaxRisk";
@@ -14,7 +15,7 @@ const TERM_KEY = "nagimi.paperTerm";
 interface CandLeg { type: "call" | "put"; side: "buy" | "sell"; strike: number; }
 interface Candidate {
   ticker: string;
-  kind?: "iron_condor" | "put_credit" | "call_credit";
+  kind?: StratKind;
   label: string;
   pop: number;
   maxLoss: number;
@@ -51,6 +52,7 @@ export default function AutoScanCard({ onRegistered }: { onRegistered?: () => vo
   const [minRet, setMinRet] = useState(25);    // ganancia mínima como % del riesgo
   const [term, setTerm] = useState<"0dte" | "corto" | "normal">("normal"); // plazo de los trades
   const [strategies, setStrategies] = useState<Set<string>>(new Set(["iron_condor", "put_credit", "call_credit"]));
+  const [verGuia, setVerGuia] = useState(false);
   const [openCand, setOpenCand] = useState<number | null>(null); // candidato expandido en detalle
   const [trendGate, setTrendGate] = useState(true); // solo a favor de la tendencia
   const riskRef = useRef(100);
@@ -123,10 +125,10 @@ export default function AutoScanCard({ onRegistered }: { onRegistered?: () => vo
       <div>
         <div style={{ fontSize: 16, fontWeight: 700 }}>🤖 Motor automático · Paper</div>
         <div className="card-sub">
-          Busca solo, una vez al día, trades en 3 formatos (Credit Put Spread, Credit Call Spread e Iron
-          Condor) que cumplan <b>3 condiciones</b>: (1) la <b>probabilidad de ganar</b> que elijas, (2) una
-          <b> ganancia mínima</b> que valga la pena, y (3) que <b>el agente confirme la tendencia</b> a favor
-          del trade. Los registra en tu diario de paper. Sin dinero real: aquí probamos si de verdad gana.
+          Busca solo, una vez al día, trades en <b>9 estrategias</b> de dos familias: las que <b>cobran
+          prima</b> (ganas si no pasa nada) y las que <b>pagan prima</b> (ganas si el precio sí se mueve).
+          Elige cuáles quieres abajo — o toca «¿Qué es cada estrategia?» si no las conoces. Los registra
+          en tu diario de paper. Sin dinero real: aquí probamos cuál te funciona mejor a ti.
         </div>
       </div>
 
@@ -162,22 +164,36 @@ export default function AutoScanCard({ onRegistered }: { onRegistered?: () => vo
         </button>
       </div>
 
-      {/* Selector de estrategias a analizar */}
-      <div style={{ display: "flex", gap: 6, alignItems: "center", flexWrap: "wrap" }}>
-        <span style={{ fontSize: 12, color: "var(--muted)", fontWeight: 700 }}>📐 Estrategias:</span>
+      {/* Selector de estrategias, agrupado por familia. Pasa el ratón por encima
+          de cualquiera para ver qué es y cuándo se usa. */}
+      <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
         {([
-          ["put_credit", "Credit Put Spread"],
-          ["call_credit", "Credit Call Spread"],
-          ["iron_condor", "Iron Condor"],
-        ] as const).map(([k, lbl]) => {
-          const on = strategies.has(k);
-          return (
-            <button key={k} type="button" onClick={() => toggleStrat(k)}
-              style={{ padding: "5px 11px", borderRadius: 999, cursor: "pointer", fontSize: 12, fontWeight: 700, border: on ? "1px solid var(--accent)" : "1px solid var(--border)", background: on ? "var(--accent)" : "transparent", color: on ? "#fff" : "var(--muted)" }}>
-              {lbl}
-            </button>
-          );
-        })}
+          ["💰 Cobras prima (ganas si NO pasa nada)", VENDER],
+          ["🎯 Pagas prima (ganas si SÍ se mueve)", COMPRAR],
+        ] as const).map(([titulo, kinds]) => (
+          <div key={titulo} style={{ display: "flex", gap: 6, alignItems: "center", flexWrap: "wrap" }}>
+            <span style={{ fontSize: 11.5, color: "var(--muted)", fontWeight: 700, minWidth: 210 }}>{titulo}</span>
+            {kinds.map((k) => {
+              const on = strategies.has(k);
+              const g = GUIA[k];
+              return (
+                <button key={k} type="button" onClick={() => toggleStrat(k)}
+                  title={`${g.apuesta}\n\n${g.comoFunciona}\n\nCuándo: ${g.cuandoUsarla}\nRiesgo: ${g.riesgo}`}
+                  style={{ padding: "5px 11px", borderRadius: 999, cursor: "pointer", fontSize: 12, fontWeight: 700, border: on ? "1px solid var(--accent)" : "1px solid var(--border)", background: on ? "var(--accent)" : "transparent", color: on ? "#fff" : "var(--muted)" }}>
+                  {g.nombre}
+                </button>
+              );
+            })}
+          </div>
+        ))}
+      </div>
+
+      <div style={{ display: "flex", gap: 6, alignItems: "center", flexWrap: "wrap" }}>
+        <button type="button" onClick={() => setVerGuia((v) => !v)}
+          style={{ padding: "5px 11px", borderRadius: 999, cursor: "pointer", fontSize: 12, fontWeight: 700,
+            border: "1px solid var(--border)", background: "transparent", color: "var(--accent)" }}>
+          {verGuia ? "▾ Ocultar" : "▸ ¿Qué es cada estrategia?"}
+        </button>
         <button type="button" onClick={() => setTrendGate((v) => !v)}
           title="Activo: solo trades a favor de la tendencia. Apágalo para ver TODAS las estrategias (más variedad)."
           style={{ marginLeft: 6, padding: "5px 11px", borderRadius: 999, cursor: "pointer", fontSize: 12, fontWeight: 700, border: trendGate ? "1px solid #4ad991" : "1px solid var(--border)", background: trendGate ? "rgba(74,217,145,0.15)" : "transparent", color: trendGate ? "#4ad991" : "var(--muted)" }}>
@@ -191,6 +207,37 @@ export default function AutoScanCard({ onRegistered }: { onRegistered?: () => vo
           </span>
         )}
       </div>
+
+      {/* Chuleta: qué es cada estrategia, sin tecnicismos. */}
+      {verGuia && (
+        <div style={{ display: "flex", flexDirection: "column", gap: 9, background: "var(--panel-2)",
+          border: "1px solid var(--border-soft)", borderRadius: 10, padding: 13 }}>
+          {TODAS.map((k) => {
+            const g = GUIA[k];
+            const c = g.familia === "vender" ? "#4ad991" : "#7aa2ff";
+            return (
+              <div key={k} style={{ borderLeft: `3px solid ${c}`, paddingLeft: 10 }}>
+                <div style={{ fontSize: 12.5, fontWeight: 800 }}>
+                  {g.nombre}
+                  <span style={{ color: "var(--muted)", fontWeight: 600, fontSize: 11 }}>
+                    {" · "}{g.familia === "vender" ? "cobras prima" : "pagas prima"}{" · "}{g.sesgo}
+                  </span>
+                </div>
+                <div style={{ fontSize: 12, lineHeight: 1.5, marginTop: 2 }}>{g.comoFunciona}</div>
+                <div style={{ fontSize: 11.5, color: "var(--muted)", lineHeight: 1.5, marginTop: 3 }}>
+                  <b>Cuándo:</b> {g.cuandoUsarla}
+                </div>
+                <div style={{ fontSize: 11.5, color: "#f5c451", lineHeight: 1.5, marginTop: 2 }}>
+                  <b>Riesgo:</b> {g.riesgo}
+                </div>
+                <div style={{ fontSize: 11.5, color: "var(--muted)", lineHeight: 1.5, marginTop: 2 }}>
+                  💵 {g.cuentaChica}
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      )}
 
       {err && <div style={{ fontSize: 12.5, color: "#ff9b94" }}>⚠️ {err}</div>}
 

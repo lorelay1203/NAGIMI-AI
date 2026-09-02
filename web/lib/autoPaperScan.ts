@@ -16,6 +16,8 @@ import { parseOcc } from "./occ";
 import { generateLegs } from "./orderBuilder";
 import { analyzeStrategy, type PayoffLeg } from "./payoff";
 import { openPaper, listPaper, type PaperLeg } from "./paper";
+import { construirDebitos } from "./debitStrategies";
+import { GUIA, explicacion, type StratKind as Kind } from "./strategyGuide";
 
 interface RawContract {
   strike?: number;
@@ -24,11 +26,12 @@ interface RawContract {
   last_quote?: { bid?: number; ask?: number; mid?: number };
 }
 
-export type StratKind = "iron_condor" | "put_credit" | "call_credit";
+/** Los tipos de estrategia viven en strategyGuide, junto a su explicación. */
+export type { StratKind } from "./strategyGuide";
 
 export interface ScanCandidate {
   ticker: string;
-  kind: StratKind;      // tipo de estrategia (para variedad y dedup)
+  kind: Kind;      // tipo de estrategia (para variedad y dedup)
   label: string;
   expiration: string;
   dte: number;
@@ -91,10 +94,11 @@ function gexTrend(g: MsGexResult | null): Trend {
 }
 
 /** ¿La tendencia del agente APOYA este tipo de trade? */
-function trendConfirms(kind: "iron_condor" | "put_credit" | "call_credit", trend: Trend): boolean {
+function trendConfirms(kind: Kind, trend: Trend): boolean {
   if (kind === "put_credit") return trend !== "down"; // apuesta a que NO baja → no ir contra una bajada
   if (kind === "call_credit") return trend !== "up";  // apuesta a que NO sube → no ir contra una subida
-  return trend === "neutral";                          // iron condor (rango) → solo cuando no hay tendencia
+  if (kind === "iron_condor") return trend === "neutral"; // rango → solo sin tendencia
+  return true; // las de compra se filtran en su propio bloque
 }
 
 function trendLabel(t: Trend): string {
@@ -114,7 +118,7 @@ async function findHighPopCondor(
   maxRisk: number,
   minReturn: number,
   term: { min: number; max: number; target: number },
-  strategies: StratKind[],
+  strategies: Kind[],
   trendGate: boolean,
   now: Date,
 ): Promise<FindResult> {
@@ -161,7 +165,6 @@ async function findHighPopCondor(
   const T = dte / 365;
   const sd = spot * ivAtm * Math.sqrt(T); // 1σ esperado en $
 
-  type Kind = StratKind;
   interface Best {
     kind: Kind; legs: PayoffLeg[]; a: ReturnType<typeof analyzeStrategy>; maxLoss: number;
     sig: number; shortPut: number; longPut: number; shortCall: number; longCall: number; score: number;
@@ -238,7 +241,19 @@ async function findHighPopCondor(
     }
   }
 
-  if (bestByKind.size === 0) {
+  // Las de COMPRA se calculan aparte y ANTES de decidir si no hubo nada: si solo
+  // se pidieron estrategias de compra, la venta de prima no encuentra nada y no
+  // se puede abandonar el ticker por eso.
+  const debitosPedidos = [...allow].filter((k) => GUIA[k].familia === "comprar");
+  const debitos = debitosPedidos.length
+    ? construirDebitos({
+        spot, iv: ivAtm, dte, cadena: { call: callMid, put: putMid, strikes },
+        maxCosto: maxRisk, permitidas: debitosPedidos,
+      })
+    : [];
+
+  if (bestByKind.size === 0 && debitos.length === 0) {
+    if (debitosPedidos.length) return { skip: `ninguna estrategia de compra cabe en $${Math.round(maxRisk)}` };
     if (cheapestOverBudget < Infinity) return { skip: `no cabe: arriesga $${Math.round(cheapestOverBudget)} (tu límite $${Math.round(maxRisk)})` };
     if (lowReturn) return { skip: `paga menos del ${Math.round(minReturn * 100)}% mínimo de ganancia` };
     if (trendBlocked) return { skip: `la tendencia (${trendLabel(trend)}) no apoya ningún trade` };
@@ -257,12 +272,7 @@ async function findHighPopCondor(
   const stopLoss = Math.min(Math.round(maxLoss), Math.round(credit * 2));
   const stopPct = maxRisk > 0 ? Math.round((stopLoss / maxRisk) * 100) : 0;
 
-  const fullName: Record<Kind, string> = {
-    iron_condor: "IRON CONDOR (apuesta a un RANGO)",
-    put_credit: "CREDIT PUT SPREAD · alcista/neutral (apuesta a que NO baja)",
-    call_credit: "CREDIT CALL SPREAD · bajista/neutral (apuesta a que NO sube)",
-  };
-  const shortName: Record<Kind, string> = { iron_condor: "Iron Condor", put_credit: "Credit Put Spread", call_credit: "Credit Call Spread" };
+  const shortName = GUIA[kind].nombre;
   const label =
     kind === "iron_condor" ? `Iron Condor ${putStr(longPut, shortPut)} · ${callStr(shortCall, longCall)} · ${expiration}`
     : kind === "put_credit" ? `Credit Put Spread (alcista) ${putStr(longPut, shortPut)} · ${expiration}`
@@ -280,7 +290,7 @@ async function findHighPopCondor(
     : [`• Vendes call ${shortCall} / compras call ${longCall}  (por encima, para limitar la pérdida).`];
 
   const rationale = [
-    `Estrategia: ${fullName[kind]}. Cobras prima por adelantado y la conservas si el precio se porta como esperas.`,
+    explicacion(kind),
     ``,
     `Por qué este trade:`,
     `• ✅ El agente confirma la tendencia ${trendLabel(trend)} — esta jugada va A FAVOR de eso, no en contra.`,
@@ -305,7 +315,7 @@ async function findHighPopCondor(
   return {
     ticker, kind, label, expiration, dte, legs,
     pop: a.pop, maxLoss, maxGain: a.maxGain, entryNet, spot,
-    note: `${shortName[kind]} · POP ${Math.round(a.pop * 100)}% · ${sig}σ · stop $${stopLoss}`,
+    note: `${shortName} · POP ${Math.round(a.pop * 100)}% · ${sig}σ · stop $${stopLoss}`,
     rationale,
   };
   } // fin toCandidate
@@ -314,7 +324,65 @@ async function findHighPopCondor(
   const candidates = [...bestByKind.values()]
     .sort((x, y) => y.score - x.score)
     .map(toCandidate);
+
+  // Las de COMPRA (calculadas arriba) se añaden con su propia explicación.
+  for (const d of debitos) {
+    candidates.push(debitoACandidato(d, ticker, expiration, dte, spot, ivAtm, trend, maxRisk));
+  }
+
   return { ok: candidates };
+}
+
+/** Traduce una estrategia de compra al formato del diario, con su explicación. */
+function debitoACandidato(
+  d: ReturnType<typeof construirDebitos>[number],
+  ticker: string, expiration: string, dte: number, spot: number,
+  ivAtm: number, trend: Trend, maxRisk: number,
+): ScanCandidate {
+  const g = GUIA[d.kind];
+  const costo = Math.round(d.costo);
+  const be = d.breakevens.slice().sort((a, b) => a - b);
+  // Gestión: en una compra se toma ganancia al duplicar (+100% de lo pagado) y
+  // se corta a la mitad. Al contrario que en la venta, aquí no hay colateral:
+  // el riesgo es exactamente lo que pusiste.
+  const takeProfit = costo;
+  const stopLoss = Math.round(costo * 0.5);
+
+  const rationale = [
+    explicacion(d.kind),
+    ``,
+    `Por qué este trade:`,
+    `• El agente ve una tendencia ${trendLabel(trend)}.`,
+    `• Pagas $${costo} y eso es TODO lo que puedes perder — no hay sorpresas.`,
+    d.maxGanancia == null
+      ? `• La ganancia no tiene techo: cuanto más se mueva a tu favor, más ganas.`
+      : `• Ganancia máxima: $${Math.round(d.maxGanancia)} (topada por la pata que vendes).`,
+    `• ${ticker} tiene que moverse un ${d.movimientoNecesarioPct.toFixed(1)}% para que empieces a ganar.`,
+    be.length ? `• Punto(s) de equilibrio: ${be.map((b) => b.toFixed(2)).join(" y ")}.` : ``,
+    `• Volatilidad implícita ${(ivAtm * 100).toFixed(0)}% · vence el ${expiration} (${dte} días).`,
+    ``,
+    `Números (1 contrato):`,
+    `• Coste = pérdida máxima: $${costo} (tu límite es $${Math.round(maxRisk)}).`,
+    `• Probabilidad aproximada de terminar ganando: ${Math.round(d.pop * 100)}%.`,
+    ``,
+    `📏 Gestión recomendada (cuenta chica):`,
+    `• TOMA GANANCIA si se duplica (+$${takeProfit}). Las compras se deshinchan rápido si te duermes.`,
+    `• STOP-LOSS: sal si pierdes la mitad ($${stopLoss}), no esperes a perderlo todo.`,
+    `• Ojo con el TIEMPO: cada día que pasa sin moverse, esta posición vale menos.`,
+    ``,
+    `⚠️ Comprar prima pierde MUCHAS veces y gana pocas, pero cuando gana paga fuerte. `
+      + `Es lo contrario de vender prima. Por eso se prueba en PAPEL: para ver cuál te funciona mejor a ti.`,
+  ].filter((x) => x !== "").join("\n");
+
+  const entryNet = d.legs.reduce((s, l) => s + (l.side === "buy" ? 1 : -1) * l.limitPrice * MULT * l.quantity, 0);
+  return {
+    ticker, kind: d.kind,
+    label: `${g.nombre} ${d.strikesLabel} · ${expiration}`,
+    expiration, dte, legs: d.legs,
+    pop: d.pop, maxLoss: d.costo, maxGain: d.maxGanancia ?? 0, entryNet, spot,
+    note: `${g.nombre} · cuesta $${costo} · necesita ${d.movimientoNecesarioPct.toFixed(1)}% de movimiento`,
+    rationale,
+  };
 }
 
 function putStr(long: number, short: number): string { return `${long}/${short}p`; }
@@ -383,7 +451,7 @@ async function buildUniverse(maxNames: number): Promise<string[]> {
  * Corre el escaneo completo y registra en paper las estructuras nuevas.
  * Dedup: no re-registra si ya hay un trade ABIERTO del mismo ticker + vencimiento.
  */
-export async function runAutoScan(opts: { popTarget?: number; maxNames?: number; maxRisk?: number; minReturn?: number; term?: "0dte" | "corto" | "normal"; strategies?: StratKind[]; trendGate?: boolean; now?: Date } = {}): Promise<ScanResult> {
+export async function runAutoScan(opts: { popTarget?: number; maxNames?: number; maxRisk?: number; minReturn?: number; term?: "0dte" | "corto" | "normal"; strategies?: Kind[]; trendGate?: boolean; now?: Date } = {}): Promise<ScanResult> {
   // Plazo: "0dte" = usa la PRÓXIMA expiración (1DTE): mañana entre semana, o el
   // lunes si hoy es viernes. NUNCA el mismo día (min:1) — más seguro que el 0DTE
   // real. "corto" = 3-14 días (dinero rápido); "normal" = 14-45 días (~1 mes).
@@ -399,7 +467,7 @@ export async function runAutoScan(opts: { popTarget?: number; maxNames?: number;
   // Ganancia mínima como % del riesgo (25% por defecto). Por debajo, no vale la pena.
   const minReturn = opts.minReturn && opts.minReturn > 0 ? opts.minReturn : 0.25;
   // Estrategias a considerar (por defecto las 3).
-  const strategies: StratKind[] = opts.strategies && opts.strategies.length ? opts.strategies : ["iron_condor", "put_credit", "call_credit"];
+  const strategies: Kind[] = opts.strategies && opts.strategies.length ? opts.strategies : ["iron_condor", "put_credit", "call_credit"];
   // ¿Solo trades a favor de la tendencia? (por defecto sí; apagarlo da más variedad).
   const trendGate = opts.trendGate !== false;
   const now = opts.now ?? new Date();
