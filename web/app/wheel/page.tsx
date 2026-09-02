@@ -53,10 +53,21 @@ export default function WheelPage() {
   const pickPreset = (p: PresetId) => { setPreset(p); window.localStorage.setItem(KEY_PRESET, p); };
   const pickMode = (m: "csp" | "spread") => { setMode(m); window.localStorage.setItem(KEY_MODE, m); };
 
+  // Dinero real de los brokers conectados. Manda sobre el capital escrito a
+  // mano en el perfil: lo que importa es lo que hay de verdad.
+  const [saldoReal, setSaldoReal] = useState<number | null>(null);
+  useEffect(() => {
+    fetch("/api/balances").then((r) => r.json())
+      .then((r: { total?: number }) => { if (r.total && r.total > 0) setSaldoReal(r.total); })
+      .catch(() => { /* sin brokers: se usa el perfil */ });
+  }, []);
+
+  const capital = saldoReal ?? profile.accountSize;
+
   const rows = useMemo(() => {
     if (!candidates) return [];
-    return sortByAffordThenScore(candidates, profile.accountSize);
-  }, [candidates, profile.accountSize]);
+    return sortByAffordThenScore(candidates, capital);
+  }, [candidates, capital]);
 
   const operables = rows.filter((r) => !r.blocked && r.afford.affordable).length;
   const pct = progress ? Math.round((progress.done / progress.total) * 100) : 0;
@@ -118,7 +129,8 @@ export default function WheelPage() {
 
         {!busy && meta && (
           <div className="wheel-status">
-            Revisadas {meta.scanned} acciones · <b style={{ color: "#4ad991" }}>{operables}</b> caben en tu efectivo · {rows.filter((r) => !r.blocked).length} candidatos
+            Revisadas {meta.scanned} acciones · <b style={{ color: "#4ad991" }}>{operables}</b> caben en tu efectivo
+            {saldoReal != null && <> (${saldoReal.toFixed(2)} reales de tus brokers)</>} · {rows.filter((r) => !r.blocked).length} candidatos
             {meta.degraded && <span className="wheel-tag warn"> · datos parciales</span>}
           </div>
         )}
