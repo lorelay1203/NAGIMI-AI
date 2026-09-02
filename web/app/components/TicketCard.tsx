@@ -24,6 +24,7 @@ interface Resp {
   setup?: Setup | null; verdict?: Verdict | null; ticket?: Ticket | null;
   ticketReason?: string | null; noSetup?: string; expiration?: string | null;
   chainSource?: string | null; simulated?: boolean;
+  flujoRevisado?: boolean; flujoPremium?: number;
 }
 
 const money = (n: number) => `$${n >= 1000 ? Math.round(n).toLocaleString("es") : n.toFixed(0)}`;
@@ -108,6 +109,19 @@ export default function TicketCard({ ticker, capital = 100 }: { ticker: string; 
           </div>
 
           <div style={{ fontSize: 12.5, lineHeight: 1.55 }}>{data?.verdict?.reason}</div>
+
+          {/* Un "listo" sin haber podido mirar el flujo vale menos: se dice. */}
+          {ready && data?.flujoRevisado === false && (
+            <div style={{ fontSize: 11.5, color: "#e0a800", lineHeight: 1.5 }}>
+              ⚠️ No se pudo revisar el flujo de hoy (falta la cookie de MarketSnack), así que este
+              &quot;listo&quot; solo comprueba el riesgo/beneficio, no si el dinero va en contra.
+            </div>
+          )}
+          {ready && data?.flujoRevisado && (
+            <div style={{ fontSize: 11.5, color: "var(--muted)", lineHeight: 1.5 }}>
+              ✓ Flujo del día revisado{data.flujoPremium ? ` (${(data.flujoPremium / 1e6).toFixed(1)}M en prima)` : ""}: no corre en contra de la idea.
+            </div>
+          )}
 
           <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(96px,1fr))", gap: 7 }}>
             {[["Ahora", setup.entry], ["Objetivo", setup.target], ["Stop", setup.stop]].map(([l, v]) => (

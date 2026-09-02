@@ -13,6 +13,7 @@ import { fetchIntradayBars, fetchDailyBars, type IntradayBar } from "./massive";
 import { getDayGex, type GexSource } from "./dayGex";
 import { fetchFlow } from "./marketsnack";
 import { classifyFlow } from "./flow";
+import { analyzeMarketPressure } from "./marketPressure";
 
 export interface ScoreCard { score: number; note: string }
 
@@ -205,13 +206,11 @@ export async function getDaySession(ticker: string): Promise<DaySession> {
       const askPct = totalPrem > 0 ? (askPrem / totalPrem) * 100 : 0;
       aggression = { score: Math.round((askPct / 10) * 10) / 10, note: `${Math.round(askPct)}% al ask` };
 
-      // Flujo: prima alcista (calls al ask + puts al bid) vs bajista.
-      let bull = 0, bear = 0;
-      for (const r of use) {
-        const isCall = r.type === "call", isPut = r.type === "put";
-        if ((isCall && r.aggression === "ask") || (isPut && r.aggression === "bid")) bull += r.premium;
-        else if ((isPut && r.aggression === "ask") || (isCall && r.aggression === "bid")) bear += r.premium;
-      }
+      // Flujo: prima alcista (comprar calls o vender puts) vs bajista. La regla
+      // vive en marketPressure.ts para no tenerla duplicada en dos sitios.
+      const pressure = analyzeMarketPressure(use);
+      const bull = pressure.cross.callsBought + pressure.cross.putsSold;
+      const bear = pressure.cross.callsSold + pressure.cross.putsBought;
       const net = bull + bear;
       const bullPct = net > 0 ? bull / net : 0.5;
       flow = {

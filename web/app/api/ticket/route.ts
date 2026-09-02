@@ -7,12 +7,37 @@
 import { getDayGex } from "@/lib/dayGex";
 import { getTicketChain, type TicketChainSource } from "@/lib/ticketChain";
 import { pickTicket, ticketParamsFor } from "@/lib/contractTicket";
-import { dynamicPinParams, evaluatePin, gatePin, noPinReason, riskReward } from "@/lib/pinStrategy";
+import { dynamicPinParams, evaluatePin, gatePin, noPinReason, riskReward, type FlowCtx } from "@/lib/pinStrategy";
 import { expectedMove } from "@/lib/expectedMove";
+import { fetchFlow } from "@/lib/marketsnack";
+import { classifyFlow } from "@/lib/flow";
+import { analyzeMarketPressure } from "@/lib/marketPressure";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 export const maxDuration = 60;
+
+/**
+ * Premium agresivo alcista vs bajista del día, para el filtro de la estrategia.
+ * Reutiliza `analyzeMarketPressure`, que ya cruza lado del libro × tipo de
+ * contrato (comprar calls o vender puts = alcista; lo contrario = bajista).
+ * Si falta la cookie de MarketSnack devuelve un contexto vacío: el filtro
+ * entiende "sin dato" como "no filtra", nunca como "todo bien".
+ */
+async function flowContext(ticker: string): Promise<{ ctx: FlowCtx; disponible: boolean; premium: number }> {
+  try {
+    const { trades } = await fetchFlow(ticker, { period: "1d", minPremium: 25_000, maxPages: 6 });
+    const { rows } = classifyFlow(trades, new Date());
+    if (rows.length === 0) return { ctx: {}, disponible: false, premium: 0 };
+    const p = analyzeMarketPressure(rows);
+    const bull = p.cross.callsBought + p.cross.putsSold;
+    const bear = p.cross.callsSold + p.cross.putsBought;
+    if (bull + bear <= 0) return { ctx: {}, disponible: false, premium: p.side.total };
+    return { ctx: { bull, bear }, disponible: true, premium: p.side.total };
+  } catch {
+    return { ctx: {}, disponible: false, premium: 0 }; // sin cookie o sin datos
+  }
+}
 
 export async function GET(request: Request) {
   const { searchParams } = new URL(request.url);
@@ -70,8 +95,12 @@ export async function GET(request: Request) {
       });
     }
 
-    // De momento sin flujo en vivo: el gate solo aplica R:B y el cruce del flip.
-    const verdict = gatePin(setup, {}, levels.gammaFlip, params);
+    // Flujo real de MarketSnack para el filtro: si el dinero corre en contra de
+    // la idea, mejor esperar. `velocity` se deja sin valor a propósito — medirla
+    // requiere una referencia en vivo que hoy no hay, y el filtro trata lo que
+    // falta como "no filtra" en vez de inventarlo.
+    const flow = await flowContext(ticker);
+    const verdict = gatePin(setup, flow.ctx, levels.gammaFlip, params);
 
     let ticket = null, ticketReason: string | null = null;
     let usedChain = chain;
@@ -105,6 +134,10 @@ export async function GET(request: Request) {
       ticker, levels, sigma,
       setup: { ...setup, rr: riskReward(setup) },
       verdict, ticket, ticketReason,
+      // Si el flujo no se pudo mirar, el "listo" vale menos: solo pasó el filtro
+      // de riesgo/beneficio. La pantalla lo advierte.
+      flujoRevisado: flow.disponible,
+      flujoPremium: flow.premium,
       expiration: usedChain?.expiration ?? null,
       chainSource: usedChain?.source ?? null,
       chainStats,
