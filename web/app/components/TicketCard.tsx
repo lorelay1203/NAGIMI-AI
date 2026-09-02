@@ -25,6 +25,7 @@ interface Resp {
   ticketReason?: string | null; noSetup?: string; expiration?: string | null;
   chainSource?: string | null; simulated?: boolean;
   flujoRevisado?: boolean; flujoPremium?: number;
+  flujoFuente?: string | null; flujoVelocidad?: number | null;
 }
 
 const money = (n: number) => `$${n >= 1000 ? Math.round(n).toLocaleString("es") : n.toFixed(0)}`;
@@ -120,6 +121,11 @@ export default function TicketCard({ ticker, capital = 100 }: { ticker: string; 
           {ready && data?.flujoRevisado && (
             <div style={{ fontSize: 11.5, color: "var(--muted)", lineHeight: 1.5 }}>
               ✓ Flujo del día revisado{data.flujoPremium ? ` (${(data.flujoPremium / 1e6).toFixed(1)}M en prima)` : ""}: no corre en contra de la idea.
+              {data.flujoVelocidad != null && (
+                <> · Cinta a <b>{data.flujoVelocidad.toFixed(1)}×</b> su ritmo normal
+                  {data.flujoVelocidad >= 1.5 ? " (va rápida)" : data.flujoVelocidad <= 0.6 ? " (tranquila)" : ""}.</>
+              )}
+              {data.flujoVelocidad == null && " · Sin velocidad: el streamer de Tastytrade no está corriendo."}
             </div>
           )}
 
