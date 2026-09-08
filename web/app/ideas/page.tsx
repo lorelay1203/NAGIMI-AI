@@ -7,7 +7,9 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { Idea, IdeasMeta, IdeasEvent } from "./types";
-import { sizeFlow, type RiskProfile } from "@/lib/risk";
+import NextStepsCard from "../components/NextStepsCard";
+import { buildIdeasNextSteps } from "@/lib/nextSteps";
+import { budgetsOf, sizeFlow, type RiskProfile } from "@/lib/risk";
 import IdeasTable, { type SizedIdea } from "@/app/components/IdeasTable";
 
 const KEY_PROFILE = "nagimi.ideas.profile";
@@ -170,6 +172,7 @@ export default function IdeasPage() {
             {filterTicker && <> en {filterTicker}</>}
             {meta && <> · escaneó {meta.scanned} operaciones en {meta.tickers} tickers</>}
           </div>
+          <NextStepsCard ticker={`ideas-${filterTicker ?? "todos"}`} steps={buildIdeasNextSteps(shownRows, budgetsOf(profile).premium)} />
           <IdeasTable rows={shownRows} profile={profile} view={view} horizonDays={horizonDays} onStar={() => {}} />
         </>
       )}

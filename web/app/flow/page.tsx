@@ -3,6 +3,8 @@
 import { useRef, useState } from "react";
 import type { AggressionScore, FlowRow } from "@/lib/flow";
 import PressureCard from "../components/PressureCard";
+import NextStepsCard from "../components/NextStepsCard";
+import { buildFlowNextSteps } from "@/lib/nextSteps";
 
 interface StepLine { label: string; detail?: string }
 interface FlowMeta {
@@ -155,6 +157,10 @@ export default function FlowPage() {
       {error && <div className="error">⚠ {error}</div>}
 
       {score && <ScoreCard score={score} />}
+
+      {rows && score && meta && (
+        <NextStepsCard ticker={`flow-${meta.ticker}`} steps={buildFlowNextSteps(meta.ticker, rows, score)} />
+      )}
 
       {rows && rows.length > 0 && <PressureCard rows={rows} />}
 

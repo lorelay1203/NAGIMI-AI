@@ -6,6 +6,8 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import WatchlistCard from "@/app/components/WatchlistCard";
+import NextStepsCard from "@/app/components/NextStepsCard";
+import { buildWatchlistNextSteps } from "@/lib/nextSteps";
 import {
   brokerById,
   remove,
@@ -100,6 +102,10 @@ export default function WatchlistPage() {
       </div>
 
       <div className="ideas-body">
+        {watchlist.length > 0 && (
+          <NextStepsCard ticker="watchlist" steps={buildWatchlistNextSteps(watchlist, new Date())} />
+        )}
+
         <WatchlistCard
           entries={watchlist}
           broker={broker}

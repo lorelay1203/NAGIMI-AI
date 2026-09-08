@@ -1,5 +1,11 @@
 import { describe, expect, it } from "vitest";
-import { buildNextSteps, buildSessionNextSteps, buildWheelNextSteps, buildGrandesNextSteps } from "./nextSteps";
+import {
+  buildNextSteps, buildSessionNextSteps, buildWheelNextSteps, buildGrandesNextSteps,
+  buildIdeasNextSteps, buildFlowNextSteps, buildWatchlistNextSteps,
+  type SizedIdeaLike,
+} from "./nextSteps";
+import type { FlowRow, AggressionScore } from "./flow";
+import type { WatchlistEntry } from "./watchlist";
 import type { ProPrediction } from "./prediction";
 import type { LevelsReport, Level } from "./levels";
 import type { GexAnalysis } from "./gex";
@@ -288,5 +294,227 @@ describe("buildGrandesNextSteps", () => {
   it("ignora las jugadas sin ticker (no se puede analizar)", () => {
     const steps = buildGrandesNextSteps("X", [move({ ticker: null, kind: "nueva", value: 999e9 })]);
     expect(steps.find((x) => x.id === "grandes-destacada")).toBeUndefined();
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Ideas · Flujo · Watchlist
+// ---------------------------------------------------------------------------
+
+function sizedIdea(o: Partial<SizedIdeaLike["idea"]> = {}, s: Partial<SizedIdeaLike["sizing"]> = {}): SizedIdeaLike {
+  return {
+    idea: {
+      ticker: "NVDA", type: "call", strike: 190, expiration: "2026-09-19", dte: 11,
+      price: 2.15, thetaPctDaily: null, repeated: false, history: null, ...o,
+    },
+    sizing: { maxContracts: 2, costPerContract: 215, blocked: null, ...s },
+  };
+}
+
+describe("buildIdeasNextSteps", () => {
+  it("sin ideas no devuelve nada", () => {
+    expect(buildIdeasNextSteps([])).toEqual([]);
+  });
+
+  it("nombra la mejor idea que SÍ cabe, con su costo real y cuántas caben", () => {
+    const steps = buildIdeasNextSteps([sizedIdea()]);
+    const s = steps.find((x) => x.id === "ideas-mejor")!;
+    expect(s.texto).toContain("NVDA");
+    expect(s.texto).toContain("CALL");
+    expect(s.texto).toContain("$215");
+    expect(s.texto).toContain("hasta 2");
+  });
+
+  it("salta las bloqueadas y las de 0 contratos al elegir la mejor", () => {
+    const steps = buildIdeasNextSteps([
+      sizedIdea({ ticker: "TSLA" }, { blocked: { reason: "iliquido", detail: "" } }),
+      sizedIdea({ ticker: "AMD" }, { maxContracts: 0 }),
+      sizedIdea({ ticker: "SOFI" }),
+    ]);
+    expect(steps.find((x) => x.id === "ideas-mejor")!.texto).toContain("SOFI");
+  });
+
+  it("usa el historial solo si hay suficientes casos resueltos", () => {
+    const pocos = buildIdeasNextSteps([sizedIdea({ history: { hitRate: 60, medianSessions: 4, resolved: 2 } })]);
+    expect(pocos.find((x) => x.id === "ideas-historial")).toBeUndefined();
+
+    const bastantes = buildIdeasNextSteps([sizedIdea({ history: { hitRate: 60, medianSessions: 4, resolved: 18 } })]);
+    const s = bastantes.find((x) => x.id === "ideas-historial")!;
+    expect(s.texto).toContain("60%");
+    expect(s.texto).toContain("18 casos");
+    expect(s.texto).toContain("4 sesiones");
+  });
+
+  it("avisa del theta solo cuando de verdad quema", () => {
+    expect(buildIdeasNextSteps([sizedIdea({ thetaPctDaily: 1.2 })]).find((x) => x.id === "ideas-theta")).toBeUndefined();
+    const s = buildIdeasNextSteps([sizedIdea({ thetaPctDaily: 5.4 })]).find((x) => x.id === "ideas-theta")!;
+    expect(s.texto).toContain("5%");
+    expect(s.tipo).toBe("riesgo");
+  });
+
+  it("cuando ninguna cabe, dice cuánto cuesta la más barata (no inventa una)", () => {
+    const steps = buildIdeasNextSteps([
+      sizedIdea({ ticker: "NVDA" }, { maxContracts: 0, costPerContract: 640 }),
+      sizedIdea({ ticker: "SOFI" }, { maxContracts: 0, costPerContract: 48 }),
+    ]);
+    expect(steps.find((x) => x.id === "ideas-mejor")).toBeUndefined();
+    const s = steps.find((x) => x.id === "ideas-sin-alcance")!;
+    expect(s.texto).toContain("SOFI");
+    expect(s.texto).toContain("$48");
+  });
+
+  it("cuando nada cabe, explica que el tope es el % del perfil, no el dinero (real: $992 en cuenta, más barata $260)", () => {
+    const steps = buildIdeasNextSteps([sizedIdea({ ticker: "RMD" }, { maxContracts: 0, costPerContract: 260 })], 9.92);
+    const s = steps.find((x) => x.id === "ideas-sin-alcance")!;
+    expect(s.texto).toContain("$260");
+    expect(s.motivo).toContain("$9.92");
+    expect(s.motivo).toContain("sube el % de riesgo");
+  });
+
+  it("sin presupuesto no inventa la explicación del tope", () => {
+    const s = buildIdeasNextSteps([sizedIdea({}, { maxContracts: 0 })]).find((x) => x.id === "ideas-sin-alcance")!;
+    expect(s.motivo).toBeUndefined();
+  });
+
+  it("cuenta las demás que caben, sin contar la destacada dos veces", () => {
+    const steps = buildIdeasNextSteps([sizedIdea(), sizedIdea({ ticker: "AMD" }), sizedIdea({ ticker: "SOFI" })]);
+    expect(steps.find((x) => x.id === "ideas-variedad")!.texto).toContain("2 ideas más");
+  });
+});
+
+function flowRow(o: Partial<FlowRow> = {}): FlowRow {
+  return {
+    id: 1, symbol: "NVDA260919C00190000", underlying: "NVDA", type: "call", strike: 190,
+    expiration: "2026-09-19", dte: 11, price: 2.15, size: 100, side: "buy", aggression: "ask",
+    assetPrice: 180, bid: 2.1, ask: 2.2, premium: 215_000, delta: 0.4, gamma: 0.01, theta: -0.1,
+    vega: 0.2, thetaPctDaily: 4.6, iv: 0.45, openInterest: 5000, volume: 900, score: 7,
+    sentiment: "alcista", timestamp: "2026-09-08T14:00:00Z", conditionCode: null, conditionName: null,
+    flags: {} as never, scores: {} as never, unusual: true, interesting: true, expiryStatus: "vigente",
+    ...o,
+  };
+}
+const scoreOf = (ask: number, bid: number, n = 3): AggressionScore => ({
+  score: Math.round((ask / (ask + bid || 1)) * 10),
+  ratio: ask / (ask + bid || 1), premiumAsk: ask, premiumBid: bid, premiumMid: 0, n,
+});
+
+describe("buildFlowNextSteps", () => {
+  it("sin operaciones no devuelve nada", () => {
+    expect(buildFlowNextSteps("NVDA", [], scoreOf(0, 0, 0))).toEqual([]);
+  });
+
+  it("con dinero mayormente al ask, lo lee como compra agresiva", () => {
+    const s = buildFlowNextSteps("NVDA", [flowRow()], scoreOf(800_000, 200_000)).find((x) => x.id === "flow-direccion")!;
+    expect(s.texto).toContain("80%");
+    expect(s.texto).toContain("compra agresiva");
+    expect(s.tipo).toBe("alerta");
+  });
+
+  it("con dinero mayormente al bid, lo lee como venta agresiva", () => {
+    const s = buildFlowNextSteps("NVDA", [flowRow()], scoreOf(200_000, 800_000)).find((x) => x.id === "flow-direccion")!;
+    expect(s.texto).toContain("80%");
+    expect(s.texto).toContain("venta agresiva");
+    expect(s.tipo).toBe("riesgo");
+  });
+
+  it("repartido → dice que no hay lado claro, en vez de forzar una dirección", () => {
+    const s = buildFlowNextSteps("NVDA", [flowRow()], scoreOf(500_000, 500_000)).find((x) => x.id === "flow-direccion")!;
+    expect(s.texto).toContain("repartido");
+  });
+
+  it("reparte el dinero entre calls y puts con cifras reales", () => {
+    const rows = [flowRow({ type: "call", premium: 900_000 }), flowRow({ id: 2, type: "put", premium: 300_000 })];
+    const s = buildFlowNextSteps("NVDA", rows, scoreOf(1, 1)).find((x) => x.id === "flow-calls-puts")!;
+    expect(s.texto).toContain("$900K");
+    expect(s.texto).toContain("$300K");
+    expect(s.texto).toContain("Pesan más los calls");
+  });
+
+  it("destaca la operación de mayor prima, no la primera de la lista", () => {
+    const rows = [flowRow({ premium: 50_000, strike: 200 }), flowRow({ id: 2, premium: 4_000_000, strike: 185, size: 2000 })];
+    const s = buildFlowNextSteps("NVDA", rows, scoreOf(1, 1)).find((x) => x.id === "flow-mayor")!;
+    expect(s.texto).toContain("185");
+    expect(s.texto).toContain("$4.0M");
+  });
+
+  it("si la agresividad está repartida pero el dinero está casi todo en un tipo, lo reconcilia (caso real NVDA)", () => {
+    const rows = [flowRow({ type: "call", premium: 38_800_000 }), flowRow({ id: 2, type: "put", premium: 9_000_000 })];
+    const s = buildFlowNextSteps("NVDA", rows, scoreOf(35_567_515, 35_601_416)).find((x) => x.id === "flow-calls-puts")!;
+    expect(s.texto).toContain("Pesan más los calls");
+    expect(s.motivo).toContain("no contradice");
+  });
+
+  it("si la agresividad ya es clara, no añade la aclaración (sobraría)", () => {
+    const rows = [flowRow({ type: "call", premium: 38_800_000 }), flowRow({ id: 2, type: "put", premium: 9_000_000 })];
+    const s = buildFlowNextSteps("NVDA", rows, scoreOf(900_000, 100_000)).find((x) => x.id === "flow-calls-puts")!;
+    expect(s.motivo).toBeUndefined();
+  });
+
+  it("avisa de lo ya vencido y de los 0DTE por separado", () => {
+    const rows = [
+      flowRow({ expiryStatus: "expirado" }),
+      flowRow({ id: 2, expiryStatus: "expirado" }),
+      flowRow({ id: 3, expiryStatus: "expira_hoy" }),
+    ];
+    const steps = buildFlowNextSteps("NVDA", rows, scoreOf(1, 1));
+    expect(steps.find((x) => x.id === "flow-expirados")!.texto).toContain("2 de estas");
+    expect(steps.find((x) => x.id === "flow-0dte")!.texto).toContain("1 son de contratos");
+  });
+});
+
+function wlEntry(o: Partial<WatchlistEntry> = {}): WatchlistEntry {
+  return {
+    symbol: "NVDA260919C00190000", ticker: "NVDA", type: "call", strike: 190,
+    expiration: "2026-09-19", addedAt: "2026-09-01T14:00:00Z", entrySpot: 180, entryPrice: 2.15,
+    entryDte: 18, entryPremium: 215_000, entryThetaPctDaily: null, maxContracts: 2,
+    binding: "prima", accountSizeAtEntry: 1000, tolerancePctAtEntry: 1, brokerSync: null,
+    ...o,
+  };
+}
+const HOY = new Date("2026-09-08T18:00:00Z");
+
+describe("buildWatchlistNextSteps", () => {
+  it("lista vacía no devuelve nada", () => {
+    expect(buildWatchlistNextSteps([], HOY)).toEqual([]);
+  });
+
+  it("señala los ya vencidos para poder limpiarlos", () => {
+    const steps = buildWatchlistNextSteps([wlEntry({ ticker: "AMD", expiration: "2026-08-15" }), wlEntry()], HOY);
+    const s = steps.find((x) => x.id === "wl-vencidos")!;
+    expect(s.texto).toContain("1 contrato");
+    expect(s.texto).toContain("AMD");
+  });
+
+  it("el próximo a vencer es el de menos días, no el primero guardado", () => {
+    const steps = buildWatchlistNextSteps([
+      wlEntry({ ticker: "NVDA", expiration: "2026-12-19" }),
+      wlEntry({ ticker: "SOFI", expiration: "2026-09-11", type: "put", strike: 25 }),
+    ], HOY);
+    const s = steps.find((x) => x.id === "wl-proximo")!;
+    expect(s.texto).toContain("SOFI");
+    expect(s.texto).toContain("PUT 25");
+    expect(s.texto).toContain("en 3 días");
+  });
+
+  it("el que vence hoy se dice como HOY, no como 'en 0 días'", () => {
+    const s = buildWatchlistNextSteps([wlEntry({ expiration: "2026-09-08" })], HOY).find((x) => x.id === "wl-proximo")!;
+    expect(s.texto).toContain("vence HOY");
+    expect(s.texto).not.toContain("0 días");
+  });
+
+  it("sin fecha de vencimiento no inventa un plazo", () => {
+    const steps = buildWatchlistNextSteps([wlEntry({ expiration: null })], HOY);
+    expect(steps.find((x) => x.id === "wl-proximo")).toBeUndefined();
+    expect(steps.find((x) => x.id === "wl-vencidos")).toBeUndefined();
+  });
+
+  it("avisa del que más rápido se derretía, solo si el theta era alto", () => {
+    expect(buildWatchlistNextSteps([wlEntry({ entryThetaPctDaily: 1 })], HOY).find((x) => x.id === "wl-theta")).toBeUndefined();
+    const s = buildWatchlistNextSteps([
+      wlEntry({ ticker: "AMD", entryThetaPctDaily: 3.4 }),
+      wlEntry({ ticker: "SOFI", entryThetaPctDaily: 8.2 }),
+    ], HOY).find((x) => x.id === "wl-theta")!;
+    expect(s.texto).toContain("SOFI");
+    expect(s.texto).toContain("8%");
   });
 });

@@ -12,6 +12,8 @@ import type { GexAnalysis } from "./gex";
 import type { DaySession } from "./sessionDay";
 import type { AffordableCandidate } from "./wheelAfford";
 import type { Move } from "./bigMoney";
+import type { FlowRow, AggressionScore } from "./flow";
+import type { WatchlistEntry } from "./watchlist";
 
 export interface NextStep {
   id: string;
@@ -30,7 +32,7 @@ const pctDist = (n: number) => (Math.abs(n) > 0 && Math.round(Math.abs(n)) === 0
 const bigMoney = (n: number): string => {
   const a = Math.abs(n);
   if (a >= 1e9) return `$${(n / 1e9).toFixed(1)}B`;
-  if (a >= 1e6) return `$${(n / 1e6).toFixed(0)}M`;
+  if (a >= 1e6) return `$${(n / 1e6).toFixed(1)}M`;
   if (a >= 1e3) return `$${(n / 1e3).toFixed(0)}K`;
   return `$${Math.round(n)}`;
 };
@@ -309,6 +311,285 @@ export function buildWheelNextSteps(rows: AffordableCandidate[], cash: number): 
       texto: masBarato?.metrics
         ? `Ninguno de los candidatos de hoy cabe en tus ${money(cash)}. El más barato (${masBarato.ticker}) pide ${money(masBarato.metrics.collateral)} de colateral — te faltarían ${money(masBarato.afford.shortfall)}.`
         : `Ninguno de los candidatos de hoy cabe en tus ${money(cash)}.`,
+    });
+  }
+
+  return steps;
+}
+
+/** Días desde hoy hasta una fecha "YYYY-MM-DD". null si la fecha no sirve. */
+function diasHasta(expiration: string | null, now: Date): number | null {
+  if (!expiration) return null;
+  const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(expiration);
+  if (!m) return null;
+  const exp = Date.UTC(Number(m[1]), Number(m[2]) - 1, Number(m[3]));
+  const hoy = Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate());
+  return Math.round((exp - hoy) / 86_400_000);
+}
+
+/** Lo mínimo del screener de Ideas — evita acoplar lib/ a los tipos de app/ideas. */
+export interface SizedIdeaLike {
+  idea: {
+    ticker: string;
+    type: "call" | "put";
+    strike: number | null;
+    expiration: string | null;
+    dte: number | null;
+    price: number;
+    thetaPctDaily: number | null;
+    repeated: boolean;
+    history: { hitRate: number | null; medianSessions: number | null; resolved: number } | null;
+  };
+  sizing: {
+    maxContracts: number;
+    costPerContract: number;
+    blocked: { reason: string; detail: string } | null;
+  };
+}
+
+/**
+ * Igual que las anteriores, pero para el screener de Ideas: aquí hay una LISTA
+ * de contratos ya dimensionados contra tu cuenta. Los pasos hablan del mejor
+ * que SÍ cabe, de lo que ha pasado históricamente con flujos parecidos, y del
+ * theta — que en contratos comprados es lo que más dinero se lleva en silencio.
+ */
+export function buildIdeasNextSteps(rows: SizedIdeaLike[], presupuesto?: number): NextStep[] {
+  const steps: NextStep[] = [];
+  if (rows.length === 0) return steps;
+
+  const caben = rows.filter((r) => !r.sizing.blocked && r.sizing.maxContracts > 0);
+  const mejor = caben[0];
+
+  // 1) La idea concreta de hoy — la que cabe y más dinero grande movió.
+  if (mejor) {
+    const i = mejor.idea;
+    const tipo = i.type === "call" ? "CALL (apuesta a que sube)" : "PUT (apuesta a que baja)";
+    const strike = i.strike != null ? ` de strike ${i.strike}` : "";
+    const vence = i.expiration
+      ? ` que vence el ${i.expiration}${i.dte != null ? ` (en ${i.dte} día${i.dte === 1 ? "" : "s"})` : ""}`
+      : "";
+    steps.push({
+      id: "ideas-mejor",
+      tipo: "alerta",
+      texto: `Tu mejor idea hoy: en ${i.ticker}, un ${tipo}${strike}${vence}. `
+        + `Cada contrato cuesta ${money(mejor.sizing.costPerContract)} y en tu cuenta caben hasta ${mejor.sizing.maxContracts}.`,
+      motivo: "Es la que más dinero grande movió entre las que sí te alcanzan.",
+    });
+
+    // 2) Qué ha pasado antes con flujos parecidos en ese mismo ticker.
+    const h = i.history;
+    if (h && h.hitRate != null && h.resolved >= 3) {
+      const tarde = h.medianSessions != null
+        ? ` y la mediana tardó ${h.medianSessions} ${h.medianSessions === 1 ? "sesión" : "sesiones"} en desarrollarse`
+        : "";
+      steps.push({
+        id: "ideas-historial",
+        tipo: "meta",
+        texto: `En ${i.ticker}, ${Math.round(h.hitRate)}% de los flujos parecidos acabaron moviéndose a favor (sobre ${h.resolved} casos ya vencidos)${tarde}.`,
+        motivo: "Historial, no garantía — dice cómo se han comportado, no cómo se comportará este.",
+      });
+    }
+
+    // 3) El theta — lo que pierdes cada día aunque aciertes la dirección.
+    if (i.thetaPctDaily != null && i.thetaPctDaily >= 3) {
+      steps.push({
+        id: "ideas-theta",
+        tipo: "riesgo",
+        texto: `Ese contrato pierde alrededor de ${Math.round(i.thetaPctDaily)}% de su valor cada día solo por el paso del tiempo. `
+          + `Si la idea no se mueve en pocos días, pierdes dinero aunque no te equivoques de dirección.`,
+      });
+    }
+
+    // 4) Repetición — señal de que alguien insiste, no una operación suelta.
+    if (i.repeated) {
+      steps.push({
+        id: "ideas-repetido",
+        tipo: "meta",
+        texto: `Ese mismo contrato apareció varias veces hoy: alguien está insistiendo, no fue una sola operación suelta.`,
+      });
+    }
+  }
+
+  // 5) Variedad — o la falta de ella, con el precio real del más barato.
+  if (caben.length > 1) {
+    steps.push({
+      id: "ideas-variedad",
+      tipo: "meta",
+      texto: `Además de esa, tienes ${caben.length - 1} idea${caben.length - 1 === 1 ? "" : "s"} más que caben en tu cuenta — revisa la tabla antes de decidir.`,
+    });
+  } else if (caben.length === 0) {
+    const barata = rows.slice().sort((a, b) => a.sizing.costPerContract - b.sizing.costPerContract)[0];
+    steps.push({
+      id: "ideas-sin-alcance",
+      tipo: "riesgo",
+      texto: barata && barata.sizing.costPerContract > 0
+        ? `Ninguna de las ${rows.length} ideas de hoy cabe en tu cuenta. La más barata es ${barata.idea.ticker} a ${money(barata.sizing.costPerContract)} por contrato.`
+        : `Ninguna de las ${rows.length} ideas de hoy cabe en tu cuenta con tu perfil de riesgo actual.`,
+      // El tope no es el dinero que tienes, es el % que tu perfil deja arriesgar
+      // por operación. Sin esta línea parece un error de la app.
+      motivo: presupuesto != null && presupuesto > 0
+        ? `No es que te falte dinero: tu perfil solo deja arriesgar ${money(presupuesto)} por operación. Si quieres ver ideas que sí quepan, sube el % de riesgo en tu perfil de arriba.`
+        : undefined,
+    });
+  }
+
+  return steps;
+}
+
+/**
+ * Igual que las anteriores, pero para Time & Sales (Flujo): aquí no hay
+ * predicción ni candidato — hay las operaciones GRANDES que ya ocurrieron.
+ * Los pasos traducen hacia qué lado entró el dinero, cuál fue la operación
+ * más pesada, y avisan de lo que ya venció (que sirve de historia, no para hoy).
+ */
+export function buildFlowNextSteps(ticker: string, rows: FlowRow[], score: AggressionScore): NextStep[] {
+  const steps: NextStep[] = [];
+  if (rows.length === 0) return steps;
+
+  // 1) Hacia qué lado entró el dinero grande — la lectura principal de la página.
+  const denom = score.premiumAsk + score.premiumBid;
+  if (denom > 0) {
+    const pctAsk = Math.round((100 * score.premiumAsk) / denom);
+    steps.push(
+      pctAsk >= 66
+        ? {
+            id: "flow-direccion",
+            tipo: "alerta",
+            texto: `El ${pctAsk}% del dinero grande de hoy en ${ticker} entró pagando el ask: compra agresiva. Mientras siga así, empuja el precio hacia arriba.`,
+            motivo: `${bigMoney(score.premiumAsk)} comprando contra ${bigMoney(score.premiumBid)} vendiendo.`,
+          }
+        : pctAsk <= 34
+        ? {
+            id: "flow-direccion",
+            tipo: "riesgo",
+            texto: `El ${100 - pctAsk}% del dinero grande de hoy en ${ticker} salió golpeando el bid: venta agresiva. Es presión hacia abajo — ten cuidado con comprar aquí.`,
+            motivo: `${bigMoney(score.premiumBid)} vendiendo contra ${bigMoney(score.premiumAsk)} comprando.`,
+          }
+        : {
+            id: "flow-direccion",
+            tipo: "riesgo",
+            texto: `Hoy en ${ticker} el dinero grande está repartido: ${pctAsk}% entró comprando y ${100 - pctAsk}% salió vendiendo. Por cada uno que entra hay otro que sale, así que nadie está empujando el precio con fuerza.`,
+          },
+    );
+  }
+
+  // 2) Reparto calls vs puts — la otra mitad de la lectura, en dinero real.
+  const premCalls = rows.filter((r) => r.type === "call").reduce((a, r) => a + r.premium, 0);
+  const premPuts = rows.filter((r) => r.type === "put").reduce((a, r) => a + r.premium, 0);
+  if (premCalls + premPuts > 0) {
+    const masCalls = premCalls >= premPuts;
+    // Ojo: esto NO es lo mismo que el paso de arriba. Arriba es QUIÉN EMPUJA
+    // (compra agresiva vs venta agresiva); aquí es HACIA DÓNDE APUESTAN
+    // (calls vs puts). Pueden no coincidir, y cuando no coinciden hay que
+    // decirlo — si no, se leen como si uno contradijera al otro.
+    const inclinado = Math.max(premCalls, premPuts) / (premCalls + premPuts) >= 0.65;
+    const repartido = denom > 0 && (100 * score.premiumAsk) / denom > 34 && (100 * score.premiumAsk) / denom < 66;
+    steps.push({
+      id: "flow-calls-puts",
+      tipo: "meta",
+      texto: `Hacia dónde apuestan: ${bigMoney(premCalls)} en calls (a que sube) y ${bigMoney(premPuts)} en puts (a que baja). `
+        + `Pesan más los ${masCalls ? "calls" : "puts"}.`,
+      motivo: inclinado && repartido
+        ? `Que casi todo esté en ${masCalls ? "calls" : "puts"} no contradice lo de arriba: ahí se mide quién empuja, y hay tanto quien abre posición como quien la cierra.`
+        : undefined,
+    });
+  }
+
+  // 3) La operación más pesada — la que más mueve la lectura de arriba.
+  const grande = rows.slice().sort((a, b) => b.premium - a.premium)[0];
+  if (grande && grande.premium > 0 && grande.type !== "unknown") {
+    const strike = grande.strike != null ? ` ${grande.strike}` : "";
+    const vence = grande.expiration ? ` que vence el ${grande.expiration}` : "";
+    steps.push({
+      id: "flow-mayor",
+      tipo: "meta",
+      texto: `La operación más grande: ${grande.size} contrato${grande.size === 1 ? "" : "s"} de ${grande.type === "call" ? "CALL" : "PUT"}${strike}${vence}, ${bigMoney(grande.premium)} en prima.`,
+      motivo: "Es la que más peso tiene en todo lo de arriba.",
+    });
+  }
+
+  // 4) Lo que ya venció — historia útil, pero no se puede entrar ahí hoy.
+  const expirados = rows.filter((r) => r.expiryStatus === "expirado").length;
+  if (expirados > 0) {
+    steps.push({
+      id: "flow-expirados",
+      tipo: "fecha",
+      texto: `Ojo: ${expirados} de estas operaciones son de contratos que YA vencieron. Sirven para entender qué pasó, no para entrar hoy.`,
+    });
+  }
+
+  // 5) Los 0DTE — vencen hoy y valen $0 al cierre si no aciertan.
+  const hoy = rows.filter((r) => r.expiryStatus === "expira_hoy").length;
+  if (hoy > 0) {
+    steps.push({
+      id: "flow-0dte",
+      tipo: "fecha",
+      texto: `${hoy} son de contratos que vencen HOY: se mueven rapidísimo y valen $0 al cierre si el precio no llega. No es donde empezar.`,
+    });
+  }
+
+  return steps;
+}
+
+/**
+ * Igual que las anteriores, pero para tu Watchlist: aquí lo que importa es el
+ * CALENDARIO. Un contrato guardado se vence solo, y el theta sigue corriendo
+ * aunque no lo mires. Solo se usa la foto del momento en que lo marcaste —
+ * no se inventa un precio actual que la página no tiene.
+ */
+export function buildWatchlistNextSteps(entries: WatchlistEntry[], now: Date): NextStep[] {
+  const steps: NextStep[] = [];
+  if (entries.length === 0) return steps;
+
+  const conDias = entries.map((e) => ({ e, dias: diasHasta(e.expiration, now) }));
+
+  // 1) Lo que ya venció — ocupa espacio y ensucia la lista.
+  const vencidos = conDias.filter((x) => x.dias != null && x.dias < 0);
+  if (vencidos.length > 0) {
+    const nombres = [...new Set(vencidos.map((x) => x.e.ticker))].slice(0, 3).join(", ");
+    steps.push({
+      id: "wl-vencidos",
+      tipo: "fecha",
+      texto: `${vencidos.length} contrato${vencidos.length === 1 ? "" : "s"} de tu lista ya venció (${nombres}). Quítalo${vencidos.length === 1 ? "" : "s"} para que la lista muestre solo lo que sigue vivo.`,
+    });
+  }
+
+  // 2) El que vence primero — la única fecha que de verdad te corre.
+  const vivos = conDias
+    .filter((x): x is { e: WatchlistEntry; dias: number } => x.dias != null && x.dias >= 0)
+    .sort((a, b) => a.dias - b.dias);
+  const proximo = vivos[0];
+  if (proximo) {
+    const e = proximo.e;
+    const nombre = `${e.type === "call" ? "CALL" : "PUT"}${e.strike != null ? ` ${e.strike}` : ""} de ${e.ticker}`;
+    steps.push({
+      id: "wl-proximo",
+      tipo: "fecha",
+      texto: proximo.dias === 0
+        ? `El ${nombre} vence HOY. Decide ya: o entras, o lo quitas de la lista.`
+        : `Lo que vence primero es el ${nombre}: en ${proximo.dias} día${proximo.dias === 1 ? "" : "s"} (${e.expiration}). Decide antes de esa fecha.`,
+    });
+  }
+
+  // 3) El que más rápido se derrite — theta del momento en que lo marcaste.
+  const quemon = entries
+    .filter((e) => e.entryThetaPctDaily != null && e.entryThetaPctDaily >= 3)
+    .sort((a, b) => (b.entryThetaPctDaily ?? 0) - (a.entryThetaPctDaily ?? 0))[0];
+  if (quemon?.entryThetaPctDaily != null) {
+    steps.push({
+      id: "wl-theta",
+      tipo: "riesgo",
+      texto: `El de ${quemon.ticker} es el que más rápido pierde valor: cuando lo marcaste se derretía ~${Math.round(quemon.entryThetaPctDaily)}% al día. `
+        + `Si lleva días ahí guardado, hoy vale bastante menos que cuando lo viste.`,
+    });
+  }
+
+  // 4) Recordatorio de que son fotos viejas, no precios de ahora.
+  if (vivos.length > 0) {
+    steps.push({
+      id: "wl-refrescar",
+      tipo: "meta",
+      texto: `Los precios que ves aquí son del momento en que marcaste cada contrato, no los de ahora. Antes de entrar en cualquiera, confirma el precio en tu bróker.`,
     });
   }
 
