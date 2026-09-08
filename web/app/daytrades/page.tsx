@@ -14,6 +14,8 @@ import type { GexHeatmap } from "@/lib/gexHeatmap";
 import MarketSnackGexCard from "../components/MarketSnackGexCard";
 import GexLadderCard from "../components/GexLadderCard";
 import TicketCard from "../components/TicketCard";
+import NextStepsCard from "../components/NextStepsCard";
+import { buildSessionNextSteps } from "@/lib/nextSteps";
 import ChartZoom from "../components/ChartZoom";
 
 const TICKERS: { sym: string; note?: string }[] = [
@@ -218,6 +220,9 @@ export default function DayTradesPage() {
             <div style={{ fontWeight: 800, fontSize: 15, color: verdict.c, whiteSpace: "nowrap" }}>{verdict.label}</div>
             <div style={{ fontSize: 13, color: "var(--text)", flex: 1, minWidth: 220, lineHeight: 1.45 }}>{s.regimeNote}</div>
           </div>
+
+          {/* Tus próximos pasos: la sesión de hoy, en acciones concretas */}
+          <NextStepsCard ticker={ticker} steps={buildSessionNextSteps(s)} />
 
           {/* Ticket: la idea traducida a un contrato concreto */}
           <TicketCard ticker={ticker} />

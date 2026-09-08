@@ -1,8 +1,9 @@
 import { describe, expect, it } from "vitest";
-import { buildNextSteps } from "./nextSteps";
+import { buildNextSteps, buildSessionNextSteps } from "./nextSteps";
 import type { ProPrediction } from "./prediction";
 import type { LevelsReport, Level } from "./levels";
 import type { GexAnalysis } from "./gex";
+import type { DaySession } from "./sessionDay";
 
 function level(o: Partial<Level>): Level {
   return { price: 95, kind: "soporte", strength: 70, distancePct: -5, sources: {} as never, flipped: false, why: "soporte por pivote", ...o };
@@ -90,5 +91,64 @@ describe("buildNextSteps", () => {
     const g = gex({});
     const steps = buildNextSteps("NVDA", p, l, g);
     expect(steps.length).toBeGreaterThanOrEqual(4);
+  });
+});
+
+function session(o: Partial<DaySession> = {}): DaySession {
+  return {
+    ticker: "SPY", sessionDate: "2026-09-08", delayed: false, price: 770,
+    score: 6, bias: "alcista", regime: "positive", regimeNote: "Gamma positiva: la sesión tiende a RANGO.",
+    flow: null, aggression: null, vwapCard: { score: 6, note: "" }, channelCard: { score: 6, note: "" },
+    vwap: 768, vwapDelta: 2, openRangeLow: 765, openRangeHigh: 772, openRangeClosed: true,
+    dayHigh: 774, dayLow: 764, rangePct: 1.2, atrPct: 0.8, open: 767, prevClose: 766,
+    callWall: 775, magnet: 770, putWall: 762, channelPct: 60, callWallDeltaPct: 0.6, putWallDeltaPct: -1.0,
+    gexSource: "marketsnack", prints: null,
+    ...o,
+  };
+}
+
+describe("buildSessionNextSteps", () => {
+  it("sin precio válido no devuelve nada", () => {
+    expect(buildSessionNextSteps(session({ price: 0 }))).toEqual([]);
+  });
+
+  it("sugiere alerta en el muro de puts (abajo) y de calls (arriba)", () => {
+    const steps = buildSessionNextSteps(session({}));
+    expect(steps.find((s) => s.id === "alerta-putwall")!.texto).toMatch(/\$762/);
+    expect(steps.find((s) => s.id === "alerta-callwall")!.texto).toMatch(/\$775/);
+  });
+
+  it("en gamma positiva sugiere el imán como meta, si no está ya pegado", () => {
+    const steps = buildSessionNextSteps(session({ price: 760, magnet: 770, regime: "positive" }));
+    expect(steps.find((s) => s.id === "iman-hoy")!.texto).toMatch(/\$770/);
+  });
+
+  it("no repite el imán si el precio ya está prácticamente ahí", () => {
+    const steps = buildSessionNextSteps(session({ price: 770, magnet: 770.2, regime: "positive" }));
+    expect(steps.find((s) => s.id === "iman-hoy")).toBeUndefined();
+  });
+
+  it("no sugiere imán en gamma negativa (no aplica el régimen de rango)", () => {
+    const steps = buildSessionNextSteps(session({ regime: "negative" }));
+    expect(steps.find((s) => s.id === "iman-hoy")).toBeUndefined();
+  });
+
+  it("marca el rango de apertura solo si ya cerró", () => {
+    const cerrado = buildSessionNextSteps(session({ openRangeClosed: true }));
+    const abierto = buildSessionNextSteps(session({ openRangeClosed: false }));
+    expect(cerrado.find((s) => s.id === "rango-apertura")).toBeDefined();
+    expect(abierto.find((s) => s.id === "rango-apertura")).toBeUndefined();
+  });
+
+  it("dice si el precio está arriba o abajo del VWAP", () => {
+    const arriba = buildSessionNextSteps(session({ vwap: 768, vwapDelta: 2 }));
+    const abajo = buildSessionNextSteps(session({ vwap: 772, vwapDelta: -2 }));
+    expect(arriba.find((s) => s.id === "vwap-hoy")!.texto).toMatch(/por encima/);
+    expect(abajo.find((s) => s.id === "vwap-hoy")!.texto).toMatch(/por debajo/);
+  });
+
+  it("incluye la nota de régimen tal cual la da sessionDay", () => {
+    const steps = buildSessionNextSteps(session({ regimeNote: "texto de prueba" }));
+    expect(steps.find((s) => s.id === "regimen-hoy")!.texto).toBe("texto de prueba");
   });
 });
