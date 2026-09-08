@@ -15,6 +15,8 @@ import { int } from "./format";
 import HeaderBar from "./components/HeaderBar";
 import AnalysisLoader from "./components/AnalysisLoader";
 import VeredictoCard from "./components/VeredictoCard";
+import NextStepsCard from "./components/NextStepsCard";
+import { buildNextSteps } from "@/lib/nextSteps";
 import MemoriaCard from "./components/MemoriaCard";
 import SentimentCard, { type SentimentPart } from "./components/SentimentCard";
 import PredictionCard from "./components/PredictionCard";
@@ -299,6 +301,12 @@ export default function Dashboard() {
     });
   }, [bars, company, chainMeta, chainRows, convRows, notable, gex]);
 
+  // "Tus próximos pasos": la lectura técnica traducida a acciones concretas.
+  const nextSteps = useMemo(
+    () => (ticker ? buildNextSteps(ticker, prediction, levels, gex) : []),
+    [ticker, prediction, levels, gex],
+  );
+
   const addStep = (s: string) => setSteps((p) => (p[p.length - 1] === s ? p : [...p, s]));
 
   function runSearch(t: string) {
@@ -549,6 +557,7 @@ export default function Dashboard() {
             {/* 1 · Veredicto — la respuesta */}
             <SectionHead n={1} title="Veredicto" sub="La conclusión: ¿sube o baja, y qué tan seguro?" />
             <VeredictoCard ticker={ticker} prediction={prediction} horizonDays={horizonDays} />
+            {ticker && nextSteps.length > 0 && <NextStepsCard ticker={ticker} steps={nextSteps} />}
 
             {/* 2 · Dirección y confianza — la lectura */}
             <SectionHead n={2} title="Dirección y confianza" sub="Qué dirección ve Nagimi y qué tan firme es la evidencia" />
