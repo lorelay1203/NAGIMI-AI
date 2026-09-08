@@ -1,11 +1,12 @@
 import { describe, expect, it } from "vitest";
-import { buildNextSteps, buildSessionNextSteps, buildWheelNextSteps } from "./nextSteps";
+import { buildNextSteps, buildSessionNextSteps, buildWheelNextSteps, buildGrandesNextSteps } from "./nextSteps";
 import type { ProPrediction } from "./prediction";
 import type { LevelsReport, Level } from "./levels";
 import type { GexAnalysis } from "./gex";
 import type { DaySession } from "./sessionDay";
 import type { WheelCandidate } from "./wheel";
 import { sortByAffordThenScore } from "./wheelAfford";
+import type { Move } from "./bigMoney";
 
 function level(o: Partial<Level>): Level {
   return { price: 95, kind: "soporte", strength: 70, distancePct: -5, sources: {} as never, flipped: false, why: "soporte por pivote", ...o };
@@ -213,5 +214,79 @@ describe("buildWheelNextSteps", () => {
   it("los bloqueados no cuentan como operables", () => {
     const rows = sortByAffordThenScore([wheelCand({ blocked: true, metrics: null })], 100);
     expect(buildWheelNextSteps(rows, 100)).toEqual([]);
+  });
+});
+
+function move(o: Partial<Move>): Move {
+  return { name: "APPLE INC", ticker: "AAPL", kind: "aumento", direction: "alcista", value: 1e9, shares: 100, prevShares: 90, pctOfPortfolio: 5, changePct: 11, ...o };
+}
+
+describe("buildGrandesNextSteps", () => {
+  it("sin jugadas relevantes, dice que se mantuvo igual", () => {
+    const steps = buildGrandesNextSteps("Warren Buffett", [move({ kind: "mantiene", changePct: 0 })]);
+    expect(steps).toHaveLength(1);
+    expect(steps[0].id).toBe("grandes-sin-cambios");
+  });
+
+  // Caso real encontrado con datos de Buffett: una posición NUEVA trivial
+  // ($580K) NO debe ganarle a un aumento de miles de millones solo por ser
+  // "nueva" — gana la de mayor valor, sea del tipo que sea.
+  it("elige por VALOR, no por tipo: un aumento grande le gana a una nueva chica", () => {
+    const steps = buildGrandesNextSteps("Warren Buffett", [
+      move({ ticker: "DHI", kind: "nueva", value: 580_504, pctOfPortfolio: 0 }),
+      move({ ticker: "GOOGL", kind: "aumento", value: 37.8e9, pctOfPortfolio: 12.6, changePct: 83 }),
+    ]);
+    const s = steps.find((x) => x.id === "grandes-destacada")!;
+    expect(s.texto).toMatch(/GOOGL/);
+    expect(s.texto).toMatch(/AUMENTÓ/);
+  });
+
+  it("una nueva SÍ gana si de verdad es la de mayor valor", () => {
+    const steps = buildGrandesNextSteps("Warren Buffett", [
+      move({ ticker: "AAPL", kind: "aumento", value: 1e9 }),
+      move({ ticker: "GOOGL", kind: "nueva", value: 5e9 }),
+    ]);
+    const s = steps.find((x) => x.id === "grandes-destacada")!;
+    expect(s.texto).toMatch(/GOOGL/);
+    expect(s.texto).toMatch(/NUEVA/);
+  });
+
+  it("sin compra nueva, usa el aumento más grande", () => {
+    const steps = buildGrandesNextSteps("Warren Buffett", [
+      move({ ticker: "AAPL", kind: "aumento", value: 5e9, changePct: 20 }),
+      move({ ticker: "MSFT", kind: "aumento", value: 1e9, changePct: 5 }),
+    ]);
+    expect(steps.find((x) => x.id === "grandes-destacada")!.texto).toMatch(/AAPL/);
+  });
+
+  it("agrega una segunda jugada si hay otra distinta", () => {
+    const steps = buildGrandesNextSteps("Warren Buffett", [
+      move({ ticker: "AAPL", kind: "nueva", value: 5e9 }),
+      move({ ticker: "MSFT", kind: "aumento", value: 1e9 }),
+    ]);
+    expect(steps.find((x) => x.id === "grandes-segunda")!.texto).toMatch(/MSFT/);
+  });
+
+  it("avisa de salidas completas, hasta 3 nombres", () => {
+    const steps = buildGrandesNextSteps("Warren Buffett", [
+      move({ ticker: "A", kind: "salida", value: 0 }),
+      move({ ticker: "B", kind: "salida", value: 0 }),
+    ]);
+    const s = steps.find((x) => x.id === "grandes-salidas")!;
+    expect(s.texto).toMatch(/A, B/);
+    expect(s.texto).toMatch(/vendió TODO/);
+  });
+
+  it("con más de 3 salidas, resume el resto", () => {
+    const steps = buildGrandesNextSteps("X", [
+      move({ ticker: "A", kind: "salida" }), move({ ticker: "B", kind: "salida" }),
+      move({ ticker: "C", kind: "salida" }), move({ ticker: "D", kind: "salida" }),
+    ]);
+    expect(steps.find((x) => x.id === "grandes-salidas")!.texto).toMatch(/y 1 más/);
+  });
+
+  it("ignora las jugadas sin ticker (no se puede analizar)", () => {
+    const steps = buildGrandesNextSteps("X", [move({ ticker: null, kind: "nueva", value: 999e9 })]);
+    expect(steps.find((x) => x.id === "grandes-destacada")).toBeUndefined();
   });
 });

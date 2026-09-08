@@ -11,6 +11,7 @@ import type { LevelsReport } from "./levels";
 import type { GexAnalysis } from "./gex";
 import type { DaySession } from "./sessionDay";
 import type { AffordableCandidate } from "./wheelAfford";
+import type { Move } from "./bigMoney";
 
 export interface NextStep {
   id: string;
@@ -25,6 +26,14 @@ const money = (n: number) => `$${n.toFixed(n >= 100 ? 0 : 2)}`;
 const pct = (n: number) => `${n >= 0 ? "+" : ""}${n.toFixed(0)}%`;
 /** Redondea a entero salvo que quede en "0%" siendo distinto de cero — ahí se ve como "<1%". */
 const pctDist = (n: number) => (Math.abs(n) > 0 && Math.round(Math.abs(n)) === 0 ? "<1" : String(Math.round(Math.abs(n))));
+/** Para valores de cartera (miles de millones) — $37.8B, no $37764088383. */
+const bigMoney = (n: number): string => {
+  const a = Math.abs(n);
+  if (a >= 1e9) return `$${(n / 1e9).toFixed(1)}B`;
+  if (a >= 1e6) return `$${(n / 1e6).toFixed(0)}M`;
+  if (a >= 1e3) return `$${(n / 1e3).toFixed(0)}K`;
+  return `$${Math.round(n)}`;
+};
 
 /**
  * Arma la lista de pasos a partir de lo que YA calculó el resto de Nagimi
@@ -177,6 +186,70 @@ export function buildSessionNextSteps(session: DaySession): NextStep[] {
   // 6) El régimen, en la misma frase que ya arma sessionDay (ya está en llano).
   if (session.regimeNote) {
     steps.push({ id: "regimen-hoy", tipo: "riesgo", texto: session.regimeNote });
+  }
+
+  return steps;
+}
+
+/**
+ * Igual que las anteriores, pero para "Sigue a los Grandes": aquí no hay un
+ * veredicto ni un candidato con precio — hay una LISTA de jugadas de un
+ * inversor (13F). Los pasos priorizan CUÁL mirar primero: la compra nueva o
+ * el aumento más grande, y cualquier salida completa como aviso.
+ */
+export function buildGrandesNextSteps(investor: string, moves: Move[]): NextStep[] {
+  const steps: NextStep[] = [];
+  const conTicker = moves.filter((m) => m.ticker);
+
+  const salidas = conTicker.filter((m) => m.kind === "salida");
+
+  // 1) La jugada más fuerte: la de MAYOR VALOR entre compras nuevas y aumentos —
+  // no se prefiere "nueva" por defecto, porque a veces es una posición trivial
+  // (unos cientos de dólares) al lado de un aumento de miles de millones.
+  const candidatas = conTicker
+    .filter((m) => m.kind === "nueva" || m.kind === "aumento")
+    .sort((a, b) => b.value - a.value);
+  const destacada = candidatas[0];
+  if (destacada) {
+    const esNueva = destacada.kind === "nueva";
+    steps.push({
+      id: "grandes-destacada",
+      tipo: "alerta",
+      texto: esNueva
+        ? `${investor} abrió una posición NUEVA en ${destacada.ticker} — ${bigMoney(destacada.value)} (${destacada.pctOfPortfolio.toFixed(1)}% de su cartera). De las jugadas de este reporte, la de más peso.`
+        : `${investor} AUMENTÓ ${destacada.ticker} ${destacada.changePct != null ? pct(destacada.changePct) : ""} — ahora ${bigMoney(destacada.value)} (${destacada.pctOfPortfolio.toFixed(1)}% de su cartera).`,
+      motivo: "Toca el ticker para analizarlo y ver contratos en la misma dirección.",
+    });
+  }
+
+  // 2) Segunda jugada relevante, si hay otra distinta a la destacada.
+  const segunda = candidatas.find((m) => m !== destacada);
+  if (segunda) {
+    steps.push({
+      id: "grandes-segunda",
+      tipo: "meta",
+      texto: segunda.kind === "nueva"
+        ? `También abrió posición en ${segunda.ticker} (${bigMoney(segunda.value)}, ${segunda.pctOfPortfolio.toFixed(1)}% de su cartera).`
+        : `También aumentó ${segunda.ticker} ${segunda.changePct != null ? pct(segunda.changePct) : ""}.`,
+    });
+  }
+
+  // 3) Salidas completas — si la tienes, vale la pena preguntarte por qué él ya no.
+  if (salidas.length > 0) {
+    const nombres = salidas.slice(0, 3).map((m) => m.ticker).join(", ");
+    steps.push({
+      id: "grandes-salidas",
+      tipo: "riesgo",
+      texto: `${investor} vendió TODO en: ${nombres}${salidas.length > 3 ? ` y ${salidas.length - 3} más` : ""}. Si tienes alguna de estas, vale la pena preguntarte por qué él ya salió.`,
+    });
+  }
+
+  if (steps.length === 0) {
+    steps.push({
+      id: "grandes-sin-cambios",
+      tipo: "riesgo",
+      texto: `${investor} no muestra compras nuevas ni aumentos grandes en este reporte — mantuvo su cartera prácticamente igual.`,
+    });
   }
 
   return steps;

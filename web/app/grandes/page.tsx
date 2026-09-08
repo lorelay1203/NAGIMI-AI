@@ -5,12 +5,12 @@
 // que puedas analizarlo y buscar contratos baratos en la misma dirección.
 
 import { useCallback, useEffect, useState } from "react";
+import NextStepsCard from "../components/NextStepsCard";
+import { buildGrandesNextSteps } from "@/lib/nextSteps";
+
+import type { Move } from "@/lib/bigMoney";
 
 interface Investor { id: string; name: string; fund: string; group: string; note?: string }
-interface Move {
-  name: string; ticker: string | null; kind: string; direction: string;
-  value: number; shares: number; prevShares: number; pctOfPortfolio: number; changePct: number | null;
-}
 interface Report {
   investor: string; fund: string; periodNow: string; periodPrev: string | null;
   filedNow: string; totalValue: number; positions: number; moves: Move[]; note?: string;
@@ -107,6 +107,8 @@ export default function GrandesPage() {
           </div>
 
           {rep.note && <div style={{ fontSize: 12, color: "#e0a800", background: "rgba(224,168,0,.08)", border: "1px solid #e0a80044", borderRadius: 8, padding: "7px 11px" }}>ℹ️ {rep.note}</div>}
+
+          <NextStepsCard ticker={`grandes-${sel}`} steps={buildGrandesNextSteps(rep.investor, rep.moves)} />
 
           <div className="card" style={{ gap: 0, padding: 0, overflow: "hidden" }}>
             <div style={{ overflowX: "auto" }}>
