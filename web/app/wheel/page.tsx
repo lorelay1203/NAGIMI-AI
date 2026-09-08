@@ -4,6 +4,8 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import RiskProfileCard, { DEFAULT_PROFILE, loadProfile } from "@/app/components/RiskProfileCard";
 import WheelPresetCard from "@/app/components/WheelPresetCard";
 import WheelTable from "@/app/components/WheelTable";
+import NextStepsCard from "@/app/components/NextStepsCard";
+import { buildWheelNextSteps } from "@/lib/nextSteps";
 import { sortByAffordThenScore } from "@/lib/wheelAfford";
 import type { PresetId, WheelCandidate } from "@/lib/wheel";
 import type { RiskProfile } from "@/lib/risk";
@@ -134,6 +136,8 @@ export default function WheelPage() {
             {meta.degraded && <span className="wheel-tag warn"> · datos parciales</span>}
           </div>
         )}
+
+        {rows.length > 0 && <NextStepsCard ticker="wheel" steps={buildWheelNextSteps(rows, capital)} />}
 
         {rows.length > 0 && <WheelTable rows={rows} view="pro" />}
 

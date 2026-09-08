@@ -1,9 +1,11 @@
 import { describe, expect, it } from "vitest";
-import { buildNextSteps, buildSessionNextSteps } from "./nextSteps";
+import { buildNextSteps, buildSessionNextSteps, buildWheelNextSteps } from "./nextSteps";
 import type { ProPrediction } from "./prediction";
 import type { LevelsReport, Level } from "./levels";
 import type { GexAnalysis } from "./gex";
 import type { DaySession } from "./sessionDay";
+import type { WheelCandidate } from "./wheel";
+import { sortByAffordThenScore } from "./wheelAfford";
 
 function level(o: Partial<Level>): Level {
   return { price: 95, kind: "soporte", strength: 70, distancePct: -5, sources: {} as never, flipped: false, why: "soporte por pivote", ...o };
@@ -150,5 +152,66 @@ describe("buildSessionNextSteps", () => {
   it("incluye la nota de régimen tal cual la da sessionDay", () => {
     const steps = buildSessionNextSteps(session({ regimeNote: "texto de prueba" }));
     expect(steps.find((s) => s.id === "regimen-hoy")!.texto).toBe("texto de prueba");
+  });
+});
+
+function wheelCand(o: Partial<WheelCandidate> = {}): WheelCandidate {
+  return {
+    ticker: "UBER", strike: 74, expiration: "2026-09-11", dte: 7, spot: 75, delta: -0.3,
+    theta: -1, iv: 0.4, ivSource: "implicita", openInterest: 500, spreadPct: 5,
+    premium: { price: 0.21, source: "bid", raw: 0.21 },
+    metrics: { credit: 21, collateral: 79, returnPct: 26.6, annualizedPct: 1387, breakeven: 73.79, cushionPct: 1.6, probExpireWorthless: 81 },
+    score: { total: 70, annualized: { points: 20, max: 30, band: "", why: "" }, ivRank: { points: 10, max: 20, band: "", why: "" }, cushion: { points: 15, max: 25, band: "", why: "" }, liquidity: { points: 15, max: 15, band: "", why: "" }, earnings: { points: 10, max: 10, band: "", why: "" } },
+    blocked: false, blockReason: null,
+    ...o,
+  };
+}
+
+describe("buildWheelNextSteps", () => {
+  it("sin candidatos operables no devuelve nada", () => {
+    expect(buildWheelNextSteps([], 100)).toEqual([]);
+  });
+
+  it("recomienda el mejor candidato que SÍ cabe, con números reales", () => {
+    const rows = sortByAffordThenScore([wheelCand({})], 100);
+    const steps = buildWheelNextSteps(rows, 100);
+    const s = steps.find((x) => x.id === "wheel-mejor")!;
+    expect(s.texto).toMatch(/UBER/);
+    expect(s.texto).toMatch(/\$21/);
+    expect(s.texto).toMatch(/\$79/);
+    expect(s.motivo).toMatch(/81%/);
+  });
+
+  it("distingue spread (con protección) de cash-secured puro", () => {
+    const rows = sortByAffordThenScore([wheelCand({ longStrike: 73 })], 100);
+    const steps = buildWheelNextSteps(rows, 100);
+    expect(steps.find((s) => s.id === "wheel-mejor")!.texto).toMatch(/compra el put 73 de protección/);
+  });
+
+  it("avisa del punto de equilibrio si te asignan", () => {
+    const rows = sortByAffordThenScore([wheelCand({})], 100);
+    const steps = buildWheelNextSteps(rows, 100);
+    expect(steps.find((s) => s.id === "wheel-breakeven")!.texto).toMatch(/\$73\.79/);
+  });
+
+  it("dice cuántos más caben cuando hay variedad", () => {
+    const rows = sortByAffordThenScore([wheelCand({ ticker: "UBER" }), wheelCand({ ticker: "NU", strike: 15, metrics: { credit: 10, collateral: 20, returnPct: 5, annualizedPct: 200, breakeven: 14, cushionPct: 1, probExpireWorthless: 85 } })], 100);
+    const steps = buildWheelNextSteps(rows, 100);
+    expect(steps.find((s) => s.id === "wheel-variedad")!.texto).toMatch(/1 candidato más/);
+  });
+
+  it("cuando NADA cabe, dice cuánto falta para el más barato", () => {
+    const caro = wheelCand({ ticker: "CARO", metrics: { credit: 50, collateral: 500, returnPct: 10, annualizedPct: 300, breakeven: 490, cushionPct: 2, probExpireWorthless: 70 } });
+    const rows = sortByAffordThenScore([caro], 50);
+    const steps = buildWheelNextSteps(rows, 50);
+    const s = steps.find((x) => x.id === "wheel-sin-alcance")!;
+    expect(s.texto).toMatch(/CARO/);
+    expect(s.texto).toMatch(/faltarían \$450/);
+    expect(steps.find((x) => x.id === "wheel-mejor")).toBeUndefined();
+  });
+
+  it("los bloqueados no cuentan como operables", () => {
+    const rows = sortByAffordThenScore([wheelCand({ blocked: true, metrics: null })], 100);
+    expect(buildWheelNextSteps(rows, 100)).toEqual([]);
   });
 });

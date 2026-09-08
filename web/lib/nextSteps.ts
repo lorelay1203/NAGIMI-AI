@@ -10,6 +10,7 @@ import type { ProPrediction } from "./prediction";
 import type { LevelsReport } from "./levels";
 import type { GexAnalysis } from "./gex";
 import type { DaySession } from "./sessionDay";
+import type { AffordableCandidate } from "./wheelAfford";
 
 export interface NextStep {
   id: string;
@@ -176,6 +177,66 @@ export function buildSessionNextSteps(session: DaySession): NextStep[] {
   // 6) El régimen, en la misma frase que ya arma sessionDay (ya está en llano).
   if (session.regimeNote) {
     steps.push({ id: "regimen-hoy", tipo: "riesgo", texto: session.regimeNote });
+  }
+
+  return steps;
+}
+
+/**
+ * Igual que las anteriores, pero para el escáner del Wheel: en vez de un
+ * ticker, hay una LISTA de candidatos ya ordenados (los que caben en tu
+ * dinero primero, por mejor puntaje). Los pasos hablan del mejor candidato
+ * real y de cuántos más cupieron — nunca inventan uno.
+ */
+export function buildWheelNextSteps(rows: AffordableCandidate[], cash: number): NextStep[] {
+  const steps: NextStep[] = [];
+  const operables = rows.filter((r) => !r.blocked);
+  if (operables.length === 0) return steps;
+
+  const cabenTotal = operables.filter((r) => r.afford.affordable);
+  const mejor = cabenTotal[0];
+
+  // 1) El mejor candidato que SÍ cabe — la acción concreta de hoy.
+  if (mejor && mejor.metrics) {
+    const m = mejor.metrics;
+    const spread = mejor.longStrike != null;
+    const patas = spread
+      ? `vende el put ${mejor.strike} y compra el put ${mejor.longStrike} de protección`
+      : `vende el put ${mejor.strike} (cash-secured)`;
+    steps.push({
+      id: "wheel-mejor",
+      tipo: "alerta",
+      texto: `Tu mejor opción hoy: en ${mejor.ticker}, ${patas} · vence ${mejor.expiration} (${mejor.dte} días). `
+        + `Cobras ${money(m.credit)}, pones ${money(m.collateral)} de tu dinero, y el retorno anualizado es ${pct(m.annualizedPct)}.`,
+      motivo: `${Math.round(m.probExpireWorthless)}% de probabilidad de que expire sin valor (te quedas con la prima completa).`,
+    });
+
+    // 2) El punto de equilibrio — desde dónde empieza a doler si te asignan.
+    if (m.breakeven > 0) {
+      steps.push({
+        id: "wheel-breakeven",
+        tipo: "riesgo",
+        texto: `Si te asignan las acciones, tu costo real queda en ${money(m.breakeven)}. Solo pierdes si ${mejor.ticker} termina por debajo de ahí.`,
+      });
+    }
+  }
+
+  // 3) Cuántos más caben, para que sepa que hay variedad — o que no la hay.
+  if (cabenTotal.length > 1) {
+    steps.push({
+      id: "wheel-variedad",
+      tipo: "meta",
+      texto: `Además de esa, tienes ${cabenTotal.length - 1} candidato${cabenTotal.length - 1 === 1 ? "" : "s"} más que caben en tus ${money(cash)} — revisa la tabla completa antes de decidir.`,
+    });
+  } else if (cabenTotal.length === 0) {
+    const masBarato = operables.slice().sort((a, b) => (a.metrics?.collateral ?? Infinity) - (b.metrics?.collateral ?? Infinity))[0];
+    steps.push({
+      id: "wheel-sin-alcance",
+      tipo: "riesgo",
+      texto: masBarato?.metrics
+        ? `Ninguno de los candidatos de hoy cabe en tus ${money(cash)}. El más barato (${masBarato.ticker}) pide ${money(masBarato.metrics.collateral)} de colateral — te faltarían ${money(masBarato.afford.shortfall)}.`
+        : `Ninguno de los candidatos de hoy cabe en tus ${money(cash)}.`,
+    });
   }
 
   return steps;
