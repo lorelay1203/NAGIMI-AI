@@ -148,13 +148,12 @@ export default function DayTradesPage() {
 
   return (
     <main className="wrap page-stack" style={{ maxWidth: 900 }}>
-      <div>
-        <a href="/" style={{ color: "var(--accent)", fontSize: 13, fontWeight: 600 }}>← Volver al inicio</a>
+      <div className="page-head">
+        <div className="eyebrow">Intradía</div>
         <div style={{ display: "flex", alignItems: "center", gap: 10, margin: "8px 0 4px", flexWrap: "wrap" }}>
-          <h1 style={{ margin: 0, fontSize: 23 }}>⚡ Day Trade — la sesión de hoy</h1>
-          <span style={{ fontSize: 11, fontWeight: 800, letterSpacing: ".06em", color: "#fff", background: "var(--brand-grad)", borderRadius: 999, padding: "3px 10px" }}>INTRADÍA</span>
+          <h1>⚡ Day Trade — la sesión de hoy</h1>
         </div>
-        <p style={{ margin: 0, color: "var(--muted)", lineHeight: 1.5, fontSize: 13 }}>
+        <p>
           Capa <b>independiente</b> del análisis de swing: aquí <b>solo</b> cuenta la sesión{s ? ` (${s.sessionDate})` : ""} — las velas de 5 min
           y los muros de gamma. <b>SPY = espejo de /ES y /MES</b>. Los datos de Massive vienen con un retraso.
         </p>

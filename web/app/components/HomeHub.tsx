@@ -4,6 +4,8 @@ import { useState } from "react";
 
 type HomeHubProps = {
   onSearch: (ticker: string) => void;
+  /** Va entre el titular y las tarjetas de caminos — ahí vive "Tu investigación". */
+  children?: React.ReactNode;
 };
 
 const LINKS = {
@@ -23,7 +25,7 @@ const LINKS = {
   ],
 };
 
-export default function HomeHub({ onSearch }: HomeHubProps) {
+export default function HomeHub({ onSearch, children }: HomeHubProps) {
   const [ticker, setTicker] = useState("");
 
   const submit = () => {
@@ -35,11 +37,11 @@ export default function HomeHub({ onSearch }: HomeHubProps) {
   return (
     <section className="home-hub" aria-labelledby="home-title">
       <div className="home-hero">
-        <div className="home-kicker">NAGIMI AI</div>
-        <h1 id="home-title">¿Qué quieres hacer hoy?</h1>
+        <div className="home-kicker">Flujo de opciones · en vivo</div>
+        <h1 id="home-title">Pregúntale a Nagimi <em>qué hacer hoy</em>.</h1>
         <p>
-          Empieza por una sola tarea. Nagimi organiza el análisis y deja el detalle
-          avanzado disponible cuando lo necesites.
+          Nagimi lee el flujo de opciones, los muros de gamma y el dinero que de verdad
+          tienes en tus brókers, y te lo resume en pasos claros.
         </p>
         <div className="home-search-row">
           <input
@@ -53,6 +55,8 @@ export default function HomeHub({ onSearch }: HomeHubProps) {
           <button type="button" onClick={submit}>Analizar ticker</button>
         </div>
       </div>
+
+      {children}
 
       <div className="home-paths">
         <article className="home-path home-path-primary">

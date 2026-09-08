@@ -55,6 +55,7 @@ import JournalCard from "./components/JournalCard";
 import MarketSnackGexCard from "./components/MarketSnackGexCard";
 import ChartZoom from "./components/ChartZoom";
 import HomeHub from "./components/HomeHub";
+import TuInvestigacionCard from "./components/TuInvestigacionCard";
 import type { MsGexResult } from "@/lib/marketsnackGex";
 
 interface FlowMeta { ticker: string; notableCount: number; shown: number }
@@ -498,7 +499,9 @@ export default function Dashboard() {
 
         {!started && !busy && (
           <>
-            <HomeHub onSearch={runSearch} />
+            <HomeHub onSearch={runSearch}>
+              <TuInvestigacionCard onPick={runSearch} />
+            </HomeHub>
 
             <details className="home-drawer" id="strategy-tools">
               <summary>Elegir estrategia <span>Buscador por capital</span></summary>

@@ -78,10 +78,10 @@ export default function CookiePage() {
 
   return (
     <main className="wrap page-stack" style={{ maxWidth: 720 }}>
-      <div>
-        <a href="/" style={{ color: "var(--accent)", fontSize: 13, fontWeight: 600 }}>← Volver al inicio</a>
-        <h1 style={{ margin: "8px 0 4px", fontSize: 22 }}>🍪 MarketSnack — cookie y auto-login</h1>
-        <p style={{ margin: 0, color: "var(--muted)", lineHeight: 1.5 }}>
+      <div className="page-head">
+        <div className="eyebrow">Conexión</div>
+        <h1>🍪 MarketSnack — cookie y auto-login</h1>
+        <p>
           Activa el auto-login para que Nagimi renueve la cookie <b>sola</b>, o pégala a mano. Se aplica al instante.
         </p>
       </div>

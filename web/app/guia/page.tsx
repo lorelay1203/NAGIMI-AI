@@ -43,10 +43,10 @@ const card: React.CSSProperties = { background: "var(--panel)", border: "1px sol
 export default function GuiaPage() {
   return (
     <main className="wrap page-stack" style={{ maxWidth: 960 }}>
-      <div>
-        <a href="/" style={{ color: "var(--accent)", fontSize: 13, fontWeight: 600 }}>← Volver al inicio</a>
-        <h1 style={{ margin: "8px 0 6px", fontSize: 28, letterSpacing: "-0.5px" }}>📚 Guía — ¿Cómo funciona Nagimi?</h1>
-        <p style={{ margin: 0, color: "var(--muted)", lineHeight: 1.6, fontSize: 15 }}>
+      <div className="page-head">
+        <div className="eyebrow">Cómo funciona</div>
+        <h1>📚 Guía — ¿Cómo funciona Nagimi?</h1>
+        <p>
           Todo tu agente explicado en palabras simples, sin tecnicismos. Si es tu primera vez, empieza por aquí. 💛
         </p>
       </div>

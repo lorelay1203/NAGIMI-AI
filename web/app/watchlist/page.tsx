@@ -92,16 +92,16 @@ export default function WatchlistPage() {
 
   return (
     <main className="ideas-page">
-      <div className="hb">
-        <div className="hb-brand">
-          <div className="hb-logo">🍒</div>
-          <div className="hb-name">Nagimi AI</div>
-          <div className="hb-chip">⭐ Watchlist · {count} guardado{count === 1 ? "" : "s"}</div>
-        </div>
-        <a href="/" style={{ color: "var(--accent)", fontSize: 13, fontWeight: 600 }}>← Volver al inicio</a>
-      </div>
-
       <div className="ideas-body">
+        <div className="page-head">
+          <div className="eyebrow">{count} guardado{count === 1 ? "" : "s"}</div>
+          <h1>⭐ Watchlist</h1>
+          <p>
+            Los contratos que marcaste, con la foto del momento en que los guardaste.
+            Aquí lo que corre es el calendario: se vencen solos.
+          </p>
+        </div>
+
         {watchlist.length > 0 && (
           <NextStepsCard ticker="watchlist" steps={buildWatchlistNextSteps(watchlist, new Date())} />
         )}

@@ -76,16 +76,16 @@ export default function WheelPage() {
 
   return (
     <main className="ideas-page">
-      <div className="hb">
-        <div className="hb-brand">
-          <div className="hb-logo">🎡</div>
-          <div className="hb-name">Wheel</div>
-          <div className="hb-chip">ingresos vendiendo puts</div>
-        </div>
-        <a href="/" style={{ color: "var(--accent)", fontSize: 13, fontWeight: 600 }}>← Volver al inicio</a>
-      </div>
-
       <div className="ideas-body">
+        <div className="page-head">
+          <div className="eyebrow">Ingresos vendiendo puts</div>
+          <h1>🎡 Wheel</h1>
+          <p>
+            Cobras una prima por comprometerte a comprar una acción más barata. En modo
+            spread el riesgo queda topado, así que cabe en una cuenta chica.
+          </p>
+        </div>
+
         {/* Modo: spread (barato, cuenta chica) vs put suelto (Wheel clásico, mucho colateral) */}
         <div className="card" style={{ gap: 8 }}>
           <div style={{ fontSize: 13, fontWeight: 700 }}>¿Cómo quieres vender el put?</div>

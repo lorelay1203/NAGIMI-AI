@@ -88,10 +88,10 @@ export default function IdeasPage() {
 
   return (
     <main className="wrap page-stack" style={{ maxWidth: 1100 }}>
-      <div>
-        <a href="/" style={{ color: "var(--accent)", fontSize: 13, fontWeight: 600 }}>← Volver al inicio</a>
-        <h1 style={{ margin: "8px 0 4px", fontSize: 22 }}>💡 Ideas del mercado · cuenta chica</h1>
-        <p style={{ margin: 0, color: "var(--muted)" }}>
+      <div className="page-head">
+        <div className="eyebrow">Escáner del mercado</div>
+        <h1>💡 Ideas del mercado · cuenta chica</h1>
+        <p>
           Escanea el flujo de TODO el mercado y te muestra qué <b>cabe en tu cuenta</b> — con techo de contratos
           según tu tolerancia. Material de estudio, no ejecuta.
         </p>

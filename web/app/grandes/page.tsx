@@ -56,10 +56,10 @@ export default function GrandesPage() {
 
   return (
     <main className="wrap page-stack" style={{ maxWidth: 900 }}>
-      <div>
-        <a href="/" style={{ color: "var(--accent)", fontSize: 13, fontWeight: 600 }}>← Volver al inicio</a>
-        <h1 style={{ margin: "8px 0 4px", fontSize: 24 }}>🐋 Sigue a los Grandes</h1>
-        <p style={{ margin: 0, color: "var(--muted)", lineHeight: 1.55, fontSize: 14 }}>
+      <div className="page-head">
+        <div className="eyebrow">Reportes 13F de la SEC</div>
+        <h1>🐋 Sigue a los Grandes</h1>
+        <p>
           Las jugadas de los inversores gigantes, de sus reportes oficiales a la <b>SEC (13F)</b>. Toca un ticker
           para analizarlo y buscar <b>contratos baratos en la misma dirección</b>.
         </p>

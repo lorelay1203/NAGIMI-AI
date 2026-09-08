@@ -28,16 +28,11 @@ export default function HeaderBar({
 
   return (
     <div className="hb">
-      <div className="hb-brand" onClick={() => onHome?.()} style={{ cursor: onHome ? "pointer" : "default" }} title="Ir al inicio">
-        <div className="hb-logo">N</div>
-        <div className="hb-name">Nagimi AI</div>
-      </div>
-      <nav className="hb-nav" aria-label="Navegación principal">
-        <a className="hb-link" href="/">INICIO</a>
-        <a className="hb-link" href="/grandes">🐋 GRANDES</a>
-        <a className="hb-link" href="/cookie">COOKIE</a>
-        <a className="hb-link" href="/flow">TIME &amp; SALES</a>
-      </nav>
+      {ticker && onHome && (
+        <button type="button" className="hb-back" onClick={onHome} title="Volver al panel">
+          ← Panel
+        </button>
+      )}
       <input
         className="hb-search"
         value={q}
