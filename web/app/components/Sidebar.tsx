@@ -12,6 +12,7 @@ interface Item { href: string; label: string; ico: string }
 
 const ESPACIO: Item[] = [
   { href: "/", label: "Panel", ico: "◧" },
+  { href: "/reportes", label: "Reportes", ico: "📓" },
   { href: "/daytrades", label: "Day Trades", ico: "⚡" },
   { href: "/ideas", label: "Ideas", ico: "◈" },
   { href: "/flow", label: "Flujo", ico: "≋" },
