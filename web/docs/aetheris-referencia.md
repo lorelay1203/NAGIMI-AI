@@ -218,3 +218,40 @@ todos estos datos; lo que falta es PRESENTARLOS así.
 - Reporte de una CRIPTO (BTC) — puede tener secciones distintas.
 - ⌘K (paleta de comandos global "ve a un ticker/agente/reporte").
 - Documentos (Pronto), Comentarios, Chat (Pronto), Portafolio (404) — vacíos.
+
+---
+
+## Área de Agentes ("Mesa Aetheris") — vitrina, NO funciona todavía
+
+Toda la sección dice "Coming soon / Próximamente": controles, ejecuciones y
+orquestación no están activos. Es una maqueta de la visión de Víctor, sin
+contenido real que leer. Son 7 especialistas de ACCIONES, cada uno con una
+señal (Bullish/Neutral/Cautious):
+
+- FND Fundamentales — "Lee reportes 10-K/Q y construye DCF y múltiplos."
+- TCH Técnicos — "Patrones, régimen, volatilidad y momentum."
+- SNT Sentimiento — "Noticias, transcripciones, redes y tono de analistas."
+- RSK Riesgo — "Superficie de volatilidad, riesgo de cola y exposición a factores."
+- MAC Macro — "Tasas, divisas, materias primas y pronósticos de régimen."
+- SUP Cadena de suministro — "Salud de proveedores, geopolítica y logística."
+- GOV Gobernanza — "Consejo, compensación, litigios y señales ESG."
+
+Cada tarjeta: código de 3 letras + nombre + una línea de qué hace + estado
+(MÓDULO/CONTROLES/DATOS) + "ROL PLANEADO" (lista de lo que hará).
+
+**Lo copiable es la PRESENTACIÓN, no el contenido** (Nagimi ya tiene los
+sub-agentes funcionando, y son de opciones, no de acciones):
+> Una **"Mesa de Agentes"** en Nagimi: rejilla donde cada sub-agente de opciones
+> (Agresividad, Convicción, Inusualidad, VWAP, Canal de gamma…) es una tarjeta
+> con su NOMBRE + su SEÑAL ahora mismo + una línea en llano ("qué está viendo").
+> Nagimi ya calcula todo eso — hoy lo muestra como barras de puntaje; falta el
+> formato "mesa de especialistas, cada uno te dice en boricua qué ve".
+
+## El lenguaje que Lorelay quiere (nivel boricua, fácil)
+Ejemplos del tono de Aetheris que hay que imitar en TODA explicación de Nagimi:
+- "NVIDIA es como el que vende las palas en la fiebre del oro de la IA."
+- "GEX balanceado, así que la lectura más limpia es que vuelva al centro."
+- "El precio cayó exactamente hacia la zona que anticipé — la tesis se mantiene."
+- "Entra en $215-218, sal en $207 si va mal, ganas 2 por cada 1 que arriesgas."
+Regla: número concreto + qué significa en una frase + qué hacer. Nunca jerga
+sola. Siempre "esto es como…" cuando ayude.
