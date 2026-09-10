@@ -838,9 +838,34 @@ tfoot .totals td {
 .section-tabs button:not(.active):hover { color: var(--text); border-color: var(--accent); }
 
 /* Veredicto */
-.verdict { display: flex; gap: 18px; align-items: center; background: var(--panel);
+.verdict { display: flex; flex-direction: column; gap: 18px; background: var(--panel);
   border: 1px solid var(--border); border-radius: 16px; padding: 22px 26px;
   border-left: 6px solid var(--border); }
+/* El titular conserva el layout horizontal (icono grande + texto). */
+.verdict-head { display: flex; gap: 18px; align-items: center; }
+/* La tarjeta de aviso/carga sigue siendo una sola fila. */
+.verdict-warn, .verdict:has(> .verdict-loading) { flex-direction: row; align-items: center; gap: 18px; }
+
+/* Las tres cajas: a favor / en contra / vigila. */
+.verdict-boxes { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; }
+@media (max-width: 720px) { .verdict-boxes { grid-template-columns: 1fr; } }
+.vbox { background: var(--panel-2); border: 1px solid var(--border); border-radius: 12px;
+  padding: 12px 14px; border-top: 3px solid var(--border); }
+.vbox-fav { border-top-color: var(--green); }
+.vbox-riesgo { border-top-color: var(--red-soft); }
+.vbox-vigila { border-top-color: var(--accent); }
+.vbox-label { font-size: 11px; font-weight: 800; text-transform: uppercase; letter-spacing: .04em; margin-bottom: 6px; }
+.vbox-fav .vbox-label { color: var(--green); }
+.vbox-riesgo .vbox-label { color: var(--red-soft); }
+.vbox-vigila .vbox-label { color: var(--accent); }
+.vbox-text { font-size: 13px; line-height: 1.45; color: var(--text); }
+.vbox-why { font-size: 11.5px; color: var(--muted); margin-top: 5px; line-height: 1.4; }
+
+/* La pregunta directa "¿entro ahora a $X?" */
+.verdict-pregunta { background: var(--panel-2); border: 1px solid var(--border);
+  border-radius: 12px; padding: 13px 16px; }
+.vpreg-q { font-size: 14px; font-weight: 800; margin-bottom: 5px; }
+.vpreg-a { font-size: 13px; line-height: 1.5; color: var(--text); }
 .verdict-up { border-left-color: var(--green); background: linear-gradient(90deg, var(--green-bg), var(--panel) 55%); }
 .verdict-down { border-left-color: var(--red); background: linear-gradient(90deg, var(--red-bg), var(--panel) 55%); }
 .verdict-flat { border-left-color: var(--amber); background: linear-gradient(90deg, var(--amber-bg), var(--panel) 55%); }
