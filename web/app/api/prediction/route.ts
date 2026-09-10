@@ -17,6 +17,17 @@ export async function GET(request: Request) {
   const ticker = (searchParams.get("ticker") ?? "").trim().toUpperCase();
   if (!ticker) return Response.json({ error: "Falta el ticker." }, { status: 400 });
 
+  // Timeline de la tesis: solo las fotos crudas, sin bajar barras (más rápido y
+  // sin depender de Massive). Es lo que necesita "Cómo ha cambiado la lectura".
+  if (searchParams.has("raw")) {
+    try {
+      const journal = await loadJournal(ticker);
+      return Response.json({ snapshots: journal?.snapshots ?? [] });
+    } catch {
+      return Response.json({ error: "No se pudo leer la memoria." }, { status: 502 });
+    }
+  }
+
   try {
     const [journal, bars] = await Promise.all([
       loadJournal(ticker),
