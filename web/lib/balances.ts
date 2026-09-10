@@ -9,10 +9,12 @@
 // como $0, porque eso haría creer que no hay dinero cuando sí lo hay.
 // ============================================================================
 
+import { promises as fs } from "node:fs";
+import path from "node:path";
 import { getAccounts as tastyAccounts } from "./tastytrade";
 import { getAccounts as schwabAccounts } from "./schwab";
 
-export type BrokerId = "tastytrade" | "schwab";
+export type BrokerId = "tastytrade" | "schwab" | "robinhood";
 
 export interface CuentaSaldo {
   broker: BrokerId;
@@ -20,6 +22,10 @@ export interface CuentaSaldo {
   cuenta: string;
   /** Dinero utilizable para comprar opciones, en dólares. */
   disponible: number;
+  /** Robinhood no tiene API pública: su saldo es una FOTO, no tiempo real. */
+  foto?: boolean;
+  /** Cuándo se tomó la foto (ISO). Solo en cuentas `foto`. */
+  actualizado?: string;
 }
 
 export interface Problema {
@@ -58,6 +64,44 @@ function tastySaldo(balance: unknown): number {
   return 0;
 }
 
+/**
+ * Robinhood: no da API pública para que la app se conecte sola, así que su
+ * saldo vive en una FOTO en disco (`data/robinhood_snapshot.json`) que Claude
+ * escribe leyendo Robinhood en vivo por su conector oficial. Si el archivo no
+ * está, Robinhood simplemente no aparece — no es un "problema de conexión",
+ * es que aún no se ha tomado la foto.
+ */
+interface RobinhoodFoto {
+  obtenidoEn?: string;
+  cuentas?: { cuenta?: string; disponible?: number }[];
+}
+async function robinhoodFoto(): Promise<CuentaSaldo[]> {
+  const file = path.join(process.cwd(), "data", "robinhood_snapshot.json");
+  let raw: string;
+  try {
+    raw = await fs.readFile(file, "utf8");
+  } catch {
+    return []; // sin foto todavía → Robinhood no se muestra, sin alarma
+  }
+  let foto: RobinhoodFoto;
+  try {
+    foto = JSON.parse(raw) as RobinhoodFoto;
+  } catch {
+    return [];
+  }
+  const actualizado = foto.obtenidoEn;
+  return (foto.cuentas ?? [])
+    .map((c) => ({
+      broker: "robinhood" as const,
+      brokerNombre: "Robinhood",
+      cuenta: String(c.cuenta ?? "—"),
+      disponible: num(c.disponible),
+      foto: true,
+      actualizado,
+    }))
+    .filter((c) => c.disponible > 0);
+}
+
 /** Schwab/TOS: efectivo disponible para operar de `currentBalances`. */
 function schwabSaldo(acc: unknown): { cuenta: string; disponible: number } | null {
   const sa = (acc as { securitiesAccount?: Record<string, unknown> })?.securitiesAccount;
@@ -78,7 +122,11 @@ export async function getSaldos(): Promise<Saldos> {
   const problemas: Problema[] = [];
   let respondio = false;
 
-  const [tt, sw] = await Promise.allSettled([tastyAccounts(), schwabAccounts()]);
+  const [tt, sw, rh] = await Promise.allSettled([
+    tastyAccounts(),
+    schwabAccounts(),
+    robinhoodFoto(),
+  ]);
 
   if (tt.status === "fulfilled") {
     respondio = true;
@@ -109,6 +157,13 @@ export async function getSaldos(): Promise<Saldos> {
       broker: "schwab", brokerNombre: "Schwab (TOS)",
       motivo: mensaje(sw.reason, "Vuelve a conectarlo en /schwab."),
     });
+  }
+
+  // Robinhood es una foto en disco; si está, se suma como una cuenta más.
+  // Nunca genera "problema": su ausencia solo significa que no hay foto aún.
+  if (rh.status === "fulfilled" && rh.value.length > 0) {
+    respondio = true;
+    cuentas.push(...rh.value);
   }
 
   cuentas.sort((a, b) => b.disponible - a.disponible);
