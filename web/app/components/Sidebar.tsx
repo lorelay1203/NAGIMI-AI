@@ -4,22 +4,35 @@
 // Copia la estructura de FinAnalista (secciones nombradas, entradas discretas,
 // la cuenta abajo) con una diferencia deliberada: aquí no hay ninguna entrada
 // en "Pronto". Todo lo que aparece en el menú funciona hoy.
+//
+// Agrupado por lo que HACES, no por cuándo se construyó cada página:
+//   · Analizar      → leer el mercado o un ticker concreto ahora mismo
+//   · Oportunidades → escáneres que te dan un candidato para operar
+//   · Seguimiento   → lo que ya marcaste o lo que Nagimi ya predijo
+// Las mismas categorías se usan en la página de inicio (HomeHub) — si se
+// agrega una página nueva, entra en ambos sitios o se nota al momento.
 
 import { usePathname } from "next/navigation";
 import { useEffect, useState } from "react";
 
 interface Item { href: string; label: string; ico: string }
 
-const ESPACIO: Item[] = [
+const ANALIZAR: Item[] = [
   { href: "/", label: "Panel", ico: "◧" },
-  { href: "/reportes", label: "Reportes", ico: "📓" },
   { href: "/daytrades", label: "Day Trades", ico: "⚡" },
-  { href: "/prima", label: "Venta de Prima", ico: "🎯" },
-  { href: "/ideas", label: "Ideas", ico: "◈" },
   { href: "/flow", label: "Flujo", ico: "≋" },
-  { href: "/wheel", label: "Wheel", ico: "◎" },
   { href: "/grandes", label: "Sigue a los Grandes", ico: "🐋" },
+];
+
+const OPORTUNIDADES: Item[] = [
+  { href: "/ideas", label: "Ideas", ico: "◈" },
+  { href: "/wheel", label: "Wheel", ico: "◎" },
+  { href: "/prima", label: "Venta de Prima", ico: "🎯" },
+];
+
+const SEGUIMIENTO: Item[] = [
   { href: "/watchlist", label: "Watchlist", ico: "★" },
+  { href: "/reportes", label: "Reportes", ico: "📓" },
 ];
 
 const CUENTA: Item[] = [
@@ -74,8 +87,18 @@ export default function Sidebar() {
       </div>
 
       <div className="sb-section">
-        <div className="sb-label">Espacio de trabajo</div>
-        {ESPACIO.map(link)}
+        <div className="sb-label">Analizar</div>
+        {ANALIZAR.map(link)}
+      </div>
+
+      <div className="sb-section">
+        <div className="sb-label">Oportunidades</div>
+        {OPORTUNIDADES.map(link)}
+      </div>
+
+      <div className="sb-section">
+        <div className="sb-label">Seguimiento</div>
+        {SEGUIMIENTO.map(link)}
       </div>
 
       <div className="sb-section">

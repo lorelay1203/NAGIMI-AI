@@ -11,17 +11,20 @@ type HomeHubProps = {
 const LINKS = {
   opportunities: [
     { href: "/daytrades", label: "Day Trades" },
+    { href: "/flow", label: "Flujo" },
     { href: "/grandes", label: "🐋 Sigue a los grandes" },
     { href: "/ideas", label: "Ideas" },
-    { href: "/watchlist", label: "Watchlist" },
   ],
   strategies: [
     { href: "#strategy-tools", label: "Buscar por capital" },
     { href: "/wheel", label: "Wheel" },
+    { href: "/prima", label: "Venta de Prima" },
   ],
   practice: [
     { href: "#practice-tools", label: "Paper Trading" },
     { href: "#practice-tools", label: "Historial y diario" },
+    { href: "/watchlist", label: "Watchlist" },
+    { href: "/reportes", label: "Reportes" },
   ],
 };
 
