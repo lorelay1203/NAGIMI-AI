@@ -14,6 +14,7 @@ const ESPACIO: Item[] = [
   { href: "/", label: "Panel", ico: "◧" },
   { href: "/reportes", label: "Reportes", ico: "📓" },
   { href: "/daytrades", label: "Day Trades", ico: "⚡" },
+  { href: "/prima", label: "Venta de Prima", ico: "🎯" },
   { href: "/ideas", label: "Ideas", ico: "◈" },
   { href: "/flow", label: "Flujo", ico: "≋" },
   { href: "/wheel", label: "Wheel", ico: "◎" },
