@@ -58,6 +58,7 @@ import MarketSnackGexCard from "./components/MarketSnackGexCard";
 import ChartZoom from "./components/ChartZoom";
 import HomeHub from "./components/HomeHub";
 import TuInvestigacionCard from "./components/TuInvestigacionCard";
+import RetoWebullCard from "./components/RetoWebullCard";
 import type { MsGexResult } from "@/lib/marketsnackGex";
 
 interface FlowMeta { ticker: string; notableCount: number; shown: number }
@@ -503,6 +504,7 @@ export default function Dashboard() {
           <>
             <HomeHub onSearch={runSearch}>
               <TuInvestigacionCard onPick={runSearch} />
+              <RetoWebullCard />
             </HomeHub>
 
             <details className="home-drawer" id="strategy-tools">
