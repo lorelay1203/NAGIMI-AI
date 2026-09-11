@@ -23,8 +23,10 @@ export interface AgenteDescrito {
   /** Qué está viendo ahora (viene del scorecard). */
   viendo: string;
   score: number | null;
+  /** Peso en el puntaje compuesto. 0 si el agente no cuenta para el puntaje. */
   weight: number;
-  senal: "Alcista" | "Bajista" | "Neutral" | "Sin dato";
+  /** Etiqueta corta de la señal (Alcista/Bajista/Neutral… o propia del agente). */
+  senal: string;
   tono: "up" | "down" | "neutral" | "none";
   /** Hacia dónde empuja la lectura y por qué. null si no tiene dato. */
   empuje: string | null;
@@ -92,4 +94,34 @@ export function describeAgente(p: ParteAgente): AgenteDescrito {
 /** Describe la mesa entera, en el orden dado. */
 export function describeMesa(partes: ParteAgente[]): AgenteDescrito[] {
   return partes.map(describeAgente);
+}
+
+/**
+ * El Gamma Skew como un agente más de la mesa (RSK, Riesgo). No es un puntaje
+ * 0-10 como los otros — es una lectura de riesgo direccional, así que peso 0
+ * (no cuenta para el puntaje compuesto). Encaja el skew ya calculado.
+ */
+export function skewComoAgente(input: {
+  ladoEngrasado: "abajo" | "arriba" | "parejo";
+  viendo: string;
+  empuje: string | null;
+}): AgenteDescrito {
+  const { ladoEngrasado } = input;
+  const senal = ladoEngrasado === "abajo" ? "Resbala ABAJO"
+    : ladoEngrasado === "arriba" ? "Resbala ARRIBA"
+    : "Parejo";
+  const tono: AgenteDescrito["tono"] = ladoEngrasado === "abajo" ? "down"
+    : ladoEngrasado === "arriba" ? "up"
+    : "neutral";
+  return {
+    codigo: "RSK",
+    nombre: "Riesgo (Gamma Skew)",
+    queHace: "Mira hacia qué lado se resbala el precio — para decidir si sigues en el trade o te sales.",
+    viendo: input.viendo,
+    score: null,
+    weight: 0,
+    senal,
+    tono,
+    empuje: input.empuje,
+  };
 }

@@ -27,7 +27,8 @@ import MoneyFlowCard from "./components/MoneyFlowCard";
 import NewsCard from "./components/NewsCard";
 import LevelsCard from "./components/LevelsCard";
 import ProWallsCard from "./components/ProWallsCard";
-import GammaSkewCard from "./components/GammaSkewCard";
+import { gammaSkew } from "@/lib/gammaSkew";
+import { skewComoAgente, type AgenteDescrito } from "@/lib/mesaAgentes";
 import GexHeatmapCard from "./components/GexHeatmapCard";
 import TradesFeed from "./components/TradesFeed";
 import CompanyHeader from "./components/CompanyHeader";
@@ -496,6 +497,17 @@ export default function Dashboard() {
     { name: "Confirmación de Precio", note: "¿El precio valida o absorbe?", score: validation?.score ?? null, weight: 15 },
   ];
 
+  // El Gamma Skew entra a la Mesa como 7º agente (RSK, Riesgo). Solo si el GEX
+  // trae strikes — si no, no se añade (no se inventa un agente sin dato).
+  const agentesExtra: AgenteDescrito[] = useMemo(() => {
+    if (!gex || !gex.nodes || gex.nodes.length === 0 || !(gex.spot > 0)) return [];
+    const sk = gammaSkew(gex.nodes.map((n) => ({ strike: n.strike, netGex: n.netGex })), gex.spot, gex.flipStrike);
+    const viendo = sk.ladoEngrasado === "abajo" ? "más gamma que acelera por debajo"
+      : sk.ladoEngrasado === "arriba" ? "más gamma que acelera por encima"
+      : "gamma pareja a ambos lados";
+    return [skewComoAgente({ ladoEngrasado: sk.ladoEngrasado, viendo, empuje: sk.lectura })];
+  }, [gex]);
+
   return (
     <>
       <HeaderBar ticker={ticker} company={company} busy={busy} onSearch={runSearch} onHome={goHome} />
@@ -575,14 +587,13 @@ export default function Dashboard() {
               <ChartPanel ticker={chainMeta!.ticker} bars={bars} contracts={top5} />
             )}
             <div className="grid-2">
-              <SentimentCard ticker={ticker} parts={sentimentParts} />
+              <SentimentCard ticker={ticker} parts={sentimentParts} extraAgentes={agentesExtra} />
               <PredictionCard ticker={ticker} prediction={prediction} horizonDays={horizonDays} onHorizon={setHorizonDays} topFlows={topFlows} />
             </div>
 
             {/* 3 · Niveles GEX — dónde están los precios clave */}
             <SectionHead n={3} title="Niveles clave (GEX)" sub="Call Wall, Put Wall, Gamma Flip, Max Pain e Imán" />
             {levels && <LevelsCard r={levels} ticker={ticker} />}
-            <GammaSkewCard gex={gex} />
             {structure && <ChartZoom label="Muros de strikes (PRO)"><ProWallsCard ticker={ticker} structure={structure} gex={realGex ?? gex} horizonDays={horizonDays} levels={levels} /></ChartZoom>}
             {msGex && <ChartZoom label="GEX en vivo — precio, muros e imán"><MarketSnackGexCard data={msGex} /></ChartZoom>}
             {gexChart && <ChartZoom label="GEX por strike — perfil de gamma"><GexHeatmapCard h={gexChart} /></ChartZoom>}

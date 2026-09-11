@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { describeAgente, describeMesa, type ParteAgente } from "./mesaAgentes";
+import { describeAgente, describeMesa, skewComoAgente, type ParteAgente } from "./mesaAgentes";
 
 const p = (name: string, score: number | null, note = "nota", weight = 20): ParteAgente => ({ name, score, note, weight });
 
@@ -52,5 +52,21 @@ describe("describeAgente", () => {
   it("describeMesa conserva el orden", () => {
     const mesa = describeMesa([p("Agresividad", 7), p("Convicción", 3)]);
     expect(mesa.map((m) => m.codigo)).toEqual(["AGR", "CNV"]);
+  });
+});
+
+describe("skewComoAgente", () => {
+  it("resbala abajo → RSK con tono bajista, peso 0 (no cuenta para el puntaje)", () => {
+    const a = skewComoAgente({ ladoEngrasado: "abajo", viendo: "gamma cargada abajo", empuje: "cuida el stop si vas largo" });
+    expect(a.codigo).toBe("RSK");
+    expect(a.senal).toBe("Resbala ABAJO");
+    expect(a.tono).toBe("down");
+    expect(a.weight).toBe(0);
+    expect(a.score).toBeNull();
+  });
+
+  it("resbala arriba → tono alcista; parejo → neutral", () => {
+    expect(skewComoAgente({ ladoEngrasado: "arriba", viendo: "", empuje: null }).tono).toBe("up");
+    expect(skewComoAgente({ ladoEngrasado: "parejo", viendo: "", empuje: null }).tono).toBe("neutral");
   });
 });

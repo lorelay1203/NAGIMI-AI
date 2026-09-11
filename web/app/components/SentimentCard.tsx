@@ -1,7 +1,7 @@
 "use client";
 
 import { explicaPuntaje } from "@/lib/explicaPuntaje";
-import { describeMesa } from "@/lib/mesaAgentes";
+import { describeMesa, type AgenteDescrito } from "@/lib/mesaAgentes";
 
 export interface SentimentPart {
   name: string;
@@ -18,7 +18,7 @@ function colorFor(score100: number): string {
  * AI Sentiment Score: los promedios de las tablas de cada sub-agente,
  * ponderados por su peso del scorecard, escalados a 0-100.
  */
-export default function SentimentCard({ ticker, parts }: { ticker: string; parts: SentimentPart[] }) {
+export default function SentimentCard({ ticker, parts, extraAgentes = [] }: { ticker: string; parts: SentimentPart[]; extraAgentes?: AgenteDescrito[] }) {
   const active = parts.filter((p) => p.score != null);
   const activeWeight = active.reduce((s, p) => s + p.weight, 0);
   const pts = active.reduce((s, p) => s + (p.score! / 10) * p.weight, 0);
@@ -70,7 +70,7 @@ export default function SentimentCard({ ticker, parts }: { ticker: string; parts
       <div style={{ borderTop: "1px solid var(--border)", paddingTop: 16 }}>
         <div className="sent-head-label">Mesa de agentes — cada especialista, qué mira y qué ve ahora</div>
         <div className="mesa-grid">
-          {describeMesa(parts.map((p) => ({ name: p.name, note: p.note, score: p.score, weight: p.weight }))).map((a) => {
+          {[...describeMesa(parts.map((p) => ({ name: p.name, note: p.note, score: p.score, weight: p.weight }))), ...extraAgentes].map((a) => {
             const s100 = a.score != null ? Math.round(a.score * 10) : null;
             const c = s100 != null ? colorFor(s100) : "var(--faint)";
             return (
@@ -79,7 +79,7 @@ export default function SentimentCard({ ticker, parts }: { ticker: string; parts
                   <span className="mesa-cod">{a.codigo}</span>
                   <span className="mesa-senal" style={{ color: c }}>{a.senal}</span>
                 </div>
-                <div className="mesa-nombre">{a.nombre} <span className="mesa-peso">· pesa {a.weight}%</span></div>
+                <div className="mesa-nombre">{a.nombre} <span className="mesa-peso">{a.weight > 0 ? `· pesa ${a.weight}%` : "· contexto, no cuenta para el puntaje"}</span></div>
                 <div className="mesa-quehace">{a.queHace}</div>
                 <div className="mesa-viendo"><span className="mesa-viendo-lbl">Ahora:</span> {a.viendo}{s100 != null ? ` (${s100}/100)` : ""}</div>
                 {a.empuje && <div className="mesa-empuje" style={{ color: c }}>{a.empuje}</div>}
