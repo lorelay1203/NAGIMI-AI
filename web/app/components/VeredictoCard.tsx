@@ -7,6 +7,7 @@
 
 import type { ProPrediction } from "@/lib/prediction";
 import { escenarioOpuesto, rielAVigilar } from "@/lib/veredicto";
+import { analogia } from "@/lib/analogia";
 import { px } from "../format";
 
 /** Confianza 0-100 → etiqueta llana. */
@@ -29,10 +30,13 @@ export default function VeredictoCard({
   ticker,
   prediction,
   horizonDays,
+  regime,
 }: {
   ticker: string;
   prediction: ProPrediction | null;
   horizonDays: number;
+  /** Régimen de gamma del día, para la analogía "esto es como…". */
+  regime?: "positive" | "negative";
 }) {
   if (!prediction) {
     return (
@@ -126,6 +130,12 @@ export default function VeredictoCard({
             </div>
           )}
         </div>
+      </div>
+
+      {/* "En términos simples: esto es como…" — la analogía del régimen */}
+      <div className="verdict-analogia">
+        <span className="verdict-analogia-tag">En simple</span>
+        {analogia(prediction.direction, regime, prediction.confidence)}
       </div>
 
       {/* La pregunta directa — respondida con precio, como hace Aetheris */}

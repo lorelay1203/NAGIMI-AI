@@ -561,7 +561,7 @@ export default function Dashboard() {
 
             {/* 1 · Veredicto — la respuesta */}
             <SectionHead n={1} title="Veredicto" sub="La conclusión: ¿sube o baja, y qué tan seguro?" />
-            <VeredictoCard ticker={ticker} prediction={prediction} horizonDays={horizonDays} />
+            <VeredictoCard ticker={ticker} prediction={prediction} horizonDays={horizonDays} regime={gex?.regime} />
             <PlanOperacionCard prediction={prediction} />
             {ticker && <TesisTimelineCard ticker={ticker} />}
             {ticker && nextSteps.length > 0 && <NextStepsCard ticker={ticker} steps={nextSteps} />}

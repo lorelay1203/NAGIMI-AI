@@ -1297,3 +1297,14 @@ tfoot .totals td {
   padding: 10px 13px; margin-top: 14px;
 }
 .sent-part-weight { font-size: 11px; color: var(--faint); font-weight: 500; }
+
+/* Analogía "en simple" dentro del veredicto */
+.verdict-analogia {
+  font-size: 13.5px; line-height: 1.55; color: var(--text);
+  background: var(--panel-2); border: 1px solid var(--border); border-radius: 10px;
+  padding: 11px 14px;
+}
+.verdict-analogia-tag {
+  display: inline-block; font-size: 10px; font-weight: 800; text-transform: uppercase;
+  letter-spacing: .05em; color: var(--accent-2); margin-right: 8px;
+}
