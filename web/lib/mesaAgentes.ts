@@ -125,3 +125,26 @@ export function skewComoAgente(input: {
     empuje: input.empuje,
   };
 }
+
+/**
+ * El Catalizador (earnings) como agente de la mesa (CAT). Peso 0: es contexto,
+ * no un puntaje. Recibe el catalizador ya construido (fecha real de Finnhub).
+ */
+export function catalizadorComoAgente(input: {
+  senal: string;
+  viendo: string;
+  aviso: string;
+  tono: "up" | "down" | "neutral";
+}): AgenteDescrito {
+  return {
+    codigo: "CAT",
+    nombre: "Catalizadores (Earnings)",
+    queHace: "Avisa si hay un reporte de resultados cerca — después la IV se desinfla y tu opción pierde valor aunque aciertes.",
+    viendo: input.viendo,
+    score: null,
+    weight: 0,
+    senal: input.senal,
+    tono: input.tono,
+    empuje: input.aviso,
+  };
+}

@@ -28,7 +28,7 @@ import NewsCard from "./components/NewsCard";
 import LevelsCard from "./components/LevelsCard";
 import ProWallsCard from "./components/ProWallsCard";
 import { gammaSkew } from "@/lib/gammaSkew";
-import { skewComoAgente, type AgenteDescrito } from "@/lib/mesaAgentes";
+import { skewComoAgente, catalizadorComoAgente, type AgenteDescrito } from "@/lib/mesaAgentes";
 import GexHeatmapCard from "./components/GexHeatmapCard";
 import TradesFeed from "./components/TradesFeed";
 import CompanyHeader from "./components/CompanyHeader";
@@ -497,16 +497,36 @@ export default function Dashboard() {
     { name: "Confirmación de Precio", note: "¿El precio valida o absorbe?", score: validation?.score ?? null, weight: 15 },
   ];
 
-  // El Gamma Skew entra a la Mesa como 7º agente (RSK, Riesgo). Solo si el GEX
-  // trae strikes — si no, no se añade (no se inventa un agente sin dato).
+  // Catalizador (earnings) — fecha real de Finnhub. Se busca al cambiar de
+  // ticker; si es un ETF/índice que no reporta, la API devuelve null.
+  const [catAgente, setCatAgente] = useState<AgenteDescrito | null>(null);
+  useEffect(() => {
+    if (!ticker) { setCatAgente(null); return; }
+    let vivo = true;
+    fetch(`/api/catalizador?ticker=${encodeURIComponent(ticker)}`)
+      .then((r) => r.json())
+      .then((r: { catalizador?: { senal: string; viendo: string; aviso: string; tono: "up" | "down" | "neutral" } | null }) => {
+        if (!vivo) return;
+        setCatAgente(r.catalizador ? catalizadorComoAgente(r.catalizador) : null);
+      })
+      .catch(() => { if (vivo) setCatAgente(null); });
+    return () => { vivo = false; };
+  }, [ticker]);
+
+  // Agentes extra de la Mesa (contexto, peso 0): Gamma Skew (RSK) + Catalizador
+  // (CAT). Cada uno solo aparece si tiene dato — no se inventa ninguno.
   const agentesExtra: AgenteDescrito[] = useMemo(() => {
-    if (!gex || !gex.nodes || gex.nodes.length === 0 || !(gex.spot > 0)) return [];
-    const sk = gammaSkew(gex.nodes.map((n) => ({ strike: n.strike, netGex: n.netGex })), gex.spot, gex.flipStrike);
-    const viendo = sk.ladoEngrasado === "abajo" ? "más gamma que acelera por debajo"
-      : sk.ladoEngrasado === "arriba" ? "más gamma que acelera por encima"
-      : "gamma pareja a ambos lados";
-    return [skewComoAgente({ ladoEngrasado: sk.ladoEngrasado, viendo, empuje: sk.lectura })];
-  }, [gex]);
+    const extra: AgenteDescrito[] = [];
+    if (gex && gex.nodes && gex.nodes.length > 0 && gex.spot > 0) {
+      const sk = gammaSkew(gex.nodes.map((n) => ({ strike: n.strike, netGex: n.netGex })), gex.spot, gex.flipStrike);
+      const viendo = sk.ladoEngrasado === "abajo" ? "más gamma que acelera por debajo"
+        : sk.ladoEngrasado === "arriba" ? "más gamma que acelera por encima"
+        : "gamma pareja a ambos lados";
+      extra.push(skewComoAgente({ ladoEngrasado: sk.ladoEngrasado, viendo, empuje: sk.lectura }));
+    }
+    if (catAgente) extra.push(catAgente);
+    return extra;
+  }, [gex, catAgente]);
 
   return (
     <>

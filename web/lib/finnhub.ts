@@ -58,3 +58,40 @@ export async function fetchQuote(ticker: string): Promise<FinnhubQuote | null> {
     return null;
   }
 }
+
+// ── Calendario de earnings (para el agente de Catalizadores) ───────────────
+
+export interface NextEarnings {
+  /** Fecha del reporte, YYYY-MM-DD. */
+  date: string;
+  /** "bmo" antes de abrir, "amc" después del cierre, "dmh" durante, o null. */
+  hour: string | null;
+  epsEstimate: number | null;
+}
+
+/**
+ * Próximo reporte de resultados de una acción, de Finnhub (fecha REAL, no la
+ * estimación por cadencia). Devuelve null si falta la key, si es un ETF/índice
+ * que no reporta, o ante cualquier error. Mira hasta ~130 días adelante.
+ */
+export async function fetchNextEarnings(ticker: string, now = new Date()): Promise<NextEarnings | null> {
+  const key = process.env.FINNHUB_API_KEY;
+  if (!key) return null;
+  const clean = ticker.trim().toUpperCase();
+  const from = now.toISOString().slice(0, 10);
+  const to = new Date(now.getTime() + 130 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
+  const url = `${BASE_URL}/calendar/earnings?from=${from}&to=${to}&symbol=${encodeURIComponent(clean)}&token=${key}`;
+  const res = await fetch(url, { cache: "no-store" }).catch(() => null);
+  if (!res || !res.ok) return null;
+  const json = (await res.json().catch(() => null)) as { earningsCalendar?: { date?: string; hour?: string; epsEstimate?: number | null }[] } | null;
+  const list = (json?.earningsCalendar ?? [])
+    .filter((e) => typeof e.date === "string")
+    .sort((a, b) => (a.date! < b.date! ? -1 : 1));
+  const next = list[0];
+  if (!next?.date) return null;
+  return {
+    date: next.date,
+    hour: next.hour || null,
+    epsEstimate: typeof next.epsEstimate === "number" ? next.epsEstimate : null,
+  };
+}
