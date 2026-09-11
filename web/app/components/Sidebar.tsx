@@ -49,7 +49,7 @@ export default function Sidebar() {
   // El dinero de verdad de sus brókers. Si un bróker no se puede leer, se dice
   // cuál y por qué — nunca se muestra $0 como si fuera el saldo real.
   // Robinhood entra como FOTO (no tiene API en vivo): se marca cuándo se tomó.
-  interface Saldo { total: number; brokers: string[]; problemas: string[]; fotoDe: string | null }
+  interface Saldo { total: number; brokers: string[]; problemas: string[]; fotoBrokers: string[] }
   const [saldo, setSaldo] = useState<Saldo | null>(null);
   const [fallo, setFallo] = useState(false);
   useEffect(() => {
@@ -62,20 +62,19 @@ export default function Sidebar() {
       }) => {
         if (!r.hayDatos || typeof r.total !== "number") { setFallo(true); return; }
         const cuentas = r.cuentas ?? [];
-        const fotoAcc = cuentas.find((c) => c.foto && c.actualizado);
         setSaldo({
           total: r.total,
           brokers: [...new Set(cuentas.map((c) => c.brokerNombre))],
           problemas: [...new Set((r.problemas ?? []).map((p) => p.brokerNombre))],
-          fotoDe: fotoAcc?.actualizado ?? null,
+          fotoBrokers: [...new Set(cuentas.filter((c) => c.foto).map((c) => c.brokerNombre))],
         });
       })
       .catch(() => setFallo(true));
   }, []);
 
-  // "foto del 10 sep, 3:46 p. m." — para que se vea que Robinhood no es en vivo.
-  const fotoTexto = saldo?.fotoDe
-    ? new Date(saldo.fotoDe).toLocaleString("es-PR", { day: "numeric", month: "short", hour: "numeric", minute: "2-digit" })
+  // Los brókers sin API en vivo (Robinhood, Webull) van como "foto" — se avisa.
+  const fotoTexto = saldo && saldo.fotoBrokers.length > 0
+    ? `${saldo.fotoBrokers.join(" y ")} en foto (no en vivo)`
     : null;
 
   const link = (i: Item) => {
@@ -123,8 +122,8 @@ export default function Sidebar() {
               <div className="sb-money-value">{money(saldo.total)}</div>
               <div className="sb-money-sub">en {saldo.brokers.join(", ") || "tus cuentas"}</div>
               {fotoTexto && (
-                <div className="sb-money-sub" title="Robinhood no tiene conexión en vivo: es una foto que Claude actualiza cuando se lo pides.">
-                  📸 Robinhood: foto del {fotoTexto}
+                <div className="sb-money-sub" title="Estos brókers no tienen conexión en vivo: su saldo es una foto que se actualiza a mano.">
+                  📸 {fotoTexto}
                 </div>
               )}
               {saldo.problemas.length > 0 && (

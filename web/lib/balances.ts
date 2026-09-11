@@ -14,7 +14,7 @@ import path from "node:path";
 import { getAccounts as tastyAccounts } from "./tastytrade";
 import { getAccounts as schwabAccounts } from "./schwab";
 
-export type BrokerId = "tastytrade" | "schwab" | "robinhood";
+export type BrokerId = "tastytrade" | "schwab" | "robinhood" | "webull";
 
 export interface CuentaSaldo {
   broker: BrokerId;
@@ -65,41 +65,54 @@ function tastySaldo(balance: unknown): number {
 }
 
 /**
- * Robinhood: no da API pública para que la app se conecte sola, así que su
- * saldo vive en una FOTO en disco (`data/robinhood_snapshot.json`) que Claude
- * escribe leyendo Robinhood en vivo por su conector oficial. Si el archivo no
- * está, Robinhood simplemente no aparece — no es un "problema de conexión",
- * es que aún no se ha tomado la foto.
+ * Brókers sin API pública (Robinhood, Webull): no se pueden conectar solos,
+ * así que su saldo vive en una FOTO en disco que se actualiza a mano. Si el
+ * archivo no está, ese bróker simplemente no aparece — no es un "problema de
+ * conexión", es que aún no se ha tomado la foto.
+ *
+ * - Robinhood: Claude lo lee en vivo por su conector y reescribe la foto.
+ * - Webull: no hay conector; el número lo pone Lorelay (o Claude cuando ella
+ *   lo dice). Es su cuenta reto — empezó con $10.75.
  */
-interface RobinhoodFoto {
+interface BrokerFoto {
   obtenidoEn?: string;
   cuentas?: { cuenta?: string; disponible?: number }[];
 }
-async function robinhoodFoto(): Promise<CuentaSaldo[]> {
-  const file = path.join(process.cwd(), "data", "robinhood_snapshot.json");
-  let raw: string;
-  try {
-    raw = await fs.readFile(file, "utf8");
-  } catch {
-    return []; // sin foto todavía → Robinhood no se muestra, sin alarma
+const FOTOS: { broker: Exclude<BrokerId, "tastytrade" | "schwab">; brokerNombre: string; file: string }[] = [
+  { broker: "robinhood", brokerNombre: "Robinhood", file: "robinhood_snapshot.json" },
+  { broker: "webull", brokerNombre: "Webull", file: "webull_snapshot.json" },
+];
+
+async function leerFotos(): Promise<CuentaSaldo[]> {
+  const out: CuentaSaldo[] = [];
+  for (const f of FOTOS) {
+    let raw: string;
+    try {
+      raw = await fs.readFile(path.join(process.cwd(), "data", f.file), "utf8");
+    } catch {
+      continue; // sin foto → ese bróker no se muestra, sin alarma
+    }
+    let foto: BrokerFoto;
+    try {
+      foto = JSON.parse(raw) as BrokerFoto;
+    } catch {
+      continue;
+    }
+    for (const c of foto.cuentas ?? []) {
+      const disponible = num(c.disponible);
+      if (disponible > 0) {
+        out.push({
+          broker: f.broker,
+          brokerNombre: f.brokerNombre,
+          cuenta: String(c.cuenta ?? "—"),
+          disponible,
+          foto: true,
+          actualizado: foto.obtenidoEn,
+        });
+      }
+    }
   }
-  let foto: RobinhoodFoto;
-  try {
-    foto = JSON.parse(raw) as RobinhoodFoto;
-  } catch {
-    return [];
-  }
-  const actualizado = foto.obtenidoEn;
-  return (foto.cuentas ?? [])
-    .map((c) => ({
-      broker: "robinhood" as const,
-      brokerNombre: "Robinhood",
-      cuenta: String(c.cuenta ?? "—"),
-      disponible: num(c.disponible),
-      foto: true,
-      actualizado,
-    }))
-    .filter((c) => c.disponible > 0);
+  return out;
 }
 
 /** Schwab/TOS: efectivo disponible para operar de `currentBalances`. */
@@ -125,7 +138,7 @@ export async function getSaldos(): Promise<Saldos> {
   const [tt, sw, rh] = await Promise.allSettled([
     tastyAccounts(),
     schwabAccounts(),
-    robinhoodFoto(),
+    leerFotos(),
   ]);
 
   if (tt.status === "fulfilled") {
@@ -159,8 +172,8 @@ export async function getSaldos(): Promise<Saldos> {
     });
   }
 
-  // Robinhood es una foto en disco; si está, se suma como una cuenta más.
-  // Nunca genera "problema": su ausencia solo significa que no hay foto aún.
+  // Fotos en disco (Robinhood, Webull); si hay, se suman como cuentas más.
+  // Nunca generan "problema": su ausencia solo significa que no hay foto aún.
   if (rh.status === "fulfilled" && rh.value.length > 0) {
     respondio = true;
     cuentas.push(...rh.value);
