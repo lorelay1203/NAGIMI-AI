@@ -1,6 +1,7 @@
 "use client";
 
 import { explicaPuntaje } from "@/lib/explicaPuntaje";
+import { describeMesa } from "@/lib/mesaAgentes";
 
 export interface SentimentPart {
   name: string;
@@ -63,24 +64,29 @@ export default function SentimentCard({ ticker, parts }: { ticker: string; parts
         return porQue ? <div className="sent-porque">{porQue}</div> : null;
       })()}
 
-      <div style={{ display: "flex", flexDirection: "column", gap: 12, borderTop: "1px solid #f2f4f7", paddingTop: 16 }}>
-        <div className="sent-head-label">Desglose por señal (promedios de cada sub-agente)</div>
-        {parts.map((p) => {
-          const s100 = p.score != null ? p.score * 10 : null;
-          const c = s100 != null ? colorFor(s100) : "#d0d5dd";
-          return (
-            <div key={p.name} className="sent-part">
-              <div>
-                <div className="sent-part-name">{p.name} <span className="sent-part-weight">· pesa {p.weight}%</span></div>
-                <div className="sent-part-note">{p.note}</div>
+      {/* Mesa de Agentes: cada sub-agente como especialista, con qué mira,
+          qué está viendo ahora y hacia dónde empuja. Reemplaza las barras
+          planas — mismo dato, mucho más explicado (estilo Aetheris). */}
+      <div style={{ borderTop: "1px solid var(--border)", paddingTop: 16 }}>
+        <div className="sent-head-label">Mesa de agentes — cada especialista, qué mira y qué ve ahora</div>
+        <div className="mesa-grid">
+          {describeMesa(parts.map((p) => ({ name: p.name, note: p.note, score: p.score, weight: p.weight }))).map((a) => {
+            const s100 = a.score != null ? Math.round(a.score * 10) : null;
+            const c = s100 != null ? colorFor(s100) : "var(--faint)";
+            return (
+              <div key={a.nombre} className={`mesa-card mesa-${a.tono}`}>
+                <div className="mesa-top">
+                  <span className="mesa-cod">{a.codigo}</span>
+                  <span className="mesa-senal" style={{ color: c }}>{a.senal}</span>
+                </div>
+                <div className="mesa-nombre">{a.nombre} <span className="mesa-peso">· pesa {a.weight}%</span></div>
+                <div className="mesa-quehace">{a.queHace}</div>
+                <div className="mesa-viendo"><span className="mesa-viendo-lbl">Ahora:</span> {a.viendo}{s100 != null ? ` (${s100}/100)` : ""}</div>
+                {a.empuje && <div className="mesa-empuje" style={{ color: c }}>{a.empuje}</div>}
               </div>
-              <div className="sent-track">
-                <div className="sent-fill" style={{ width: `${s100 ?? 0}%`, background: c }} />
-              </div>
-              <div className="sent-part-score" style={{ color: c }}>{s100 != null ? s100 : "—"}</div>
-            </div>
-          );
-        })}
+            );
+          })}
+        </div>
       </div>
     </section>
   );
