@@ -16,6 +16,7 @@ import HeaderBar from "./components/HeaderBar";
 import AnalysisLoader from "./components/AnalysisLoader";
 import VeredictoCard from "./components/VeredictoCard";
 import TesisTimelineCard from "./components/TesisTimelineCard";
+import PlanOperacionCard from "./components/PlanOperacionCard";
 import NextStepsCard from "./components/NextStepsCard";
 import { buildNextSteps } from "@/lib/nextSteps";
 import MemoriaCard from "./components/MemoriaCard";
@@ -561,6 +562,7 @@ export default function Dashboard() {
             {/* 1 · Veredicto — la respuesta */}
             <SectionHead n={1} title="Veredicto" sub="La conclusión: ¿sube o baja, y qué tan seguro?" />
             <VeredictoCard ticker={ticker} prediction={prediction} horizonDays={horizonDays} />
+            <PlanOperacionCard prediction={prediction} />
             {ticker && <TesisTimelineCard ticker={ticker} />}
             {ticker && nextSteps.length > 0 && <NextStepsCard ticker={ticker} steps={nextSteps} />}
 

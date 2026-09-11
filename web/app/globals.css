@@ -1261,3 +1261,31 @@ tfoot .totals td {
 .tesis-dot { width: 10px; height: 10px; border-radius: 999px; }
 .tesis-dir { font-size: 12px; font-weight: 700; white-space: nowrap; }
 .tesis-base { font-size: 14px; font-weight: 800; }
+
+/* ── "Plan de operación" — entrada/stop/objetivo/ratio, estilo Aetheris ────── */
+.plan {
+  background: var(--panel); border: 1px solid var(--border); border-radius: 16px;
+  border-left: 6px solid var(--accent); padding: 20px 22px;
+  display: flex; flex-direction: column; gap: 14px;
+}
+.plan-head { display: flex; flex-direction: column; gap: 2px; }
+.plan-title { font-family: var(--font-display); font-size: 19px; font-weight: 500; letter-spacing: -0.01em; }
+.plan-sub { font-size: 12.5px; color: var(--muted); }
+.plan-chips { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 10px; }
+.plan-chip {
+  background: var(--panel-2); border: 1px solid var(--border); border-radius: 12px;
+  padding: 11px 13px; display: flex; flex-direction: column; gap: 3px;
+}
+.plan-chip-label { font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: .05em; color: var(--faint); }
+.plan-chip-val { font-size: 20px; font-weight: 800; letter-spacing: -0.02em; }
+.plan-chip-note { font-size: 11px; color: var(--muted); line-height: 1.35; }
+.plan-chip-stop { border-top: 3px solid var(--red-soft); }
+.plan-chip-goal { border-top: 3px solid var(--green); }
+.plan-chip-ratio { border-top: 3px solid var(--border); }
+.plan-chip-ratio.bueno { border-top-color: var(--green); }
+.plan-chip-ratio.malo { border-top-color: var(--red-soft); }
+.plan-narracion {
+  font-size: 14px; line-height: 1.55; color: var(--text);
+  background: var(--panel-2); border: 1px solid var(--border); border-radius: 10px; padding: 12px 15px;
+}
+.plan-pie { font-size: 11.5px; color: var(--muted); line-height: 1.45; }
