@@ -1,5 +1,7 @@
 "use client";
 
+import { explicaPuntaje } from "@/lib/explicaPuntaje";
+
 export interface SentimentPart {
   name: string;
   note: string;
@@ -55,6 +57,12 @@ export default function SentimentCard({ ticker, parts }: { ticker: string; parts
         </div>
       </div>
 
+      {/* Por qué el puntaje es lo que es, en una línea (nivel boricua). */}
+      {(() => {
+        const porQue = explicaPuntaje(score, active.map((p) => ({ name: p.name, score: p.score, weight: p.weight })));
+        return porQue ? <div className="sent-porque">{porQue}</div> : null;
+      })()}
+
       <div style={{ display: "flex", flexDirection: "column", gap: 12, borderTop: "1px solid #f2f4f7", paddingTop: 16 }}>
         <div className="sent-head-label">Desglose por señal (promedios de cada sub-agente)</div>
         {parts.map((p) => {
@@ -63,7 +71,7 @@ export default function SentimentCard({ ticker, parts }: { ticker: string; parts
           return (
             <div key={p.name} className="sent-part">
               <div>
-                <div className="sent-part-name">{p.name}</div>
+                <div className="sent-part-name">{p.name} <span className="sent-part-weight">· pesa {p.weight}%</span></div>
                 <div className="sent-part-note">{p.note}</div>
               </div>
               <div className="sent-track">
