@@ -81,4 +81,26 @@ describe("rielAVigilar", () => {
     // Es el único nivel y es ~el target → no hay otro riel que mostrar.
     expect(rielAVigilar(levels, 218, "up", 225)).toBeNull();
   });
+
+  it("tampoco repite el precio del escenario EN CONTRA (caso real NVDA)", () => {
+    // Spot 219.05, base 217.50 (lateral), en contra 225. Sin este filtro,
+    // VIGILA también salía 225: dos cajas diciendo el mismo número.
+    const levels = [
+      lvl({ strike: 225, magnet: 0.15, side: "call" }),
+      lvl({ strike: 217.5, magnet: 0.17, side: "put" }),
+      lvl({ strike: 230, magnet: 0.08, side: "call" }),
+    ];
+    const r = rielAVigilar(levels, 219.05, "flat", 217.5, [225]);
+    expect(r!.strike).toBe(230);
+  });
+
+  it("sin el segundo argumento sigue comportándose como antes", () => {
+    const levels = [lvl({ strike: 225, magnet: 0.15 }), lvl({ strike: 230, magnet: 0.08 })];
+    expect(rielAVigilar(levels, 219.05, "flat", 217.5)!.strike).toBe(225);
+  });
+
+  it("si todos los niveles ya están en pantalla devuelve null en vez de repetir", () => {
+    const levels = [lvl({ strike: 225, magnet: 0.15 }), lvl({ strike: 217.5, magnet: 0.17 })];
+    expect(rielAVigilar(levels, 219.05, "flat", 217.5, [225])).toBeNull();
+  });
 });

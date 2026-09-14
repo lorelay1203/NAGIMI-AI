@@ -25,35 +25,42 @@ export interface RielVigilar {
   esPiso: boolean;
 }
 
-/** ¿Es este strike prácticamente el mismo número que el target base? */
-function esCasiTarget(strike: number, baseTarget: number): boolean {
-  return Math.abs(strike - baseTarget) / Math.max(baseTarget, 1) <= 0.005;
+/** ¿Es este strike prácticamente el mismo número que alguno ya mostrado? */
+function esCasiTarget(strike: number, ...targets: number[]): boolean {
+  return targets.some((t) => Math.abs(strike - t) / Math.max(t, 1) <= 0.005);
 }
 
 /**
- * El nivel a VIGILAR: NO el target (eso ya lo dice "a favor"), sino el otro
- * riel — el piso donde suele frenar una caída si la señal es alcista, o el
- * techo si es bajista. El imán más fuerte del día suele coincidir con el
- * target base; mostrarlo dos veces no aporta nada, así que se descarta.
+ * El nivel a VIGILAR: NO el target (eso ya lo dice "a favor") NI el objetivo del
+ * escenario en contra (eso ya lo dice "en contra"), sino el otro riel — el piso
+ * donde suele frenar una caída si la señal es alcista, o el techo si es bajista.
  *
- * Devuelve null si no hay ningún nivel distinto del target que mostrar.
+ * Repetir el mismo precio en dos cajas no aporta nada y confunde: parece que el
+ * agente dice dos cosas cuando dice una sola. Por eso se descartan los números
+ * que ya están en pantalla.
+ *
+ * Devuelve null si no hay ningún nivel nuevo que mostrar.
  */
 export function rielAVigilar(
   levels: LevelProb[],
   spot: number,
   direction: ProPrediction["direction"],
   baseTarget: number,
+  /** Otros precios ya visibles en el veredicto (típicamente el "en contra"). */
+  yaMostrados: number[] = [],
 ): RielVigilar | null {
   const porFuerza = [...levels].sort((a, b) => b.magnet - a.magnet);
+  const ocupados = [baseTarget, ...yaMostrados];
+  const libre = (l: LevelProb) => !esCasiTarget(l.strike, ...ocupados);
 
   // Preferencia según la dirección: piso para alcista, techo para bajista.
   const preferido =
-    direction === "up" ? porFuerza.find((l) => l.strike < spot)
-    : direction === "down" ? porFuerza.find((l) => l.strike > spot)
-    : porFuerza.find((l) => !esCasiTarget(l.strike, baseTarget));
+    direction === "up" ? porFuerza.find((l) => l.strike < spot && libre(l))
+    : direction === "down" ? porFuerza.find((l) => l.strike > spot && libre(l))
+    : porFuerza.find(libre);
 
-  // Si no hay en el lado preferido, cualquier imán fuerte que no sea el target.
-  const elegido = preferido ?? porFuerza.find((l) => !esCasiTarget(l.strike, baseTarget)) ?? null;
+  // Si no hay en el lado preferido, cualquier imán fuerte que no esté ya en pantalla.
+  const elegido = preferido ?? porFuerza.find(libre) ?? null;
   if (!elegido) return null;
 
   return { strike: elegido.strike, esPiso: elegido.strike < spot };

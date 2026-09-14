@@ -8,6 +8,8 @@
 import type { ProPrediction } from "@/lib/prediction";
 import { escenarioOpuesto, rielAVigilar } from "@/lib/veredicto";
 import { analogia } from "@/lib/analogia";
+import { expectedMove } from "@/lib/expectedMove";
+import { imanCercaDe, porQueAFavor, porQueEnContra, porQueVigila } from "@/lib/porQue";
 import { px } from "../format";
 
 /** Confianza 0-100 → etiqueta llana. */
@@ -64,10 +66,23 @@ export default function VeredictoCard({
   const base = prediction.base;
 
   const opuesto = escenarioOpuesto(prediction);
-  const vigilaFinal = rielAVigilar(prediction.levels, prediction.spot, prediction.direction, base.target);
+  // El riel a vigilar evita repetir el target base Y el objetivo del "en contra":
+  // el mismo precio en dos cajas parece dos lecturas distintas y no lo es.
+  const vigilaFinal = rielAVigilar(
+    prediction.levels, prediction.spot, prediction.direction, base.target, [opuesto.target],
+  );
   const vigilaEsPiso = vigilaFinal?.esPiso ?? false;
 
   const horizonTxt = horizonDays === 10 ? "~1 semana" : horizonDays === 20 ? "~2 semanas" : "~4 semanas";
+
+  // El "porqué" de cada caja, en llano: de dónde sale el número y qué mecanismo
+  // lo sostiene. El `driver` técnico se queda como tooltip para quien lo quiera.
+  const imanBase = imanCercaDe(prediction.levels, base.target);
+  const muroOpuesto = imanCercaDe(prediction.levels, opuesto.target);
+  const nivelVigila = vigilaFinal
+    ? prediction.levels.find((l) => l.strike === vigilaFinal.strike) ?? null
+    : null;
+  const sigmaPct = expectedMove(prediction.spot, prediction.iv, horizonDays).sigmaPct;
 
   return (
     <section className={`verdict verdict-${d.cls}`}>
@@ -102,7 +117,17 @@ export default function VeredictoCard({
             El escenario base apunta a <b>${px.format(base.target)}</b> ({signo(base.changePct)}),
             con {prob(base.probability)} de probabilidad de tocarlo.
           </div>
-          {base.driver && <div className="vbox-why">{base.driver}</div>}
+          <div className="vbox-why" title={base.driver || undefined}>
+            <span className="vbox-why-tag">Por qué</span>
+            {porQueAFavor({
+              spot: prediction.spot,
+              target: base.target,
+              probability: base.probability,
+              iman: imanBase,
+              regimen: regime,
+              horizonDays,
+            })}
+          </div>
         </div>
 
         <div className="vbox vbox-riesgo">
@@ -111,19 +136,39 @@ export default function VeredictoCard({
             Si el mercado gira, podría {opuesto.changePct >= 0 ? "subir" : "caer"} a <b>${px.format(opuesto.target)}</b> ({signo(opuesto.changePct)}),
             {" "}{prob(opuesto.probability)} de probabilidad.
           </div>
-          {opuesto.driver && <div className="vbox-why">{opuesto.driver}</div>}
+          <div className="vbox-why" title={opuesto.driver || undefined}>
+            <span className="vbox-why-tag">Por qué</span>
+            {porQueEnContra({
+              target: opuesto.target,
+              probability: opuesto.probability,
+              sigmaPct,
+              horizonDays,
+              muro: muroOpuesto,
+            })}
+          </div>
         </div>
 
         <div className="vbox vbox-vigila">
           <div className="vbox-label">👁 Vigila</div>
           {vigilaFinal ? (
-            <div className="vbox-text">
-              {vigilaEsPiso ? (
-                <>Si baja, el piso más fuerte está en <b>${px.format(vigilaFinal.strike)}</b> — ahí suele frenar la caída. Pon una alerta.</>
-              ) : (
-                <>Si sube, el techo más fuerte está en <b>${px.format(vigilaFinal.strike)}</b> — ahí suele frenar la subida. Pon una alerta.</>
-              )}
-            </div>
+            <>
+              <div className="vbox-text">
+                {vigilaEsPiso ? (
+                  <>Si baja, el piso más fuerte está en <b>${px.format(vigilaFinal.strike)}</b> — ahí suele frenar la caída. Pon una alerta.</>
+                ) : (
+                  <>Si sube, el techo más fuerte está en <b>${px.format(vigilaFinal.strike)}</b> — ahí suele frenar la subida. Pon una alerta.</>
+                )}
+              </div>
+              <div className="vbox-why">
+                <span className="vbox-why-tag">Por qué</span>
+                {porQueVigila({
+                  strike: vigilaFinal.strike,
+                  esPiso: vigilaEsPiso,
+                  side: nivelVigila?.side ?? null,
+                  regimen: regime,
+                })}
+              </div>
+            </>
           ) : (
             <div className="vbox-text">
               El nivel a vigilar es tu propio target: <b>${px.format(base.target)}</b>.
