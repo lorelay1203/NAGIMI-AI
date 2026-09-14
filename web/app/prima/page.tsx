@@ -24,6 +24,11 @@ interface PrimaResponse extends CreditPlan {
   putWall: number | null;
   magnet: number | null;
   asOf?: string;
+  /** Precio que traían los niveles (velas de 5 min) — solo referencia. */
+  spotNiveles?: number;
+  /** De dónde salió `spot`: de las opciones en vivo o de los niveles. */
+  spotFuente?: "cadena" | "niveles";
+  desfasePct?: number | null;
 }
 
 const money = (n: number) =>
@@ -124,7 +129,11 @@ export default function PrimaPage() {
         <>
           {/* Niveles del día */}
           <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(110px, 1fr))", gap: 10 }}>
-            <Tile label="Precio" value={`$${px(data.spot)}`} />
+            <Tile
+              label="Precio"
+              value={`$${px(data.spot)}`}
+              sub={data.spotFuente === "cadena" ? "de las opciones en vivo" : "de los niveles (5 min)"}
+            />
             <Tile label="Muro puts" value={data.putWall != null ? `$${px(data.putWall)}` : "—"} sub="suelo" />
             <Tile label="Muro calls" value={data.callWall != null ? `$${px(data.callWall)}` : "—"} sub="techo" />
             <Tile label="Imán" value={data.magnet != null ? `$${px(data.magnet)}` : "—"} />
@@ -179,7 +188,9 @@ export default function PrimaPage() {
 
           <div style={{ fontSize: 11.5, color: "var(--muted)" }}>
             Cadena {ticker} · vence {data.expiration} · fuente {data.chainSource === "marketsnack" ? "MarketSnack" : "Schwab"}
-            {data.asOf && ` · ${new Date(data.asOf).toLocaleTimeString("es-PR", { hour: "2-digit", minute: "2-digit" })}`}
+            {data.asOf && ` · niveles de las ${new Date(data.asOf).toLocaleTimeString("es-PR", { hour: "2-digit", minute: "2-digit" })}`}
+            {data.spotFuente === "cadena" && data.spotNiveles != null && data.desfasePct != null &&
+              ` · precio real $${px(data.spot)} vs niveles $${px(data.spotNiveles)} (${data.desfasePct >= 0 ? "+" : ""}${data.desfasePct.toFixed(2)}%)`}
           </div>
         </>
       )}
@@ -206,9 +217,12 @@ export default function PrimaPage() {
 }
 
 function Fila({ c }: { c: SpreadCandidate }) {
-  const evColor = c.esperanza == null ? "var(--muted)" : c.esperanza >= 0 ? "var(--green)" : "var(--red-soft)";
+  // Un sospechoso sale "ganando", pero casi siempre es un precio viejo: nunca en verde.
+  const evColor = c.esperanza == null ? "var(--muted)"
+    : c.sospechoso ? "var(--amber-text)"
+    : c.esperanza >= 0 ? "var(--green)" : "var(--red-soft)";
   return (
-    <tr style={{ borderTop: "1px solid var(--border-soft)", opacity: c.cabe ? 1 : 0.55 }}>
+    <tr style={{ borderTop: "1px solid var(--border-soft)", opacity: c.cabe && !c.sospechoso ? 1 : 0.55 }}>
       <td style={{ ...td, fontWeight: 700, color: c.lado === "put" ? "var(--call)" : "var(--put)" }}>
         {c.lado === "put" ? "PUT" : "CALL"}
       </td>
@@ -222,7 +236,9 @@ function Fila({ c }: { c: SpreadCandidate }) {
         {c.esperanza != null ? `${c.esperanza >= 0 ? "+" : "−"}${money(c.esperanza)}` : "—"}
       </td>
       <td style={{ ...td, fontSize: 11, color: "var(--muted)" }}>
-        {!c.cabe ? `faltan ${money(c.faltan)}` : c.trasElMuro ? "tras el muro" : ""}
+        {c.sospechoso
+          ? <span style={{ color: "var(--amber-text)", fontWeight: 700 }}>⚠ precio viejo — confirma en tu bróker</span>
+          : !c.cabe ? `faltan ${money(c.faltan)}` : c.trasElMuro ? "tras el muro" : ""}
       </td>
     </tr>
   );

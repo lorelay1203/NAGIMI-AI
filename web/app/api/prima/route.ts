@@ -6,7 +6,7 @@
 
 import { getDayGex } from "@/lib/dayGex";
 import { getTicketChain, type TicketChainSource } from "@/lib/ticketChain";
-import { buildCreditPlan } from "@/lib/creditSpread0dte";
+import { buildCreditPlan, elegirSpot } from "@/lib/creditSpread0dte";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -34,8 +34,12 @@ export async function GET(request: Request) {
       return Response.json({ error: `No se pudo leer la cadena de ${ticker}.` }, { status: 502 });
     }
 
+    // El precio de los niveles llega en velas de 5 minutos; en 0DTE eso ya es
+    // viejo. Se saca el precio real de la misma cadena (paridad put-call).
+    const precio = elegirSpot(chain.rows, levels.spot);
+
     const plan = buildCreditPlan(ticker, chain.rows, {
-      spot: levels.spot,
+      spot: precio.spot,
       callWall: levels.callWall,
       putWall: levels.putWall,
       regimen: levels.regime,
@@ -44,6 +48,10 @@ export async function GET(request: Request) {
 
     return Response.json({
       ...plan,
+      aviso: [precio.aviso, plan.aviso].filter(Boolean).join(" ") || null,
+      spotNiveles: levels.spot,
+      spotFuente: precio.fuente,
+      desfasePct: precio.desfasePct,
       expiration: chain.expiration,
       chainSource: chain.source,
       callWall: levels.callWall,

@@ -1,5 +1,11 @@
 import { describe, expect, it } from "vitest";
-import { buildCreditPlan, pasoDeStrikes } from "./creditSpread0dte";
+import {
+  buildCreditPlan,
+  elegirSpot,
+  pasoDeStrikes,
+  probVenceFuera,
+  spotDeParidad,
+} from "./creditSpread0dte";
 import type { TicketChainRow } from "./contractTicket";
 
 function fila(o: Partial<TicketChainRow> & { strike: number; type: "call" | "put" }): TicketChainRow {
@@ -138,5 +144,118 @@ describe("buildCreditPlan", () => {
     expect(p.candidatos[0].cabe).toBe(true);
     // El de ancho 5 paga más ($50) pero arriesga $450: va después del que cabe.
     expect(p.candidatos.some((c) => !c.cabe && c.riesgoMax > 400)).toBe(true);
+  });
+});
+
+// Cadena real del QQQ del 14-sep a las 12:49 ET. Los niveles decían 710.25;
+// las opciones decían ~711.90.
+const QQQ_VIVO: TicketChainRow[] = [
+  fila({ strike: 712, type: "call", bid: 1.03, ask: 1.04, iv: 0.132 }),
+  fila({ strike: 712, type: "put", bid: 1.13, ask: 1.14, iv: 0.135 }),
+  fila({ strike: 713, type: "call", bid: 0.62, ask: 0.63, iv: 0.133 }),
+  fila({ strike: 713, type: "put", bid: 1.73, ask: 1.75, iv: 0.139 }),
+  fila({ strike: 714, type: "call", bid: 0.36, ask: 0.37, iv: 0.137 }),
+  fila({ strike: 714, type: "put", bid: 2.42, ask: 2.50, iv: 0.140 }),
+];
+
+describe("spotDeParidad", () => {
+  it("saca el precio real de las opciones (caso real QQQ)", () => {
+    expect(spotDeParidad(QQQ_VIVO)).toBeCloseTo(711.9, 2);
+  });
+
+  it("ignora patas sin mercado o con bid/ask cruzado", () => {
+    const rows = [
+      ...QQQ_VIVO,
+      fila({ strike: 700, type: "call", bid: 0, ask: 12 }),    // sin bid
+      fila({ strike: 700, type: "put", bid: 0.05, ask: 0.06 }),
+      fila({ strike: 720, type: "call", bid: 0.5, ask: 0.1 }), // cruzado
+      fila({ strike: 720, type: "put", bid: 8, ask: 8.1 }),
+    ];
+    expect(spotDeParidad(rows)).toBeCloseTo(711.9, 2);
+  });
+
+  it("con menos de dos strikes con call y put no adivina", () => {
+    expect(spotDeParidad([QQQ_VIVO[0], QQQ_VIVO[1]])).toBeNull();
+    expect(spotDeParidad([])).toBeNull();
+  });
+});
+
+describe("elegirSpot", () => {
+  it("si los niveles vienen atrasados usa la cadena y lo avisa", () => {
+    const s = elegirSpot(QQQ_VIVO, 710.25);
+    expect(s.fuente).toBe("cadena");
+    expect(s.spot).toBeCloseTo(711.9, 2);
+    expect(s.desfasePct).toBeCloseTo(0.232, 2);
+    expect(s.aviso).toContain("atrasado");
+  });
+
+  it("si la diferencia es mínima usa la cadena sin molestar", () => {
+    const s = elegirSpot(QQQ_VIVO, 711.5);
+    expect(s.fuente).toBe("cadena");
+    expect(s.aviso).toBeNull();
+  });
+
+  it("si la paridad sale absurda (cadena rota) se queda con los niveles", () => {
+    const s = elegirSpot(QQQ_VIVO, 650);
+    expect(s.fuente).toBe("niveles");
+    expect(s.spot).toBe(650);
+  });
+
+  it("sin cadena con qué calcular, usa los niveles", () => {
+    expect(elegirSpot([], 710.25)).toMatchObject({ spot: 710.25, fuente: "niveles", aviso: null });
+  });
+});
+
+describe("probVenceFuera (probabilidad sacada de los precios, sin IV)", () => {
+  const calls = new Map(QQQ_VIVO.filter((r) => r.type === "call").map((r) => [r.strike, r]));
+  const puts = new Map(QQQ_VIVO.filter((r) => r.type === "put").map((r) => [r.strike, r]));
+
+  it("call: la caída de precio entre los strikes vecinos es la prob. de terminar dentro", () => {
+    // 713: (1.035 − 0.365) ÷ 2 = 0.335 dentro → 66.5% vence sin valor.
+    expect(probVenceFuera(713, 1, calls)!).toBeCloseTo(66.5, 1);
+  });
+
+  it("put: igual pero al revés (el put sube con el strike)", () => {
+    // 713: (2.46 − 1.135) ÷ 2 = 0.6625 dentro → 33.75%.
+    expect(probVenceFuera(713, 1, puts)!).toBeCloseTo(33.75, 1);
+  });
+
+  it("si falta el vecino de abajo usa el escalón de arriba", () => {
+    // 712: (1.035 − 0.625) ÷ 1 = 0.41 dentro → 59%.
+    expect(probVenceFuera(712, 1, calls)!).toBeCloseTo(59, 1);
+  });
+
+  it("sin precios con qué medir → null (y el plan cae al delta)", () => {
+    expect(probVenceFuera(800, 1, calls)).toBeNull();
+  });
+});
+
+describe("buildCreditPlan con el precio real (regresión QQQ 14-sep)", () => {
+  const opts = { spot: 711.9, callWall: 720, putWall: 710, regimen: "negative" as const, capital: 911 };
+
+  it("el 712/713 que parecía ganador, con los precios reales pierde dinero", () => {
+    const p = buildCreditPlan("QQQ", QQQ_VIVO, opts);
+    const c = p.candidatos.find((x) => x.vender === 712 && x.comprar === 713)!;
+    expect(c.credito).toBe(40);   // 1.03 bid − 0.63 ask
+    expect(c.riesgoMax).toBe(60);
+    expect(c.popPct).toBeCloseTo(59, 1);
+    expect(c.esperanza!).toBeLessThan(0);
+    expect(c.sospechoso).toBe(false);
+  });
+
+  it("si una pata no tiene mercado y la cuenta sale demasiado buena, se marca sospechoso", () => {
+    const rows = [
+      fila({ strike: 712, type: "call", bid: 1.18, ask: 1.19, delta: 0.48 }),
+      fila({ strike: 713, type: "call", bid: 0, ask: 0.40, delta: 0.40 }), // sin bid: no hay precio vecino
+      fila({ strike: 714, type: "call", bid: 0.36, ask: 0.37, delta: 0.30 }),
+    ];
+    const p = buildCreditPlan("QQQ", rows, opts);
+    const rara = p.candidatos.find((x) => x.vender === 712 && x.comprar === 713)!;
+    expect(rara.sospechoso).toBe(true);
+    expect(p.candidatos[0].sospechoso).toBe(false);
+    expect(p.candidatos[p.candidatos.length - 1].sospechoso).toBe(true);
+    expect(p.aviso).toContain("precio VIEJO");
+    // El sospechoso no tapa que los limpios pierden dinero.
+    expect(p.aviso).toContain("pierden dinero a la larga");
   });
 });

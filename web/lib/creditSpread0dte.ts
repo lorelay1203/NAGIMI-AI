@@ -43,6 +43,12 @@ export interface SpreadCandidate {
   cabe: boolean;
   /** Si no cabe, cuánto falta. */
   faltan: number;
+  /**
+   * Sale ganando demasiado a la larga. Un spread vertical se cotiza casi a su
+   * valor justo, así que en 0DTE esto casi siempre es un precio VIEJO en una
+   * de las patas, no una oportunidad. Se muestra al final y con aviso.
+   */
+  sospechoso: boolean;
 }
 
 export interface CreditPlan {
@@ -71,6 +77,13 @@ export interface CreditOpts {
 
 /** Por debajo de esto, el crédito no compensa el colateral bloqueado. */
 const RETORNO_MIN_PCT = 10;
+
+/**
+ * Ganancia a la larga, como fracción del ancho, a partir de la cual el spread
+ * se marca sospechoso. Esperanza ÷ ancho = crédito ÷ ancho − prob. de perder, y
+ * el mercado cotiza eso casi en cero; un 5% del ancho ya no es "suerte".
+ */
+const UMBRAL_SOSPECHA = 0.05;
 
 const num = (v: number | null | undefined): number | null =>
   typeof v === "number" && Number.isFinite(v) ? v : null;
@@ -144,8 +157,9 @@ export function buildCreditPlan(
         const retornoPct = (credito / riesgoMax) * 100;
         if (retornoPct < retornoMin) { tira(`paga menos del ${retornoMin}% de lo que arriesga`); continue; }
 
-        const d = num(corto.delta);
-        const popPct = d == null ? null : (1 - Math.min(Math.abs(d), 1)) * 100;
+        // Probabilidad sacada de los PRECIOS de los strikes vecinos (lo que el
+        // mercado cobra de verdad). El delta queda solo de respaldo.
+        const popPct = probVenceFuera(vender, paso, porStrike) ?? popDeDelta(num(corto.delta));
         const esperanza = popPct == null
           ? null
           : (popPct / 100) * credito - (1 - popPct / 100) * riesgoMax;
@@ -156,6 +170,7 @@ export function buildCreditPlan(
           : lado === "call" ? vender >= muro : vender <= muro;
 
         const cabe = riesgoMax <= capital;
+        const sospechoso = esperanza != null && esperanza > ancho * MULT * UMBRAL_SOSPECHA;
         candidatos.push({
           lado, vender, comprar, ancho,
           credito: Math.round(credito * 100) / 100,
@@ -168,14 +183,17 @@ export function buildCreditPlan(
           trasElMuro,
           cabe,
           faltan: cabe ? 0 : Math.round((riesgoMax - capital) * 100) / 100,
+          sospechoso,
         });
       }
     }
   }
 
-  // Orden: primero los que caben, luego los que están tras el muro, luego por
-  // esperanza (lo que de verdad ganas a la larga), y al final por retorno.
+  // Orden: los sospechosos al final (no se recomienda un precio viejo), luego
+  // los que caben, los que están tras el muro, por esperanza (lo que de verdad
+  // ganas a la larga), y al final por retorno.
   candidatos.sort((a, b) =>
+    Number(a.sospechoso) - Number(b.sospechoso) ||
     Number(b.cabe) - Number(a.cabe) ||
     Number(b.trasElMuro) - Number(a.trasElMuro) ||
     (b.esperanza ?? -Infinity) - (a.esperanza ?? -Infinity) ||
@@ -228,8 +246,20 @@ function avisoDe(
     );
   }
 
-  // La esperanza se mira sobre los que de verdad podrías poner.
-  const mirar = caben.length > 0 ? caben : candidatos;
+  const sospechosos = candidatos.filter((c) => c.sospechoso);
+  if (sospechosos.length > 0) {
+    avisos.push(
+      `${sospechosos.length === 1 ? "Un spread sale" : `${sospechosos.length} spreads salen`} ganando a la larga, `
+      + "pero en 0DTE eso casi siempre es un precio VIEJO en una de las patas, no un regalo. "
+      + "Están al final de la lista: confirma el bid y el ask en tu bróker antes de creerle.",
+    );
+  }
+
+  // La esperanza se mira sobre los que de verdad podrías poner, sin contar los
+  // sospechosos: un precio viejo no debe tapar que el resto pierde dinero.
+  const limpios = candidatos.filter((c) => !c.sospechoso);
+  const cabenLimpios = limpios.filter((c) => c.cabe);
+  const mirar = cabenLimpios.length > 0 ? cabenLimpios : limpios;
   const conEV = mirar.filter((c) => c.esperanza != null);
   if (conEV.length > 0 && conEV.every((c) => (c.esperanza as number) < 0)) {
     avisos.push(
@@ -239,4 +269,124 @@ function avisoDe(
   }
 
   return avisos.length > 0 ? avisos.join(" ") : null;
+}
+
+// ============================================================================
+// El precio de VERDAD. Los niveles de MarketSnack llegan en velas de 5 minutos,
+// y en 0DTE eso basta para que un strike "fuera del dinero" ya esté pegado al
+// precio. Caso real QQQ (14-sep): niveles decían 710.25, las opciones en vivo
+// decían 711.90, y el escáner mostró como ganador un spread que perdía dinero.
+// ============================================================================
+
+const mitad = (r: TicketChainRow): number | null => {
+  const b = num(r.bid);
+  const a = num(r.ask);
+  if (b == null || a == null || b <= 0 || a < b) return null; // sin mercado o cruzado
+  return (a + b) / 2;
+};
+
+/**
+ * Precio del subyacente sacado de las mismas opciones (paridad put-call):
+ * precio ≈ strike + call − put. Se usan los strikes más pegados al dinero (donde
+ * call y put valen parecido) y la mediana, para que una pata rara no lo tuerza.
+ * Interés y dividendos se ignoran: en horas o días no mueven ni un centavo.
+ */
+export function spotDeParidad(rows: TicketChainRow[]): number | null {
+  const calls = new Map<number, number>();
+  const puts = new Map<number, number>();
+  for (const r of rows) {
+    const m = mitad(r);
+    if (m == null) continue;
+    (r.type === "call" ? calls : puts).set(r.strike, m);
+  }
+
+  const pares: { dif: number; spot: number }[] = [];
+  for (const [strike, c] of calls) {
+    const p = puts.get(strike);
+    if (p == null) continue;
+    pares.push({ dif: Math.abs(c - p), spot: strike + c - p });
+  }
+  if (pares.length < 2) return null;
+
+  pares.sort((a, b) => a.dif - b.dif);
+  const cerca = pares.slice(0, 5).map((x) => x.spot).sort((a, b) => a - b);
+  return cerca[Math.floor(cerca.length / 2)];
+}
+
+/** Desde qué desfase se le avisa a la usuaria que los niveles están atrasados. */
+export const DESFASE_AVISO_PCT = 0.1;
+/** Más allá de esto la paridad no es creíble (cadena rota): se usan los niveles. */
+const DESFASE_MAX_PCT = 3;
+
+export interface SpotElegido {
+  spot: number;
+  fuente: "cadena" | "niveles";
+  /** Cuánto se separa el precio de las opciones del de los niveles, en %. */
+  desfasePct: number | null;
+  aviso: string | null;
+}
+
+/** Elige el precio con el que se arma el plan: el de la cadena si es creíble. */
+export function elegirSpot(rows: TicketChainRow[], spotNiveles: number): SpotElegido {
+  const paridad = spotDeParidad(rows);
+  if (paridad == null || !(paridad > 0)) {
+    return { spot: spotNiveles, fuente: "niveles", desfasePct: null, aviso: null };
+  }
+  if (!(spotNiveles > 0)) {
+    return { spot: Math.round(paridad * 100) / 100, fuente: "cadena", desfasePct: null, aviso: null };
+  }
+
+  const desfasePct = ((paridad - spotNiveles) / spotNiveles) * 100;
+  if (Math.abs(desfasePct) > DESFASE_MAX_PCT) {
+    return { spot: spotNiveles, fuente: "niveles", desfasePct, aviso: null };
+  }
+
+  const aviso = Math.abs(desfasePct) >= DESFASE_AVISO_PCT
+    ? `El precio de los niveles ($${spotNiveles.toFixed(2)}) viene atrasado: por las opciones en vivo, `
+      + `el precio real anda en $${paridad.toFixed(2)} (${desfasePct >= 0 ? "+" : ""}${desfasePct.toFixed(2)}%). `
+      + "Los números de abajo usan el precio real."
+    : null;
+
+  return { spot: Math.round(paridad * 100) / 100, fuente: "cadena", desfasePct, aviso };
+}
+
+/**
+ * Probabilidad (en %) de que el strike vendido venza SIN valor, sacada de los
+ * precios de las opciones vecinas — sin IV y sin modelo.
+ *
+ * Cuánto baja el precio de un call al subir el strike un escalón es,
+ * exactamente, la probabilidad que el mercado le da a terminar por encima de
+ * ese strike (en puts, al revés). Se usa esto y no Black-Scholes porque la IV
+ * que manda la cadena para 0DTE no reproduce ni sus propios precios: el 14-sep
+ * el SPX decía 8.7% y con eso un call de $2.72 "valía" $0.87. Con esa IV el
+ * escáner veía ganadores que no existían.
+ *
+ * Usa el strike de abajo y el de arriba si están; si falta uno, el escalón que
+ * quede. Devuelve null si no hay precios con qué medir.
+ */
+export function probVenceFuera(
+  strike: number,
+  paso: number,
+  porStrike: Map<number, TicketChainRow>,
+): number | null {
+  const m = (k: number) => {
+    const r = porStrike.get(k);
+    return r ? mitad(r) : null;
+  };
+  const abajo = m(strike - paso);
+  const aqui = m(strike);
+  const arriba = m(strike + paso);
+
+  let probDentro: number | null = null;
+  if (abajo != null && arriba != null) probDentro = Math.abs(abajo - arriba) / (2 * paso);
+  else if (aqui != null && arriba != null) probDentro = Math.abs(aqui - arriba) / paso;
+  else if (abajo != null && aqui != null) probDentro = Math.abs(abajo - aqui) / paso;
+  if (probDentro == null) return null;
+
+  return (1 - Math.min(Math.max(probDentro, 0), 1)) * 100;
+}
+
+/** Respaldo cuando no hay precios vecinos: 1 − |delta| de la cadena. */
+function popDeDelta(delta: number | null): number | null {
+  return delta == null ? null : (1 - Math.min(Math.abs(delta), 1)) * 100;
 }
