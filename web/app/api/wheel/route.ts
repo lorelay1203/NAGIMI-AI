@@ -8,7 +8,7 @@ import { fetchWheelChain } from "@/lib/massive";
 import { cachedDailyBars } from "@/lib/barsStore";
 import { findLevels, type LvlBar } from "@/lib/levels";
 import { realizedVolSeries, rankWithin } from "@/lib/ivcontext";
-import { earningsForTicker } from "@/lib/earnings";
+import { datosEarnings, resolverEarnings } from "@/lib/earnings";
 import {
   WHEEL_PRESETS, wheelCandidates,
   type PresetId, type WheelCandidate,
@@ -91,21 +91,19 @@ export async function GET(req: Request) {
             const currentRv = rvSeries.length > 0 ? rvSeries[rvSeries.length - 1] : null;
             const ivRank = currentRv != null ? rankWithin(rvSeries, currentRv) : null;
 
-            // Earnings sobre el vencimiento más cercano de la ventana.
-            // frontSkew: null a propósito — este escaneo Wheel no computa
-            // ivContextScore por ticker (no hay flujo de MarketSnack por
-            // símbolo aquí), así que la confirmación por skew de earningsFlag
-            // ("dentro_confirmado") queda pendiente y hoy nunca dispara; ver
-            // la nota en lib/earnings.ts (earningsForTicker).
+            // Próximo reporte: fecha real de Finnhub (o estimado si no la hay).
+            // Se busca UNA vez por ticker y se resuelve contra el vencimiento
+            // de cada candidato, no solo contra el más cercano.
+            const reporte = await datosEarnings(sym.ticker, now);
             const nearExp = chain.quotes.reduce((a, b) => (b.dte < a.dte ? b : a)).expiration;
-            const earnings = await earningsForTicker({
-              ticker: sym.ticker, expiration: nearExp, frontSkew: null, now,
-            });
 
             const fallbackIv = currentRv != null ? currentRv / 100 : 0.4;
             const cands = wheelCandidates({
               ticker: sym.ticker, spot: chain.spot, quotes: chain.quotes,
-              preset, ivRank, supports: levels.supports, earnings, fallbackIv, mode,
+              preset, ivRank, supports: levels.supports,
+              earnings: resolverEarnings(reporte, nearExp).flag,
+              earningsPorVencimiento: (exp) => resolverEarnings(reporte, exp),
+              fallbackIv, mode,
             });
             all.push(...cands);
             done++;

@@ -171,6 +171,17 @@ export function wheelMetrics(input: {
 /** Estado del riesgo de reporte dentro del vencimiento. */
 export type EarningsFlag = "fuera" | "dentro" | "dentro_confirmado" | "no_aplica";
 
+/** De dónde salió la fecha del reporte. */
+export type EarningsFuente = "real" | "estimada";
+
+/** El reporte resuelto contra UN vencimiento (ver resolverEarnings en earnings.ts). */
+export interface EarningsInfo {
+  flag: EarningsFlag;
+  /** YYYY-MM-DD del reporte, si se sabe. */
+  fecha: string | null;
+  fuente: EarningsFuente | null;
+}
+
 export interface ScorePart {
   points: number;
   max: number;
@@ -201,6 +212,9 @@ export interface ScoreInput {
   /** Spread relativo en %, de spreadPctOf. */
   spreadPct: number | null;
   earnings: EarningsFlag;
+  /** Fecha del reporte, para decirla en la explicación. */
+  earningsFecha?: string | null;
+  earningsFuente?: EarningsFuente | null;
 }
 
 /** Fuerza mínima para considerar que un soporte de verdad sostiene. */
@@ -280,20 +294,35 @@ function liquidityPart(oi: number, spreadPct: number | null): ScorePart {
     why: "Liquidez insuficiente." };
 }
 
-function earningsPart(flag: EarningsFlag): ScorePart {
+const MESES = ["enero", "febrero", "marzo", "abril", "mayo", "junio", "julio",
+  "agosto", "septiembre", "octubre", "noviembre", "diciembre"];
+
+/** "2026-11-17" → "17 de noviembre". */
+function fechaLarga(iso: string): string {
+  const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(iso);
+  return m ? `${Number(m[3])} de ${MESES[Number(m[2]) - 1]}` : iso;
+}
+
+function earningsPart(flag: EarningsFlag, fecha: string | null, fuente: EarningsFuente | null): ScorePart {
+  const cuando = fecha ? fechaLarga(fecha) : null;
+  const real = fuente === "real";
   switch (flag) {
     case "no_aplica":
       return { points: 10, max: 10, band: "no aplica",
-        why: "No reporta resultados: no hay riesgo de reporte." };
+        why: "No hay reporte en el calendario (ETF, índice o sin dato): no se ve riesgo de reporte." };
     case "fuera":
-      return { points: 10, max: 10, band: "fuera",
-        why: "El reporte estimado cae después del vencimiento." };
+      return { points: 10, max: 10, band: real ? "fuera, fecha real" : "fuera (estimado)",
+        why: cuando
+          ? `${real ? "Reporta" : "El reporte estimado cae"} el ${cuando}, después de que vence: el brinco del reporte no te toca.`
+          : "El reporte cae después del vencimiento." };
     case "dentro":
-      return { points: 3, max: 10, band: "dentro",
-        why: "El reporte estimado cae ANTES del vencimiento — es una estimación, verifícala." };
+      return { points: 3, max: 10, band: "dentro (estimado)",
+        why: `El reporte estimado${cuando ? ` (${cuando})` : ""} cae ANTES del vencimiento — es una estimación, verifícala.` };
     case "dentro_confirmado":
-      return { points: 0, max: 10, band: "dentro, confirmado",
-        why: "El reporte cae antes del vencimiento y la volatilidad del frente lo confirma." };
+      return { points: 0, max: 10, band: real ? "dentro, fecha real" : "dentro, confirmado",
+        why: `Reporta${cuando ? ` el ${cuando}` : ""}, ANTES de que vence. Ese día la acción puede brincar fuerte `
+          + "y dejar tu put dentro del dinero, y la prima que cobras no paga ese riesgo. "
+          + "Busca un vencimiento anterior al reporte." };
   }
 }
 
@@ -302,7 +331,7 @@ export function scoreCandidate(input: ScoreInput): WheelScore {
   const ivRank = ivRankPart(input.ivRank);
   const cushion = cushionPart(input);
   const liquidity = liquidityPart(input.openInterest, input.spreadPct);
-  const earnings = earningsPart(input.earnings);
+  const earnings = earningsPart(input.earnings, input.earningsFecha ?? null, input.earningsFuente ?? null);
   const total = annualized.points + ivRank.points + cushion.points + liquidity.points + earnings.points;
   return { total, annualized, ivRank, cushion, liquidity, earnings };
 }
@@ -361,7 +390,13 @@ export interface CandidatesInput {
   preset: WheelPreset;
   ivRank: number | null;
   supports: Level[];
+  /** Respaldo: el reporte contra el vencimiento más cercano. */
   earnings: EarningsFlag;
+  /**
+   * El reporte resuelto contra el vencimiento de CADA candidato. Si viene, manda
+   * sobre `earnings`: un put de 45 días puede cruzar el reporte y uno de 7 no.
+   */
+  earningsPorVencimiento?: (expiration: string) => EarningsInfo;
   /** IV de respaldo (volatilidad realizada) cuando la bisección no converge. */
   fallbackIv: number;
   /** "csp" = put suelto (mucho colateral); "spread" = put credit spread (barato, cuenta chica). */
@@ -379,6 +414,8 @@ export function atmIv(rows: { strike: number; iv: number }[], spot: number): num
 export function wheelCandidates(input: CandidatesInput): WheelCandidate[] {
   const { ticker, spot, quotes, preset, ivRank, supports, earnings, fallbackIv } = input;
   if (!(spot > 0)) return [];
+  const earningsDe = (expiration: string): EarningsInfo =>
+    input.earningsPorVencimiento?.(expiration) ?? { flag: earnings, fecha: null, fuente: null };
   const mode = input.mode ?? "csp";
 
   // Precio crudo de cada put (para valorar la pata larga del spread — la que se compra).
@@ -456,7 +493,11 @@ export function wheelCandidates(input: CandidatesInput): WheelCandidate[] {
       annualizedPct: metrics.annualizedPct,
       ivRank, strike: q.strike, spot,
       cushionPct: metrics.cushionPct,
-      supports, openInterest: q.openInterest, spreadPct, earnings,
+      supports, openInterest: q.openInterest, spreadPct,
+      ...(() => {
+        const e = earningsDe(q.expiration);
+        return { earnings: e.flag, earningsFecha: e.fecha, earningsFuente: e.fuente };
+      })(),
     });
 
     out.push({

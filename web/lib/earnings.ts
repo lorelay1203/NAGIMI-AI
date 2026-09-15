@@ -1,14 +1,19 @@
-// Estimador del próximo reporte de resultados.
+// Próximo reporte de resultados para el Wheel — con FECHA REAL cuando se puede.
 //
-// El plan de Massive NO trae calendario de earnings (verificado: /benzinga/v1/earnings
-// da 403, /v1/reference/earnings da 404). Se usan DOS proxies y la UI declara que
-// es estimación:
-//   1. Cadencia de filing_date de /vX/reference/financials (~91 días entre reportes).
-//   2. El skew del frente que ivcontext ya calcula (>+10 pts = evento inminente).
+// Orden de fuentes:
+//   1. Finnhub (/calendar/earnings) — la fecha real y si es antes de abrir o
+//      después del cierre. Es la misma que usa el agente de Catalizadores.
+//   2. Respaldo: estimado por la cadencia de filing_date de Massive (~91 días
+//      entre reportes). El plan de Massive NO trae calendario (verificado:
+//      /benzinga/v1/earnings da 403, /v1/reference/earnings da 404).
 //
-// La parte pura (estimateNextEarnings, earningsFlag) no toca red.
+// La UI dice cuál de las dos se usó: con fecha real el castigo es completo;
+// con estimado se castiga menos y se pide verificar.
+//
+// La parte pura (estimateNextEarnings, resolverEarnings) no toca red.
 
-import type { EarningsFlag } from "./wheel";
+import type { EarningsInfo } from "./wheel";
+import { fetchNextEarnings } from "./finnhub";
 
 const QUARTER_DAYS = 91;
 const DAY = 24 * 60 * 60 * 1000;
@@ -34,18 +39,34 @@ export function estimateNextEarnings(filingDates: string[], now: Date): string |
   return toDay(next);
 }
 
-export function earningsFlag(input: {
-  nextEarnings: string | null;
-  expiration: string;
-  /** Skew del frente en puntos, de ivcontext. null si no hay dato. */
-  frontSkew: number | null;
-}): EarningsFlag {
-  if (!input.nextEarnings) return "no_aplica";
-  const earnings = new Date(`${input.nextEarnings}T00:00:00Z`).getTime();
-  const exp = new Date(`${input.expiration}T00:00:00Z`).getTime();
-  if (earnings > exp) return "fuera";
-  // Cae dentro del vencimiento. ¿Lo confirma el mercado?
-  return (input.frontSkew ?? 0) > 10 ? "dentro_confirmado" : "dentro";
+/** Lo que se sabe del próximo reporte de un ticker, antes de mirar vencimientos. */
+export interface DatosEarnings {
+  /** Fecha real de Finnhub, con la hora del reporte ("bmo" | "amc" | "dmh"). */
+  real: { date: string; hour: string | null } | null;
+  /** Estimado por cadencia. Solo se busca si no hubo fecha real. */
+  estimada: string | null;
+}
+
+/**
+ * ¿El reporte le cae encima a ESTE vencimiento? Se decide por vencimiento, no
+ * por ticker: un put de 7 días puede quedar antes del reporte y uno de 45 no.
+ *
+ * Detalle que importa: si reporta el MISMO día que vence pero después del
+ * cierre ("amc"), la opción ya venció a las 4 PM — el brinco no le toca.
+ */
+export function resolverEarnings(datos: DatosEarnings, expiration: string): EarningsInfo {
+  const { real, estimada } = datos;
+
+  if (real?.date) {
+    const despues = real.date > expiration || (real.date === expiration && real.hour === "amc");
+    return { flag: despues ? "fuera" : "dentro_confirmado", fecha: real.date, fuente: "real" };
+  }
+
+  if (estimada) {
+    return { flag: estimada > expiration ? "fuera" : "dentro", fecha: estimada, fuente: "estimada" };
+  }
+
+  return { flag: "no_aplica", fecha: null, fuente: null };
 }
 
 // ── Fetch (I/O — no se testea) ─────────────────────────────────────────
@@ -71,22 +92,27 @@ export async function fetchFilingDates(ticker: string): Promise<string[]> {
     .filter((d): d is string => Boolean(d));
 }
 
-// NOTA (limitación declarada): el escaneo Wheel real (app/api/wheel/route.ts)
-// siempre llama a esta función con frontSkew: null, porque ese escaneo no
-// calcula ivContextScore por ticker (no tiene el flujo de MarketSnack por
-// símbolo). En consecuencia, HOY "dentro_confirmado" es INALCANZABLE en
-// producción: el flag efectivo es únicamente la cadencia de filing_date (el
-// "doble proxy" descrito arriba es, en la práctica, un proxy único). El
-// parámetro frontSkew se conserva para el día en que el skew esté disponible
-// en el escaneo Wheel; los tests unitarios de este módulo sí lo ejercitan
-// pasando un valor > 10 a propósito, y eso está bien.
-export async function earningsForTicker(input: {
-  ticker: string;
-  expiration: string;
-  frontSkew: number | null;
-  now: Date;
-}): Promise<EarningsFlag> {
-  const filings = await fetchFilingDates(input.ticker);
-  const nextEarnings = estimateNextEarnings(filings, input.now);
-  return earningsFlag({ nextEarnings, expiration: input.expiration, frontSkew: input.frontSkew });
+// Finnhub gratis permite 60 llamadas por minuto y un escaneo del Wheel mira ~40
+// tickers. Una fecha de reporte no cambia en el día, así que se guarda: la fecha
+// encontrada vale 12 horas; "no encontré nada" solo 1 hora, por si fue un fallo.
+const HORAS = 60 * 60 * 1000;
+const cacheReal = new Map<string, { hasta: number; valor: DatosEarnings["real"] }>();
+
+async function fechaReal(ticker: string, now: Date): Promise<DatosEarnings["real"]> {
+  const clave = ticker.trim().toUpperCase();
+  const guardado = cacheReal.get(clave);
+  if (guardado && guardado.hasta > now.getTime()) return guardado.valor;
+
+  const r = await fetchNextEarnings(clave, now).catch(() => null);
+  const valor = r ? { date: r.date, hour: r.hour } : null;
+  cacheReal.set(clave, { hasta: now.getTime() + (valor ? 12 : 1) * HORAS, valor });
+  return valor;
+}
+
+/** Busca el próximo reporte: fecha real primero, estimado solo si no la hay. */
+export async function datosEarnings(ticker: string, now: Date): Promise<DatosEarnings> {
+  const real = await fechaReal(ticker, now);
+  if (real) return { real, estimada: null };
+  const filings = await fetchFilingDates(ticker);
+  return { real: null, estimada: estimateNextEarnings(filings, now) };
 }
