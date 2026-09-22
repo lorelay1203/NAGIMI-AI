@@ -1,6 +1,10 @@
 // GET /api/history?ticker=XXX — barras diarias del subyacente para la gráfica.
+//
+// Usa el cache por día de mercado con reintentos (barsStore): Massive a veces
+// devuelve vacío cuando el panel le hace varios pedidos a la vez, y sin estas
+// barras no hay GEX ni veredicto.
 
-import { fetchDailyBars, MassiveError } from "@/lib/massive";
+import { cachedDailyBars } from "@/lib/barsStore";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -12,10 +16,9 @@ export async function GET(request: Request) {
     return Response.json({ error: "ticker requerido" }, { status: 400 });
   }
   try {
-    const bars = await fetchDailyBars(ticker);
+    const bars = await cachedDailyBars(ticker);
     return Response.json({ ticker, bars });
-  } catch (err) {
-    const message = err instanceof MassiveError ? err.message : "Error al cargar histórico.";
-    return Response.json({ error: message }, { status: 502 });
+  } catch {
+    return Response.json({ error: "Error al cargar histórico." }, { status: 502 });
   }
 }

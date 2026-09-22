@@ -15,7 +15,7 @@ import type { DailyBar } from "./types";
 
 const DATA_DIR = path.join(process.cwd(), "data", "bars");
 
-interface BarsFile {
+export interface BarsFile {
   ticker: string;
   /** Día de mercado (ET) en que se guardó. */
   date: string;
@@ -42,13 +42,55 @@ export async function saveBars(ticker: string, bars: DailyBar[], now = new Date(
   await fs.writeFile(fileFor(ticker), JSON.stringify(payload), "utf8");
 }
 
-/** Barras diarias con cache de un día de mercado. Si falla la red, devuelve []. */
-export async function cachedDailyBars(ticker: string, days = 365, now = new Date()): Promise<DailyBar[]> {
+export interface BarsOpts {
+  /** Cuántas veces pedirle a Massive antes de rendirse. */
+  intentos?: number;
+  /** Pausa base entre intentos, en ms (crece con cada intento). */
+  pausaMs?: number;
+  /** Inyectables para las pruebas. */
+  fetch?: (ticker: string, days: number) => Promise<DailyBar[]>;
+  load?: (ticker: string) => Promise<BarsFile | null>;
+  save?: (ticker: string, bars: DailyBar[], now: Date) => Promise<void>;
+}
+
+const dormir = (ms: number) => (ms > 0 ? new Promise((r) => setTimeout(r, ms)) : Promise.resolve());
+
+/**
+ * Barras diarias con cache de un día de mercado.
+ *
+ * Massive a veces devuelve vacío cuando le llegan varios pedidos a la vez (y
+ * `fetchDailyBars` no avisa: devuelve []). Por eso se reintenta, y si aun así no
+ * responde se devuelven las barras guardadas del día anterior: para el GEX y los
+ * niveles, las velas de ayer sirven; una lista vacía deja el panel pegado en
+ * "Armando la lectura…" (pasó toda la sesión del 14-sep).
+ *
+ * Devuelve [] solo si nunca hubo barras de ese ticker.
+ */
+export async function cachedDailyBars(
+  ticker: string,
+  days = 365,
+  now = new Date(),
+  opts: BarsOpts = {},
+): Promise<DailyBar[]> {
+  const load = opts.load ?? loadBars;
+  const save = opts.save ?? saveBars;
+  const pedir = opts.fetch ?? fetchDailyBars;
+  const intentos = Math.max(1, opts.intentos ?? 3);
+  const pausaMs = opts.pausaMs ?? 600;
+
   const today = marketDateStr(now);
-  const cached = await loadBars(ticker);
+  const cached = await load(ticker);
   if (cached && cached.date === today && cached.bars.length > 0) return cached.bars;
 
-  const bars = await fetchDailyBars(ticker, days).catch(() => [] as DailyBar[]);
-  if (bars.length > 0) await saveBars(ticker, bars, now);
-  return bars;
+  for (let i = 0; i < intentos; i++) {
+    if (i > 0) await dormir(pausaMs * i);
+    const bars = await pedir(ticker, days).catch(() => [] as DailyBar[]);
+    if (bars.length > 0) {
+      await save(ticker, bars, now).catch(() => {});
+      return bars;
+    }
+  }
+
+  // Massive no respondió: mejor las velas de ayer que nada.
+  return cached?.bars ?? [];
 }
