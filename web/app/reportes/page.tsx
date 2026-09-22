@@ -2,12 +2,14 @@
 
 // 📓 Reportes — la bitácora de Nagimi.
 //
-// FinAnalista tiene un "research log" que lista lo que analizaste. Este lista
-// lo mismo Y además dice si acertó: cada predicción guardada se contrasta con
-// lo que el precio hizo de verdad después. Es la parte incómoda y la más útil.
+// Mismo formato que el "research log" de FinAnalista: filtros arriba, botón de
+// reporte nuevo, y una tabla con Ticker / Creado / Estado. La diferencia es la
+// columna que ellos no tienen: aquí cada lectura se contrasta con lo que el
+// precio hizo de verdad después. Es la parte incómoda y la más útil.
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import type { ReportRow, ReportsIndex } from "@/lib/reportsIndex";
+import { FILTROS, contarPorFiltro, estadoDe, pasaFiltro, type FiltroId } from "@/lib/reportesEstado";
 
 const px = (n: number) => `$${n.toLocaleString("en-US", { maximumFractionDigits: n >= 100 ? 0 : 2 })}`;
 
@@ -23,6 +25,8 @@ const colorAcierto = (p: number) => (p >= 60 ? "var(--green)" : p >= 40 ? "var(-
 export default function ReportesPage() {
   const [data, setData] = useState<ReportsIndex | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [filtro, setFiltro] = useState<FiltroId>("todos");
+  const [nuevo, setNuevo] = useState("");
 
   useEffect(() => {
     fetch("/api/reportes")
@@ -34,7 +38,15 @@ export default function ReportesPage() {
       .catch(() => setError("No se pudo leer la bitácora."));
   }, []);
 
-  const sinDatos = data?.filas.filter((f) => f.sinDatos) ?? [];
+  const filas = data?.filas ?? [];
+  const conteo = useMemo(() => contarPorFiltro(filas), [filas]);
+  const visibles = useMemo(() => filas.filter((f) => pasaFiltro(f, filtro)), [filas, filtro]);
+  const sinDatos = filas.filter((f) => f.sinDatos);
+
+  const crear = () => {
+    const t = nuevo.trim().toUpperCase();
+    if (t) window.location.href = `/?ticker=${encodeURIComponent(t)}`;
+  };
 
   return (
     <main className="wrap page-stack" style={{ maxWidth: 1100 }}>
@@ -53,7 +65,7 @@ export default function ReportesPage() {
       {data && (
         <>
           <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(150px, 1fr))", gap: 12 }}>
-            <Tile label="Reportes guardados" value={String(data.totalReportes)} sub={`${data.filas.length} tickers`} />
+            <Tile label="Reportes guardados" value={String(data.totalReportes)} sub={`${filas.length} tickers`} />
             <Tile label="Ya se pueden medir" value={String(data.totalVencidas)} sub="cumplieron su plazo" />
             <Tile
               label="Acertó la dirección"
@@ -91,23 +103,58 @@ export default function ReportesPage() {
             </div>
           )}
 
+          {/* Filtros + reporte nuevo, como la barra de FinAnalista. */}
+          <div className="rep-barra">
+            <div className="home-try" style={{ margin: 0, justifyContent: "flex-start" }}>
+              {FILTROS.map((f) => (
+                <button
+                  key={f.id}
+                  type="button"
+                  className={filtro === f.id ? "on" : ""}
+                  onClick={() => setFiltro(f.id)}
+                >
+                  {f.label} <span className="rep-cuenta">{conteo[f.id]}</span>
+                </button>
+              ))}
+            </div>
+            <div className="rep-nuevo">
+              <input
+                value={nuevo}
+                onChange={(e) => setNuevo(e.target.value.toUpperCase())}
+                onKeyDown={(e) => { if (e.key === "Enter") crear(); }}
+                placeholder="Ticker…"
+                aria-label="Ticker para un reporte nuevo"
+                spellCheck={false}
+              />
+              <button type="button" onClick={crear}>+ Reporte nuevo</button>
+            </div>
+          </div>
+
           <div className="card" style={{ gap: 0, padding: 0, overflow: "hidden" }}>
             <div style={{ overflowX: "auto" }}>
-              <table className="research-table" style={{ minWidth: 780 }}>
+              <table className="research-table" style={{ minWidth: 860 }}>
                 <thead>
                   <tr>
                     <th>Ticker</th>
-                    <th>Última</th>
+                    <th>Creado</th>
                     <th className="num">Reportes</th>
                     <th className="num">Medidas</th>
                     <th>Dijo</th>
                     <th className="num">Bajista / Base / Alcista</th>
                     <th className="num">Acertó</th>
+                    <th>Estado</th>
                     <th />
                   </tr>
                 </thead>
                 <tbody>
-                  {data.filas.map((f) => <Fila key={f.ticker} f={f} />)}
+                  {visibles.map((f) => <Fila key={f.ticker} f={f} />)}
+                  {visibles.length === 0 && (
+                    <tr>
+                      <td colSpan={9} className="research-muted" style={{ padding: "18px 14px" }}>
+                        Ningún ticker en este grupo todavía.
+                      </td>
+                    </tr>
+                  )}
                 </tbody>
               </table>
             </div>
@@ -132,6 +179,7 @@ export default function ReportesPage() {
 
 function Fila({ f }: { f: ReportRow }) {
   const dir = DIR[f.direction] ?? DIR.flat;
+  const est = estadoDe(f);
   return (
     <tr className="research-row" onClick={() => { window.location.href = `/?ticker=${encodeURIComponent(f.ticker)}`; }}>
       <td className="tk">{f.ticker}</td>
@@ -148,6 +196,9 @@ function Fila({ f }: { f: ReportRow }) {
       </td>
       <td className="num" style={{ fontWeight: 700, color: f.aciertoDireccion == null ? "var(--muted)" : colorAcierto(f.aciertoDireccion) }}>
         {f.sinDatos ? "sin medir" : f.aciertoDireccion == null ? "aún no" : `${f.aciertoDireccion.toFixed(0)}%`}
+      </td>
+      <td>
+        <span className={`sig-pill ${est.cls}`} title={est.porQue}>{est.txt}</span>
       </td>
       <td className="num research-go">→</td>
     </tr>

@@ -1253,6 +1253,25 @@ tfoot .totals td {
 .sig-pill.up { color: var(--green); background: var(--green-bg); border-color: rgba(46, 199, 127, 0.35); }
 .sig-pill.down { color: var(--red-soft); background: var(--red-bg); border-color: rgba(255, 93, 82, 0.35); }
 .sig-pill.flat { color: var(--muted); }
+.sig-pill.mid { color: var(--amber-text); background: var(--amber-bg); border-color: var(--amber-border); }
+
+/* Reportes: barra de filtros + reporte nuevo (el formato del research log). */
+.rep-barra { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
+.rep-barra .home-try button.on { color: var(--text); border-color: var(--accent); background: var(--accent-dim); }
+.rep-cuenta { color: var(--faint); font-weight: 700; margin-left: 3px; }
+.rep-nuevo { display: flex; align-items: center; gap: 7px; }
+.rep-nuevo input {
+  width: 110px; box-sizing: border-box; font: inherit; font-size: 12.5px; outline: none;
+  border: 1px solid var(--border); border-radius: 9px; background: var(--panel-2);
+  color: var(--text); padding: 7px 10px;
+}
+.rep-nuevo input:focus { border-color: var(--accent); }
+.rep-nuevo button {
+  font: inherit; font-size: 12.5px; font-weight: 700; cursor: pointer;
+  border: 1px solid var(--accent); border-radius: 9px; background: var(--accent-dim);
+  color: var(--accent); padding: 7px 12px; white-space: nowrap;
+}
+.rep-nuevo button:hover { background: var(--accent); color: #fff; }
 .rs-range { display: inline-block; width: 200px; text-align: left; vertical-align: middle; }
 .rs-bar {
   position: relative; height: 4px; margin: 6px 0 5px; border-radius: 3px;
