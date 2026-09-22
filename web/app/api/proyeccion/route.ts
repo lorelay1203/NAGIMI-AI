@@ -98,6 +98,7 @@ export async function GET(request: Request) {
       putWall: levels.putWall,
       magnet: levels.magnet,
       gammaFlip: levels.gammaFlip,
+      maxPain: levels.maxPain,
       sigmaPct: em.sigmaPct,
       cono: { abajo2: em.lower2, abajo1: em.lower1, arriba1: em.upper1, arriba2: em.upper2 },
       prediction,

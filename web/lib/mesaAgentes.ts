@@ -54,6 +54,34 @@ export const CATALOGO: { codigo: string; nombre: string; queHace: string; weight
     queHace: "Mira hacia qué lado se resbala el precio — para decidir si sigues en el trade o te sales." },
   { codigo: "CAT", nombre: "Catalizadores (Earnings)", weight: 0, mira: "Fechas que mueven",
     queHace: "Avisa si hay un reporte de resultados cerca — después la IV se desinfla y tu opción pierde valor aunque aciertes." },
+  { codigo: "TCH", nombre: "Técnicos", weight: 0, mira: "Tendencia y momentum",
+    queHace: "Lee la tendencia (medias de 20 y 50), la fuerza (RSI) y cuánto se mueve en un día normal (ATR), y dice en qué precio se rompe esa lectura." },
+  { codigo: "SNT", nombre: "Sentimiento", weight: 0, mira: "Lo que dicen las noticias",
+    queHace: "Mira los titulares del ticker, si el tono es a favor o en contra, y avisa cuando la noticia más reciente ya está vieja." },
+  { codigo: "MAC", nombre: "Macro", weight: 0, mira: "El ambiente del mercado",
+    queHace: "Mide hacia dónde sopla el viento: el mercado (SPY), las tasas (TLT), el dólar (UUP) y el oro (GLD) en las últimas 20 sesiones." },
+];
+
+/**
+ * Lo que FinAnalista tiene en "Pronto" y Nagimi NO va a fingir que tiene.
+ * Se muestra igual, con el motivo — es más honesto que una tarjeta apagada.
+ */
+export const SIN_DATOS: { codigo: string; nombre: string; queHace: string; porQueNo: string }[] = [
+  {
+    codigo: "FND", nombre: "Fundamentales",
+    queHace: "Leer los reportes 10-K/10-Q, armar valoración y comparar múltiplos.",
+    porQueNo: "Ese motor ya existe, pero en tu otro proyecto (el de acciones). Aquí no se duplica: Nagimi Opciones vive del flujo, no de los fundamentales.",
+  },
+  {
+    codigo: "SUP", nombre: "Cadena de suministro",
+    queHace: "Mapear proveedores y clientes, y vigilar riesgo logístico.",
+    porQueNo: "No hay ninguna fuente de datos conectada que dé eso. Antes que inventarlo, se queda fuera.",
+  },
+  {
+    codigo: "GOV", nombre: "Gobernanza",
+    queHace: "Seguir litigios, consejo, compensación y señales regulatorias.",
+    porQueNo: "Haría falta una fuente de insiders y litigios que hoy no está conectada. Lo más cercano que sí tienes es 'Sigue a los Grandes' (13F de la SEC).",
+  },
 ];
 
 /** Código de 3 letras + qué hace cada agente, por nombre del scorecard. */

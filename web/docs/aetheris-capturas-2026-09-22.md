@@ -1,0 +1,171 @@
+# Aetheris / FinAnalista — captura del 22-sep-2026
+
+Segunda captura (la primera, del 10-sep, está en `aetheris-referencia.md` y cubre
+la **anatomía de un reporte**). Esta cubre **las otras cuatro pestañas** y, sobre
+todo, la pantalla de resultado de Proyecciones, que es la que Lorelay quiso
+copiar "físicamente".
+
+El acceso de Lorelay a Aetheris se acaba la semana del 29-sep-2026. Todo lo que
+está aquí es para construir sin depender de volver a mirar la página.
+
+---
+
+## 1. Panel (`/dashboard`)
+
+Orden exacto de arriba abajo:
+
+1. **Barra superior**: título de sección + chip BETA · buscador a la derecha
+   ("Ve a un ticker, un agente, un reporte…" con atajo ⌘K) · campanita
+   ("Notificaciones — próximamente") · botón de panel de agentes.
+2. **Portada centrada**: etiqueta pequeña `EQUITY RESEARCH · LIVE` · titular en
+   serif a dos líneas, con la segunda mitad en itálica · una línea de qué hace.
+3. **"¿Qué te gustaría analizar?"** + subtítulo + buscador ancho + fila
+   `Prueba: AAPL · TSLA · NVDA · BTC`.
+4. **Tabla "Your research"** — "5 recent reports · thesis table with live quotes",
+   con enlace "View all →". Columnas:
+   `TICKER · SEÑAL · 1Y TREND · SPOT · Δ TODAY · BEAR / BASE / BULL · CONV.`
+   - Ticker: logo, símbolo grande en serif, chip "Proyecciones", nombre de la empresa debajo.
+   - Señal: píldora `▲ Bullish` / `– Neutral` / `▼ Bearish` con color.
+   - 1Y Trend: minigráfica de línea, verde o roja.
+   - Bear/Base/Bull: barra de gradiente rojo→dorado→verde con un punto blanco en
+     el precio actual y las tres cifras debajo.
+   - Conv.: número 0-100 con una rayita dorada debajo.
+5. Nada más. La página termina en la tabla.
+
+> **En Nagimi:** copiado el 22-sep. Diferencias a propósito: la barra de rango usa
+> el canal de gamma de HOY (suelo → techo, imán marcado) en vez de escenarios de
+> un reporte viejo, y los tickers son los de su watchlist.
+
+---
+
+## 2. Proyecciones (`/projections`)
+
+### Estado vacío
+- Etiqueta `LABORATORIO DE PROYECCIONES` + titular *"Busca una empresa. Mapea el
+  siguiente movimiento."*
+- Párrafo: "Projection reads use option-chain pressure, GEX, strike walls, and
+  expected-move cones. The page shows bullish, neutral, and bearish perspectives
+  instead of raw option-chain tables."
+- Tarjeta lateral "Primera versión — construido como su propio espacio para
+  seguir mejorando la calidad de las proyecciones".
+- Bloque **"Ejecutar proyecciones"**: chip con el DTE elegido (ej. `1-5 DTE`),
+  buscador, botón "Ejecutar proyección", fila `Prueba: NVDA TSLA AAPL PLTR HOOD IREN`.
+- **Tres tarjetas de horizonte**:
+  | | Nombre | Ventana | Qué mira |
+  |---|---|---|---|
+  | **5D** | Táctico | 1-5 DTE | "Near-term dealer pressure and fast gamma shifts." |
+  | **30D** | Swing | 15-30 DTE | "Monthly options pressure around nearby expirations." |
+  | **90D** | Posición | 60-120 DTE | "Medium-term term-structure pressure and expected move cone." |
+- Tres pasos: **1. Search** (elige símbolo) · **2. Select horizon** (cada horizonte
+  es una ventana de expiración distinta) · **3. Interpret** ("Lee la trayectoria
+  base, el cono de una desviación estándar y los porcentajes por escenario").
+
+### Pantalla de resultado (lo importante) — capturada con NVDA
+Se abre **a pantalla completa encima de la página**, con:
+
+- **Barra superior**: etiqueta `AGENTE DE OPCIONES IA` · `NVDA $228.15 -0.31%` ·
+  `Latest candle · 9/22/2026` · chips de marco de tiempo `5D / 5M`, `30D / 30M`,
+  `3M / 1D` · botones `Projections` y `Support / Resistance` · X para cerrar.
+- **Gráfico de velas grande** (TradingView) con, encima:
+  - líneas horizontales punteadas en cada nivel, con etiqueta en el eje derecho
+    (`Support 225`, resistencias, etc.) y una banda dorada sobre el soporte activo;
+  - etiqueta `Spot 228.15` sobre el eje;
+  - a la derecha de la última vela, **dos conos hacia adelante**: dorado (1σ) y
+    azul (2σ), más una **línea de trayectoria base** amarilla;
+  - título dentro del gráfico: "NVDA projection map" y el marco activo.
+- **Leyenda de chips abajo**: `Spot 228.15` · `S 225 • 1d` · `R 230 • 1d/3d` ·
+  `S 220 • 3d` · `Max pain 195.00` · `Gold cone 1σ expected move` ·
+  `Blue cone 2σ stress range`.
+- **Panel derecho** (tres bloques):
+  1. `LECTURA DE PROYECCIÓN` → número grande **226** + "6mo base path from options pressure".
+  2. `PROBABILIDADES POR ESCENARIO` → tres cajas con barra de progreso:
+     - **Bullish 40%** · "Target area $236" · *"Positive GEX is leading this DTE
+       window and the base path is drifting toward the upper band."*
+     - **Neutral 37%** · "Target area $226" · *"Neutral is the GEX pin/mean-reversion
+       case around the model base path."*
+     - **Bearish 23%** · "Target area $216" · *"Bearish is the lower-probability case
+       because positive GEX and the base path lean higher."*
+     → **Suman 100%**: es reparto del precio final, no probabilidad de tocar.
+  3. `CONO DE MOVIMIENTO ESPERADO` → tres píldoras `1σ low 216 · Base 226 · 1σ high 236`
+     + barra `2σ stress range 206 - 247`.
+  4. Al final, "¿Te resultó útil?" con pulgares.
+
+> **En Nagimi:** copiado el 22-sep en `/proyecciones` + `ProyeccionMapa.tsx`.
+> El reparto por escenario se calcula con la lognormal del cono
+> (`lib/escenariosProb.ts`), no con la probabilidad de tocar, para que sume 100
+> igual que allá. Añadido lo que allá no está: de qué fuente salió cada dato, el
+> régimen de gamma explicado y el aviso de confianza recortada.
+
+---
+
+## 3. Agentes (`/agents`) — **todo en "coming soon"**
+
+Titular: *"El espacio de agentes está coming soon."* · "This module is a beta
+preview while we finish orchestration, fact lookup, controls, and run history."
+Botones muertos: "Registros próximamente", "Nuevos agentes pronto".
+
+Fila de vista previa con 7 módulos y una señal de adorno:
+`FND Fundamentales (Bullish) · TCH Técnicos (Bullish) · SNT Sentimiento (Bullish) ·
+RSK Riesgo (Neutral) · MAC Macro (Cautious) · SUP Cadena de suministro (Bullish) ·
+GOV Gobernanza (Bullish)`
+
+Cada tarjeta trae `MÓDULO: Beta · CONTROLES: Pronto · DATOS: Vista previa`, y
+debajo el **ROL PLANEADO** (esto es lo que vale):
+
+| Código | Agente | Qué dice que hará |
+|---|---|---|
+| **FND** | Fundamentales — "Lee reportes 10-K/Q y construye DCF y múltiplos comparables." | conectar filings y fundamentales · separar hechos de supuestos · publicar notas de valoración · vigilar la calidad de la fuente |
+| **TCH** | Técnicos — "Patrones, régimen, volatilidad y momentum." | cablear señales de régimen de precio · normalizar entradas de momentum · añadir control de marcos de tiempo · explicar niveles de invalidación |
+| **SNT** | Sentimiento — "Noticias, transcripciones, redes y tono de analistas." | búsqueda de noticias verificada · resumir el tono de las transcripciones · marcar fuentes viejas · puntuar fiabilidad de la fuente |
+| **RSK** | Riesgo — "Superficie de volatilidad, riesgo de cola y exposición a factores." | modelar exposición a factores · añadir escenarios a la baja · sacar riesgos de liquidez · explicar los límites de la confianza |
+| **MAC** | Macro — "Tasas, divisas, materias primas y pronósticos de régimen." | conectar contexto de tasas y divisas · mapear presión macro a sectores · notas de régimen · evidencia con fecha |
+| **SUP** | Cadena de suministro — "Salud de proveedores, geopolítica y logística." | mapear proveedores y clientes · vigilar riesgo logístico · marcar concentración · enlazar evidencia |
+| **GOV** | Gobernanza — "Consejo, compensación, litigios y señales ESG." | seguir litigios y gobernanza · resumir señales de consejo y compensación · marcar eventos regulatorios · citar fuentes primarias |
+
+Al final: "Agregar un especialista — los especialistas personalizados están en el
+roadmap… Plantillas próximamente."
+
+> **En Nagimi (22-sep):** `/agentes` ya tiene **11** agentes de verdad: los 6 que
+> puntúan (AGR, CNV, INU, EST, IV, PRE) + RSK (gamma skew) + CAT (earnings) +
+> **TCH** (medias 20/50, RSI, ATR y nivel de invalidación) + **SNT** (titulares,
+> tono y aviso de noticia vieja) + **MAC** (SPY/TLT/UUP/GLD a 20 sesiones).
+> FND, SUP y GOV se muestran con el motivo de por qué NO están, en vez de una
+> tarjeta apagada.
+
+---
+
+## 4. Reportes (`/reports`)
+
+- Etiqueta `REPORTES` + titular "Your research log".
+- Filtros: `Todos · Acciones · Documento · Portafolio` y botón `+ New report`.
+- Tabla: `TICKER · TÍTULO · CREADO · TIPO · ESTADO`.
+- (El 22-sep la página se quedó colgando en "LOADING…" varias veces.)
+
+> **En Nagimi:** copiado el 22-sep con filtros propios (Todos · Acertando ·
+> A medias · Fallando · Sin medir), columna ESTADO con su porqué, y "+ Reporte
+> nuevo". Lo que allá no hay: si la lectura **acertó** contra el precio real.
+
+---
+
+## 5. Portafolio (`/accounts`)
+
+- Titular "Portafolio" + "Vincula tu cuenta de corretaje para análisis personalizado"
+  + botón `+ Conectar Corretaje`.
+- `BROKERS COMPATIBLES`: Robinhood · Charles Schwab · Fidelity · Interactive
+  Brokers · E*TRADE · Webull · Vanguard · Ally Invest.
+  Pie: "Powered by Plaid — 2,400+ financial institutions supported."
+- `CUENTAS CONECTADAS`: **vacío** — "Aún no hay cuentas vinculadas."
+
+> **En Nagimi:** `/portafolio` con las cuentas reales de Lorelay, el saldo de cada
+> una y si se leyó en vivo por API o es una foto tomada a mano.
+
+---
+
+## 6. Lo que queda por capturar
+
+- **El detalle de un reporte** (al tocar una fila): ya está en
+  `aetheris-referencia.md` con el reporte de NVDA del 10-sep, sección por sección
+  (Veredicto, El Negocio, Valuación, vs Competidores, Qué puede salir mal/bien,
+  La Puntuación, En Términos Simples, Niveles Clave, Datos Faltantes, Q&A).
+- La vista `Support / Resistance` del mapa de proyección (el otro botón).
+- La pestaña `◬ Pendientes` de un reporte.

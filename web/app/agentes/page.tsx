@@ -9,7 +9,7 @@
 // puntúan necesitan el escaneo completo del flujo y se llenan en el Panel.
 
 import { useCallback, useEffect, useState } from "react";
-import { CATALOGO } from "@/lib/mesaAgentes";
+import { CATALOGO, SIN_DATOS } from "@/lib/mesaAgentes";
 import { gammaSkew } from "@/lib/gammaSkew";
 import type { Catalizador } from "@/lib/catalizador";
 
@@ -30,7 +30,20 @@ export default function AgentesPage() {
 
   const analizar = useCallback(async (t: string) => {
     setTicker(t);
-    setVivos({ RSK: "cargando", CAT: "cargando" });
+    setVivos({ RSK: "cargando", CAT: "cargando", TCH: "cargando", SNT: "cargando", MAC: "cargando" });
+
+    // Técnicos, Sentimiento y Macro: los tres vienen de la misma ruta.
+    fetch(`/api/agentes?ticker=${encodeURIComponent(t)}`)
+      .then((r) => r.json())
+      .then((d: { tecnico: Vivo | null; sentimiento: Vivo | null; macro: Vivo | null }) => {
+        setVivos((v) => ({
+          ...v,
+          TCH: d.tecnico ?? "sin dato",
+          SNT: d.sentimiento ?? "sin dato",
+          MAC: d.macro ?? "sin dato",
+        }));
+      })
+      .catch(() => setVivos((v) => ({ ...v, TCH: "sin dato", SNT: "sin dato", MAC: "sin dato" })));
 
     // Catalizadores: fecha real del próximo reporte.
     fetch(`/api/catalizador?ticker=${encodeURIComponent(t)}`)
@@ -172,9 +185,34 @@ export default function AgentesPage() {
         })}
       </div>
 
+      {/* Lo que NO está — con el motivo. FinAnalista los deja como cuadros
+          apagados que dicen "Pronto"; aquí se dice por qué no. */}
+      <div className="card" style={{ gap: 12 }}>
+        <div>
+          <div className="card-title">Lo que Nagimi todavía no puede mirar</div>
+          <div className="card-sub">
+            Estos tres los tiene FinAnalista en su lista, apagados. Aquí no se pone una tarjeta vacía:
+            se dice qué haría y por qué no está.
+          </div>
+        </div>
+        <div className="pf-grid">
+          {SIN_DATOS.map((a) => (
+            <div key={a.codigo} className="pf-card pf-off">
+              <div className="pf-top">
+                <span className="mesa-cod">{a.codigo}</span>
+                <span className="pf-nombre">{a.nombre}</span>
+              </div>
+              <div className="pf-como">{a.queHace}</div>
+              <div className="pf-problema">{a.porQueNo}</div>
+            </div>
+          ))}
+        </div>
+      </div>
+
       <div className="disclaimer">
         Los seis agentes con peso necesitan el escaneo completo del flujo, así que su lectura vive
-        en el Panel. Riesgo y Catalizadores se calculan aquí mismo. Material de estudio, no consejo financiero.
+        en el Panel. Riesgo, Catalizadores, Técnicos, Sentimiento y Macro se calculan aquí mismo.
+        Material de estudio, no consejo financiero.
       </div>
     </main>
   );

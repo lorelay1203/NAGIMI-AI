@@ -1290,6 +1290,55 @@ tfoot .totals td {
 .rs-score { display: inline-flex; flex-direction: column; align-items: flex-end; gap: 4px; color: var(--accent-2); font-weight: 700; font-variant-numeric: tabular-nums; }
 .rs-score-bar { width: 30px; height: 3px; border-radius: 2px; background: var(--border); overflow: hidden; }
 .rs-score-bar > span { display: block; height: 100%; background: var(--accent-2); }
+/* ── Mapa de proyección (el gráfico grande + su panel derecho) ─────────── */
+.mapa-barra {
+  display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; flex-wrap: wrap;
+  border: 1px solid var(--border); border-radius: 14px; background: var(--panel); padding: 14px 18px;
+}
+.mapa-ticker { font-family: var(--font-display); font-size: 26px; font-weight: 500; letter-spacing: -0.02em; display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap; }
+.mapa-precio { font-size: 22px; font-weight: 600; }
+.mapa-chg { font-size: 12px; font-weight: 700; font-family: inherit; }
+.mapa-chg.up { color: var(--green); }
+.mapa-chg.down { color: var(--red-soft); }
+.mapa-sub { font-size: 11.5px; color: var(--muted); line-height: 1.5; }
+.mapa-controles { display: flex; flex-direction: column; gap: 8px; align-items: flex-end; }
+.mapa-controles .home-try button.on { color: var(--text); border-color: var(--accent); background: var(--accent-dim); }
+
+.mapa-wrap { display: grid; grid-template-columns: minmax(0, 1fr) 320px; gap: 14px; align-items: start; }
+@media (max-width: 1060px) { .mapa-wrap { grid-template-columns: 1fr; } }
+.mapa-rail { display: flex; flex-direction: column; gap: 12px; }
+.mapa { display: flex; flex-direction: column; gap: 10px; }
+.mapa-titulo { font-size: 12px; font-weight: 700; color: var(--muted); }
+.mapa-canvas { width: 100%; min-height: 460px; }
+.mapa-leyenda { display: flex; flex-wrap: wrap; gap: 6px; }
+.mapa-chip {
+  border: 1px solid var(--border); border-radius: 999px; background: var(--panel-2);
+  padding: 3px 10px; font-size: 10.5px; font-weight: 700; color: var(--muted);
+  font-variant-numeric: tabular-nums;
+}
+.mapa-lectura { font-family: var(--font-display); font-size: 40px; font-weight: 500; letter-spacing: -0.03em; line-height: 1; }
+
+.esc-box { border: 1px solid var(--border); border-radius: 12px; background: var(--panel-2); padding: 11px 13px; display: flex; flex-direction: column; gap: 5px; }
+.esc-top { display: flex; justify-content: space-between; align-items: baseline; font-size: 13px; }
+.esc-pct { font-size: 19px; font-weight: 800; letter-spacing: -0.02em; }
+.esc-bar { height: 4px; border-radius: 3px; background: var(--border); overflow: hidden; }
+.esc-bar > span { display: block; height: 100%; }
+.esc-target { font-size: 11px; color: var(--faint); font-variant-numeric: tabular-nums; }
+.esc-por { font-size: 11.5px; color: var(--muted); line-height: 1.5; }
+
+.cono-fila { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
+.cono-pill {
+  border: 1px solid var(--border); border-radius: 10px; background: var(--panel-2);
+  padding: 8px 6px; text-align: center; display: flex; flex-direction: column; gap: 2px;
+}
+.cono-pill.on { border-color: var(--accent); }
+.cono-pill span { font-size: 9.5px; text-transform: uppercase; letter-spacing: 0.08em; color: var(--faint); }
+.cono-pill b { font-size: 16px; font-variant-numeric: tabular-nums; }
+.cono-estres {
+  border: 1px solid var(--border); border-radius: 10px; background: var(--panel-2);
+  padding: 7px 10px; font-size: 11.5px; color: var(--muted); text-align: center;
+}
+
 /* Proyecciones: las tres tarjetas de horizonte (táctico / swing / posición). */
 .hz-card {
   text-align: left; cursor: pointer; font: inherit;
