@@ -117,6 +117,12 @@ export default function DayTradesPage() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  // Viene del botón "Day trade" de la tabla del panel: /daytrades?ticker=NVDA
+  useEffect(() => {
+    const t = new URLSearchParams(window.location.search).get("ticker");
+    if (t && /^[A-Za-z.]{1,6}$/.test(t.trim())) setTicker(t.trim().toUpperCase());
+  }, []);
+
   const goSearch = () => {
     const t = query.trim().toUpperCase();
     if (t) { setTicker(t); setQuery(""); }

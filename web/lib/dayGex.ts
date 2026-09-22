@@ -51,7 +51,29 @@ export interface DayGexLevels {
  * `only` fuerza una sola fuente; sirve para comprobar si una está viva sin
  * esperar a que se caiga la otra.
  */
-export async function getDayGex(ticker: string, only?: GexSource): Promise<DayGexLevels> {
+export function getDayGex(ticker: string, only?: GexSource): Promise<DayGexLevels> {
+  // Memoria de 60 s por ticker y fuente. Los muros cambian cada ~5 min (velas
+  // de MarketSnack), así que no se esconde nada, y se evita pedir lo mismo dos
+  // veces seguidas: /api/session-day los pedía dos veces por ticker, y con SPY
+  // cayendo al respaldo de Schwab (~17 s cada vez, p. ej. justo al abrir,
+  // cuando MarketSnack aún no tiene velas del día) la tabla del panel pasaba
+  // de 90 s. Un segundo pedido mientras el primero sigue en camino espera ese
+  // mismo resultado. Un fallo no se guarda.
+  const clave = `${ticker.trim().toUpperCase()}|${only ?? "auto"}`;
+  const ahora = Date.now();
+  const guardado = memoriaGex.get(clave);
+  if (guardado && guardado.hasta > ahora) return guardado.promesa;
+
+  const promesa = getDayGexSinMemoria(ticker, only);
+  memoriaGex.set(clave, { hasta: ahora + MEMORIA_MS, promesa });
+  promesa.catch(() => memoriaGex.delete(clave));
+  return promesa;
+}
+
+const MEMORIA_MS = 60_000;
+const memoriaGex = new Map<string, { hasta: number; promesa: Promise<DayGexLevels> }>();
+
+async function getDayGexSinMemoria(ticker: string, only?: GexSource): Promise<DayGexLevels> {
   const clean = ticker.trim().toUpperCase();
   if (!clean) throw new Error("Ticker vacío.");
 

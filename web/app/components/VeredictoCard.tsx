@@ -5,7 +5,7 @@
 // (a favor / en contra / vigila) y la pregunta directa "¿entro ahora a $X?".
 // Todo sale de `ProPrediction` (ya calculado) — nunca se inventa un número.
 
-import type { ProPrediction } from "@/lib/prediction";
+import { HORIZONS, type ProPrediction } from "@/lib/prediction";
 import { escenarioOpuesto, rielAVigilar } from "@/lib/veredicto";
 import { analogia } from "@/lib/analogia";
 import { expectedMove } from "@/lib/expectedMove";
@@ -32,14 +32,35 @@ export default function VeredictoCard({
   ticker,
   prediction,
   horizonDays,
+  onHorizon,
   regime,
 }: {
   ticker: string;
   prediction: ProPrediction | null;
   horizonDays: number;
+  /** Cambia el horizonte. Vive aquí porque cambia la conclusión. */
+  onHorizon?: (days: number) => void;
   /** Régimen de gamma del día, para la analogía "esto es como…". */
   regime?: "positive" | "negative";
 }) {
+  // El selector de horizonte vive aquí (cambia la conclusión), así que tiene que
+  // estar también en el estado de aviso: si no, quien ve "datos no fiables" no
+  // puede probar otro horizonte.
+  const selectorHorizonte = onHorizon && (
+    <div className="hz-tabs verdict-hz" role="group" aria-label="Horizonte de la lectura">
+      {HORIZONS.map((h) => (
+        <button
+          key={h.days}
+          type="button"
+          className={`hz-tab ${horizonDays === h.days ? "on" : ""}`}
+          onClick={() => onHorizon(h.days)}
+        >
+          {h.days}d
+        </button>
+      ))}
+    </div>
+  );
+
   if (!prediction) {
     return (
       <section className="verdict">
@@ -57,6 +78,7 @@ export default function VeredictoCard({
           <div className="verdict-word">Datos no fiables — no operar</div>
           <div className="verdict-sub">{prediction.caveat}</div>
         </div>
+        {selectorHorizonte}
       </section>
     );
   }
@@ -107,6 +129,7 @@ export default function VeredictoCard({
             )}
           </div>
         </div>
+        {selectorHorizonte}
       </div>
 
       {/* Tres cajas cortas — la receta de Aetheris, adaptada al flujo */}

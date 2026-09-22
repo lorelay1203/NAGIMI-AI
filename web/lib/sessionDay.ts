@@ -102,11 +102,11 @@ export async function getDaySession(ticker: string): Promise<DaySession> {
   const clean = ticker.trim().toUpperCase();
   if (!clean) throw new Error("Ticker vacío.");
 
-  // Muros de gamma (Massive o MarketSnack). Es el ancla mínima.
-  const gex = await getDayGex(clean);
-
-  // Velas 5-min (con retraso) + diarias para ATR/cierre previo.
-  const [intraday, daily] = await Promise.all([
+  // Muros de gamma (el ancla mínima: si fallan, la sesión falla) + velas 5-min
+  // (con retraso) + diarias para ATR/cierre previo. Se piden A LA VEZ: antes
+  // se esperaban los muros primero, y con QQQ la tabla del panel tardaba ~20 s.
+  const [gex, intraday, daily] = await Promise.all([
+    getDayGex(clean),
     fetchIntradayBars(clean, 5, 7).catch(() => [] as IntradayBar[]),
     fetchDailyBars(clean, 40).catch(() => []),
   ]);

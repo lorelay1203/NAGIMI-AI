@@ -431,3 +431,22 @@ export async function fetchWheelChain(
   const otm = spot != null ? quotes.filter((q) => q.strike <= spot) : quotes;
   return { spot, quotes: otm };
 }
+
+
+/**
+ * Solo el nombre de la empresa ("NVIDIA Corporation"), para la tabla del panel.
+ * Una sola consulta de referencia, sin precio; se guarda en memoria porque el
+ * nombre no cambia. Devuelve null si Massive no lo tiene (ETF raro, índice).
+ */
+const nombresEmpresa = new Map<string, string>();
+export async function fetchTickerName(ticker: string): Promise<string | null> {
+  const clean = ticker.trim().toUpperCase();
+  const guardado = nombresEmpresa.get(clean);
+  if (guardado) return guardado;
+  const d = await getJson<{ results?: TickerDetails }>(
+    `/v3/reference/tickers/${encodeURIComponent(clean)}`,
+  ).catch(() => null);
+  const name = d?.results?.name ?? null;
+  if (name) nombresEmpresa.set(clean, name);
+  return name;
+}

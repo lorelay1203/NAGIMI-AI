@@ -22,6 +22,8 @@ import { buildNextSteps } from "@/lib/nextSteps";
 import MemoriaCard from "./components/MemoriaCard";
 import SentimentCard, { type SentimentPart } from "./components/SentimentCard";
 import PredictionCard from "./components/PredictionCard";
+import NivelesTabs, { type NivelTab } from "./components/NivelesTabs";
+import Cajon from "./components/Cajon";
 import ActivityCard from "./components/ActivityCard";
 import MoneyFlowCard from "./components/MoneyFlowCard";
 import NewsCard from "./components/NewsCard";
@@ -378,9 +380,24 @@ export default function Dashboard() {
         setChainRows(d.rows); setChainMeta(d.meta); setStructure(d.structure ?? null);
         setChainHistory(d.history ?? []);
         chainDoneRef.current = true; finish(); c.close();
-        fetch(`/api/history?ticker=${encodeURIComponent(d.meta.ticker)}`)
-          .then((r) => r.json()).then((h) => setBars(Array.isArray(h.bars) ? h.bars : []))
-          .catch(() => setBars([]));
+        // Sin barras no hay GEX ni veredicto: si llegan vacías se vuelve a
+        // pedir (hasta 3 veces). Si mientras tanto se buscó otro ticker, se
+        // descarta — `chainEs.current` ya es otra conexión.
+        const cargarHistorial = (intento: number) => {
+          fetch(`/api/history?ticker=${encodeURIComponent(d.meta.ticker)}`)
+            .then((r) => r.json())
+            .then((h) => (Array.isArray(h.bars) ? (h.bars as DailyBar[]) : []))
+            .catch(() => [] as DailyBar[])
+            .then((b) => {
+              if (chainEs.current !== c) return;
+              if (b.length === 0 && intento < 3) {
+                setTimeout(() => cargarHistorial(intento + 1), 3000 * intento);
+                return;
+              }
+              setBars(b);
+            });
+        };
+        cargarHistorial(1);
       } else if (d.type === "error") { setChainErr(d.message); chainDoneRef.current = true; finish(); c.close(); }
     };
     c.onerror = () => { chainDoneRef.current = true; finish(); c.close(); };
@@ -537,13 +554,15 @@ export default function Dashboard() {
           <>
             <HomeHub onSearch={runSearch}>
               <TuInvestigacionCard onPick={runSearch} />
-              <RetoWebullCard />
             </HomeHub>
 
-            <details className="home-drawer" id="strategy-tools">
-              <summary>Elegir estrategia <span>Buscador por capital</span></summary>
-              <div className="home-drawer-body"><FinderCard /></div>
-            </details>
+            <Cajon id="reto-webull" titulo="Reto Webull" sub="Tu plan para hacer crecer los $10">
+              <RetoWebullCard />
+            </Cajon>
+
+            <Cajon id="strategy-tools" titulo="Elegir estrategia" sub="Buscador por capital">
+              <FinderCard />
+            </Cajon>
 
             <details className="home-drawer" id="opportunities-tools">
               <summary>Buscar oportunidades <span>Radar, posiciones y escáner</span></summary>
@@ -554,26 +573,20 @@ export default function Dashboard() {
               </div>
             </details>
 
-            <details className="home-drawer" id="practice-tools">
-              <summary>Practicar y revisar <span>Paper Trading e historial</span></summary>
-              <div className="home-drawer-body">
-                <OportunidadesCard key={`op-${paperKey}`} />
-                <PaperTradingCard key={paperKey} />
-                <JournalCard />
-              </div>
-            </details>
+            <Cajon id="practice-tools" titulo="Practicar y revisar" sub="Paper Trading e historial">
+              <OportunidadesCard key={`op-${paperKey}`} />
+              <PaperTradingCard key={paperKey} />
+              <JournalCard />
+            </Cajon>
 
-            <details className="home-drawer" id="connections-tools">
-              <summary>Conexiones y configuración <span>Plataformas y acceso</span></summary>
-              <div className="home-drawer-body">
-                <div className="home-config-links">
-                  <a href="/schwab">Conectar Schwab</a>
-                  <a href="/cookie">Actualizar Cookie</a>
-                  <a href="/guia">Abrir Guía</a>
-                </div>
-                <TastytradeCard />
+            <Cajon id="connections-tools" titulo="Conexiones y configuración" sub="Plataformas y acceso">
+              <div className="home-config-links">
+                <a href="/schwab">Conectar Schwab</a>
+                <a href="/cookie">Actualizar Cookie</a>
+                <a href="/guia">Abrir Guía</a>
               </div>
-            </details>
+              <TastytradeCard />
+            </Cajon>
           </>
         )}
 
@@ -596,9 +609,8 @@ export default function Dashboard() {
 
             {/* 1 · Veredicto — la respuesta */}
             <SectionHead n={1} title="Veredicto" sub="La conclusión: ¿sube o baja, y qué tan seguro?" />
-            <VeredictoCard ticker={ticker} prediction={prediction} horizonDays={horizonDays} regime={gex?.regime} />
+            <VeredictoCard ticker={ticker} prediction={prediction} horizonDays={horizonDays} onHorizon={setHorizonDays} regime={gex?.regime} />
             <PlanOperacionCard prediction={prediction} />
-            {ticker && <TesisTimelineCard ticker={ticker} />}
             {ticker && nextSteps.length > 0 && <NextStepsCard ticker={ticker} steps={nextSteps} />}
 
             {/* 2 · Dirección y confianza — la lectura */}
@@ -608,15 +620,36 @@ export default function Dashboard() {
             )}
             <div className="grid-2">
               <SentimentCard ticker={ticker} parts={sentimentParts} extraAgentes={agentesExtra} />
-              <PredictionCard ticker={ticker} prediction={prediction} horizonDays={horizonDays} onHorizon={setHorizonDays} topFlows={topFlows} />
+              <PredictionCard ticker={ticker} prediction={prediction} horizonDays={horizonDays} topFlows={topFlows} />
             </div>
 
             {/* 3 · Niveles GEX — dónde están los precios clave */}
             <SectionHead n={3} title="Niveles clave (GEX)" sub="Call Wall, Put Wall, Gamma Flip, Max Pain e Imán" />
-            {levels && <LevelsCard r={levels} ticker={ticker} />}
-            {structure && <ChartZoom label="Muros de strikes (PRO)"><ProWallsCard ticker={ticker} structure={structure} gex={realGex ?? gex} horizonDays={horizonDays} levels={levels} /></ChartZoom>}
-            {msGex && <ChartZoom label="GEX en vivo — precio, muros e imán"><MarketSnackGexCard data={msGex} /></ChartZoom>}
-            {gexChart && <ChartZoom label="GEX por strike — perfil de gamma"><GexHeatmapCard h={gexChart} /></ChartZoom>}
+            {/* Una sola tarjeta con pestañas: antes eran 4 seguidas con los mismos muros. */}
+            <NivelesTabs
+              tabs={([
+                levels && {
+                  id: "simple", label: "Precios clave",
+                  hint: "Soportes y resistencias en lista, con su fuerza. La vista más fácil de leer.",
+                  node: <LevelsCard r={levels} ticker={ticker} />,
+                },
+                structure && {
+                  id: "muros", label: "Muros PRO",
+                  hint: "Cada muro de strikes como una banda, con la probabilidad de que el precio llegue ahí.",
+                  node: <ChartZoom label="Muros de strikes (PRO)"><ProWallsCard ticker={ticker} structure={structure} gex={realGex ?? gex} horizonDays={horizonDays} levels={levels} /></ChartZoom>,
+                },
+                msGex && {
+                  id: "vivo", label: "GEX en vivo",
+                  hint: "El precio de hoy con el techo, el piso, el imán y el flip dibujados encima.",
+                  node: <ChartZoom label="GEX en vivo — precio, muros e imán"><MarketSnackGexCard data={msGex} /></ChartZoom>,
+                },
+                gexChart && {
+                  id: "perfil", label: "Perfil de gamma",
+                  hint: "Cuánta gamma hay en cada strike: la verde frena el precio, la roja lo acelera.",
+                  node: <ChartZoom label="GEX por strike — perfil de gamma"><GexHeatmapCard h={gexChart} /></ChartZoom>,
+                },
+              ] as (NivelTab | null | false | undefined)[]).filter((t): t is NivelTab => Boolean(t))}
+            />
 
             {/* 4 · Estrategia — la acción propuesta o la decisión de esperar */}
             <SectionHead n={4} title="Estrategia o esperar" sub="La idea debe pasar los filtros antes de preparar una orden" />
@@ -651,7 +684,8 @@ export default function Dashboard() {
             </details>
 
             {/* 5 · Memoria del agente — su historial de aciertos */}
-            <SectionHead n={5} title="Memoria del agente" sub="Qué tan bien predijo antes (mejora con el tiempo)" />
+            <SectionHead n={5} title="Memoria del agente" sub="Cómo ha cambiado su lectura y qué tan bien predijo antes" />
+            {ticker && <TesisTimelineCard ticker={ticker} />}
             <MemoriaCard ticker={ticker} />
 
             <div className="disclaimer">

@@ -2,7 +2,7 @@
 
 _Resumen completo. Última actualización: 2026-07-30. Material educativo, no es consejo financiero._
 
-Ruta del proyecto: `C:\Users\lorel\OneDrive\Escritorio\Nagimi AI\1 - App Opciones (localhost 3000)\`
+Ruta del proyecto: `C:\Nagimi\1 - App Opciones (localhost 3000)\`
 App web (Next.js): subcarpeta `web\` · corre en `http://localhost:3000`
 
 ---

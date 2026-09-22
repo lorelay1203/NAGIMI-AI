@@ -1,7 +1,6 @@
 "use client";
 
 import type { ProPrediction, Scenario } from "@/lib/prediction";
-import { HORIZONS } from "@/lib/prediction";
 import type { FlowRow } from "@/lib/flow";
 import { money, px } from "../format";
 
@@ -32,45 +31,33 @@ function ScenarioBox({ s }: { s: Scenario }) {
 }
 
 /**
- * Prediction Pro — los tres escenarios (bear / base / bull) con su probabilidad,
- * el resumen del agente y los 3 flows más notables que sostienen la lectura.
+ * Prediction Pro — el DETALLE del veredicto: los tres escenarios (bear / base /
+ * bull) con su probabilidad y los 3 flows más notables que sostienen la lectura.
+ *
+ * El resumen del agente y el selector de horizonte viven en el Veredicto (antes
+ * se repetían aquí palabra por palabra): el horizonte cambia la conclusión, así
+ * que va donde está la conclusión.
  */
 export default function PredictionCard({
   ticker,
   prediction,
   horizonDays,
-  onHorizon,
   topFlows,
 }: {
   ticker: string;
   prediction: ProPrediction | null;
   horizonDays: number;
-  onHorizon: (d: number) => void;
   topFlows: FlowRow[];
 }) {
   return (
     <section className="card">
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 12, flexWrap: "wrap" }}>
-        <div>
-          <div className="card-title">
-            Prediction Pro <span className="pro-badge" style={{ marginLeft: 6 }}>PRO</span>
-          </div>
-          <div className="card-sub">
-            Los tres escenarios de {ticker} según dónde está el dinero y cuánto puede moverse
-            el precio por volatilidad.
-          </div>
+      <div>
+        <div className="card-title">
+          Los 3 escenarios <span className="pro-badge" style={{ marginLeft: 6 }}>PRO</span>
         </div>
-        <div className="hz-tabs">
-          {HORIZONS.map((h) => (
-            <button
-              key={h.days}
-              type="button"
-              className={`hz-tab ${horizonDays === h.days ? "on" : ""}`}
-              onClick={() => onHorizon(h.days)}
-            >
-              {h.days}d
-            </button>
-          ))}
+        <div className="card-sub">
+          Hasta dónde puede llegar {ticker} en {horizonDays} días, según dónde está el dinero y cuánto
+          puede moverse el precio por volatilidad. El horizonte se cambia arriba, en el Veredicto.
         </div>
       </div>
 
@@ -84,16 +71,9 @@ export default function PredictionCard({
             <ScenarioBox s={prediction.bull} />
           </div>
 
-          <div className="pred-summary">
-            <div className="pred-summary-head">
-              Resumen del agente
-              <span className="pred-conf">
-                confianza {prediction.confidence}% · señales {prediction.score}/100 ·{" "}
-                {prediction.active}/6 sub-agentes
-              </span>
-            </div>
-            <p>{prediction.summary}</p>
-            {prediction.caveat && <div className="pred-caveat">⚠ {prediction.caveat}</div>}
+          <div className="pred-conf">
+            confianza {prediction.confidence}% · señales {prediction.score}/100 ·{" "}
+            {prediction.active}/6 sub-agentes con dato
           </div>
 
           {topFlows.length > 0 && (
