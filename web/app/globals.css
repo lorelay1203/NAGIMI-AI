@@ -1271,6 +1271,39 @@ tfoot .totals td {
 .rs-score { display: inline-flex; flex-direction: column; align-items: flex-end; gap: 4px; color: var(--accent-2); font-weight: 700; font-variant-numeric: tabular-nums; }
 .rs-score-bar { width: 30px; height: 3px; border-radius: 2px; background: var(--border); overflow: hidden; }
 .rs-score-bar > span { display: block; height: 100%; background: var(--accent-2); }
+/* Proyecciones: las tres tarjetas de horizonte (táctico / swing / posición). */
+.hz-card {
+  text-align: left; cursor: pointer; font: inherit;
+  border: 1px solid var(--border); border-radius: 14px; background: var(--panel);
+  padding: 16px 18px; display: flex; flex-direction: column; gap: 3px;
+  transition: border-color .15s, background .15s;
+}
+.hz-card:hover { border-color: var(--accent); }
+.hz-card.on { border-color: var(--accent); background: var(--panel-2); }
+.hz-card-top { font-family: var(--font-display); font-size: 26px; font-weight: 500; letter-spacing: -0.02em; }
+.hz-card-nombre { font-size: 12px; font-weight: 700; color: var(--text); }
+.hz-card-sub { font-size: 11px; font-weight: 700; color: var(--accent-2); letter-spacing: 0.04em; }
+.hz-card-que { font-size: 11.5px; color: var(--muted); line-height: 1.45; margin-top: 6px; }
+
+/* Portafolio: una tarjeta por bróker, con saldo y cómo se leyó. */
+.pf-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 12px; }
+.pf-card {
+  border: 1px solid var(--border); border-radius: 14px; background: var(--panel);
+  padding: 14px 16px; display: flex; flex-direction: column; gap: 4px;
+}
+.pf-card.pf-off { opacity: 0.6; }
+.pf-top { display: flex; align-items: center; gap: 8px; }
+.pf-ico { font-size: 17px; }
+.pf-nombre { font-weight: 700; font-size: 14px; }
+.pf-estado { margin-left: auto; font-size: 10.5px; font-weight: 700; color: var(--faint); }
+.pf-estado.vivo { color: var(--green); }
+.pf-estado.foto { color: var(--accent-2); }
+.pf-monto { font-size: 24px; font-weight: 800; letter-spacing: -0.02em; }
+.pf-como { font-size: 11.5px; color: var(--muted); line-height: 1.45; }
+.pf-cuenta { font-size: 12px; color: var(--text); border-top: 1px solid var(--border-soft); padding-top: 6px; margin-top: 4px; }
+.pf-fecha { color: var(--faint); }
+.pf-problema { font-size: 11.5px; color: var(--amber-text); margin-top: 4px; }
+
 .rs-retry {
   font: inherit; font-style: normal; font-size: 12px; font-weight: 700; cursor: pointer;
   color: var(--accent-2); background: none; border: none; padding: 0; text-decoration: underline;

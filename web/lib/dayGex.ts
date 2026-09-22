@@ -39,6 +39,8 @@ export interface DayGexLevels {
   netGex: number;
   regime: "positive" | "negative"; // + = mercado pegajoso/rango · − = volátil/tendencia
   bars: GexBar[];            // perfil por strike (vacío si la fuente no lo da)
+  /** IV estimada de la cadena (null si la fuente no la da, p. ej. MarketSnack). */
+  iv: number | null;
   asOf: string;              // ISO
 }
 
@@ -97,6 +99,7 @@ async function getDayGexSinMemoria(ticker: string, only?: GexSource): Promise<Da
         netGex: s.netGex ?? 0,
         regime: (s.netGex ?? 0) >= 0 ? "positive" : "negative",
         bars: [],
+        iv: null,
         asOf: s.t || new Date().toISOString(),
       };
     }
@@ -211,6 +214,7 @@ function levelsFromChain(
     netGex: gex.totalNetGex,
     regime: gex.regime,
     bars: bars2,
+    iv: gex.iv > 0 ? gex.iv : null,
     asOf: new Date().toISOString(),
   };
 }

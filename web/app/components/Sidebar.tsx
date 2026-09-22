@@ -22,6 +22,7 @@ const ANALIZAR: Item[] = [
   { href: "/daytrades", label: "Day Trades", ico: "⚡" },
   { href: "/flow", label: "Flujo", ico: "≋" },
   { href: "/grandes", label: "Sigue a los Grandes", ico: "🐋" },
+  { href: "/proyecciones", label: "Proyecciones", ico: "📈" },
 ];
 
 const OPORTUNIDADES: Item[] = [
@@ -33,9 +34,11 @@ const OPORTUNIDADES: Item[] = [
 const SEGUIMIENTO: Item[] = [
   { href: "/watchlist", label: "Watchlist", ico: "★" },
   { href: "/reportes", label: "Reportes", ico: "📓" },
+  { href: "/agentes", label: "Agentes", ico: "👥" },
 ];
 
 const CUENTA: Item[] = [
+  { href: "/portafolio", label: "Portafolio", ico: "💼" },
   { href: "/schwab", label: "Conexiones", ico: "⚯" },
   { href: "/cookie", label: "MarketSnack", ico: "◍" },
   { href: "/guia", label: "Guía", ico: "?" },

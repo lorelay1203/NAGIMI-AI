@@ -32,6 +32,30 @@ export interface AgenteDescrito {
   empuje: string | null;
 }
 
+/**
+ * La mesa completa, para la página /agentes: los 6 que puntúan + los 2 de
+ * contexto. Los pesos son los mismos de WEIGHTS en prediction.ts; los de
+ * contexto pesan 0 porque no mueven el puntaje, avisan.
+ */
+export const CATALOGO: { codigo: string; nombre: string; queHace: string; weight: number; mira: string }[] = [
+  { codigo: "AGR", nombre: "Agresividad", weight: 20, mira: "Flujo de opciones",
+    queHace: "Mira si el dinero grande entra pagando el ask (compra con prisa) o golpeando el bid (venta con prisa)." },
+  { codigo: "CNV", nombre: "Convicción", weight: 20, mira: "Tamaño del dinero",
+    queHace: "Mide cuánto dinero de verdad entró y qué tan decidido — no es igual mucho volumen tímido que poco pero agresivo." },
+  { codigo: "INU", nombre: "Inusualidad", weight: 20, mira: "Lo raro del día",
+    queHace: "Compara la actividad de hoy con lo normal del ticker; lo raro suele avisar antes que el precio." },
+  { codigo: "EST", nombre: "Estructura", weight: 15, mira: "Muros de gamma",
+    queHace: "Lee dónde se amontonan los muros de gamma — dónde el precio tiende a frenar o a acelerar." },
+  { codigo: "IV", nombre: "Contexto IV", weight: 10, mira: "Precio de la prima",
+    queHace: "Dice si las opciones están caras o baratas frente a su historia (IV inflada = primas caras)." },
+  { codigo: "PRE", nombre: "Confirmación de Precio", weight: 15, mira: "Qué hizo el precio",
+    queHace: "Chequea si el precio confirma lo que dice el flujo, o lo absorbe sin moverse." },
+  { codigo: "RSK", nombre: "Riesgo (Gamma Skew)", weight: 0, mira: "Hacia dónde resbala",
+    queHace: "Mira hacia qué lado se resbala el precio — para decidir si sigues en el trade o te sales." },
+  { codigo: "CAT", nombre: "Catalizadores (Earnings)", weight: 0, mira: "Fechas que mueven",
+    queHace: "Avisa si hay un reporte de resultados cerca — después la IV se desinfla y tu opción pierde valor aunque aciertes." },
+];
+
 /** Código de 3 letras + qué hace cada agente, por nombre del scorecard. */
 const META: Record<string, { codigo: string; queHace: string }> = {
   "Agresividad": {
