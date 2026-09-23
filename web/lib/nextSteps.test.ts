@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   buildNextSteps, buildSessionNextSteps, buildWheelNextSteps, buildGrandesNextSteps,
-  buildIdeasNextSteps, buildFlowNextSteps, buildWatchlistNextSteps,
+  buildIdeasNextSteps, buildFlowNextSteps, buildWatchlistNextSteps, buildBuenasPracticas,
   type SizedIdeaLike,
 } from "./nextSteps";
 import type { FlowRow, AggressionScore } from "./flow";
@@ -516,5 +516,72 @@ describe("buildWatchlistNextSteps", () => {
     ], HOY).find((x) => x.id === "wl-theta")!;
     expect(s.texto).toContain("SOFI");
     expect(s.texto).toContain("8%");
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Origen del paso · Buenas prácticas
+// ---------------------------------------------------------------------------
+
+describe("origen de los pasos", () => {
+  it("todo lo que sale de un análisis queda marcado como 'analisis'", () => {
+    const l = levels({ spot: 100, keySupport: level({ price: 95 }), keyResistance: level({ price: 110, kind: "resistencia" }) });
+    const steps = buildNextSteps("NVDA", prediction({}), l, gex({}));
+    expect(steps.length).toBeGreaterThan(0);
+    expect(steps.every((s) => s.origen === "analisis")).toBe(true);
+  });
+
+  it("los otros builders también sellan el origen (ninguna fila sale sin etiqueta)", () => {
+    const todos = [
+      ...buildSessionNextSteps(session()),
+      ...buildWheelNextSteps(sortByAffordThenScore([wheelCand({})], 100), 100),
+      ...buildGrandesNextSteps("Warren Buffett", [move({})]),
+      ...buildIdeasNextSteps([sizedIdea()]),
+      ...buildFlowNextSteps("NVDA", [flowRow()], scoreOf(800_000, 200_000)),
+      ...buildWatchlistNextSteps([wlEntry()], HOY),
+    ];
+    expect(todos.length).toBeGreaterThan(0);
+    expect(todos.every((s) => s.origen === "analisis")).toBe(true);
+  });
+});
+
+describe("buildBuenasPracticas", () => {
+  it("siempre salen, no dependen de que haya datos", () => {
+    const pasos = buildBuenasPracticas();
+    expect(pasos.length).toBeGreaterThanOrEqual(2);
+    expect(pasos.every((p) => p.origen === "practica")).toBe(true);
+    expect(pasos.every((p) => p.texto.trim().length > 0)).toBe(true);
+  });
+
+  // Si el id llevara el ticker, la casilla marcada mirando NVDA saldría vacía
+  // al abrir AMD — y una regla que se desmarca sola deja de ser una regla.
+  it("los ids no cambian entre llamadas ni llevan ticker dentro", () => {
+    const a = buildBuenasPracticas().map((p) => p.id);
+    const b = buildBuenasPracticas().map((p) => p.id);
+    expect(a).toEqual(b);
+    for (const t of ["NVDA", "AMD", "SOFI", "INTC"]) {
+      expect(a.join(" ").toUpperCase()).not.toContain(t);
+    }
+  });
+
+  it("los ids son únicos (si se repitieran, marcar una marcaría la otra)", () => {
+    const ids = buildBuenasPracticas().map((p) => p.id);
+    expect(new Set(ids).size).toBe(ids.length);
+  });
+
+  it("dicen lo que importa en su perfil: tope del 1% y salida decidida antes de entrar", () => {
+    const todo = buildBuenasPracticas().map((p) => `${p.texto} ${p.motivo ?? ""}`).join(" ");
+    expect(todo).toContain("1%");
+    expect(todo).toMatch(/salida/i);
+    expect(todo).toMatch(/riesgo definido/i);
+  });
+
+  it("no inventan cifras de la cuenta: ninguna trae un monto en dólares", () => {
+    const todo = buildBuenasPracticas().map((p) => `${p.texto} ${p.motivo ?? ""}`).join(" ");
+    expect(todo).not.toMatch(/\$\s?\d/);
+  });
+
+  it("no se mezclan con los pasos del análisis: ids con prefijo propio", () => {
+    expect(buildBuenasPracticas().every((p) => p.id.startsWith("practica-"))).toBe(true);
   });
 });

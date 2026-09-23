@@ -1,9 +1,20 @@
 "use client";
 
-import { useEffect, useRef } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import type { DailyBar, Row } from "@/lib/types";
+import {
+  RANGOS,
+  RANGO_POR_DEFECTO,
+  avisoRecorte,
+  esRangoId,
+  recortarRango,
+  type RangoId,
+} from "@/lib/rangoGrafica";
 
 const LINE_COLORS = ["#4da3ff", "#3fd07a", "#ffb020", "#ff6b6b", "#b98cff"];
+
+// Dónde se guarda el rango escogido. Mismo prefijo "nagimi." que el resto.
+const CLAVE_RANGO = "nagimi.rangoGrafica";
 
 const money = new Intl.NumberFormat("en-US", {
   style: "currency",
@@ -37,9 +48,32 @@ export default function ChartPanel({
 }) {
   const containerRef = useRef<HTMLDivElement>(null);
 
+  // El rango arranca en el de por defecto y no en lo guardado, porque el
+  // servidor no puede leer localStorage: si pintáramos distinto en el primer
+  // render, React se quejaría de que no cuadra. Se corrige en el efecto.
+  const [rango, setRango] = useState<RangoId>(RANGO_POR_DEFECTO);
+
+  useEffect(() => {
+    try {
+      const v = localStorage.getItem(CLAVE_RANGO);
+      if (esRangoId(v)) setRango(v);
+    } catch { /* sin almacenamiento: se queda con el de por defecto */ }
+  }, []);
+
+  const elegir = (id: RangoId) => {
+    setRango(id);
+    try { localStorage.setItem(CLAVE_RANGO, id); } catch { /* no pasa nada */ }
+  };
+
+  // Las velas del año entero ya vienen de page.tsx: cambiar de rango solo
+  // recorta lo que ya está aquí, nunca le pide nada al servidor.
+  const recorte = useMemo(() => recortarRango(bars, rango), [bars, rango]);
+  const velas = recorte.barras;
+  const aviso = avisoRecorte(recorte);
+
   useEffect(() => {
     const el = containerRef.current;
-    if (!el || bars.length === 0) return;
+    if (!el || velas.length === 0) return;
 
     let disposed = false;
     let cleanup = () => {};
@@ -74,7 +108,7 @@ export default function ChartPanel({
         wickDownColor: "#ff6b6b",
         borderVisible: false,
       });
-      series.setData(bars);
+      series.setData(velas);
 
       contracts.forEach((c, i) => {
         series.createPriceLine({
@@ -87,6 +121,7 @@ export default function ChartPanel({
         });
       });
 
+      // fitContent con la serie ya recortada: el rango escogido llena el ancho.
       chart.timeScale().fitContent();
       cleanup = () => chart.remove();
     })();
@@ -95,19 +130,43 @@ export default function ChartPanel({
       disposed = true;
       cleanup();
     };
-  }, [ticker, bars, contracts]);
+    // Se rehace el gráfico al cambiar de rango en vez de solo reemplazar la
+    // serie: es lo mismo que ya hacía al cambiar de ticker, y así el eje de
+    // tiempo y el zoom quedan limpios en vez de heredar el rango anterior.
+  }, [ticker, velas, contracts]);
 
   return (
     <section className="chart">
       <div className="chart-head">
         <h2>Top 5 por Notional Value · {ticker}</h2>
-        <span className="muted">Líneas dibujadas en cada strike sobre el precio del subyacente</span>
+        <div className="tf-toggle" role="group" aria-label="Cuánto histórico se ve">
+          {RANGOS.map((r) => (
+            <button
+              key={r.id}
+              type="button"
+              className={`tf-btn ${r.id === rango ? "on" : ""}`}
+              aria-pressed={r.id === rango}
+              title={r.ayuda}
+              onClick={() => elegir(r.id)}
+            >
+              {r.label}
+            </button>
+          ))}
+        </div>
+      </div>
+      <div className="chart-sub muted">
+        Líneas dibujadas en cada strike sobre el precio del subyacente.
+        {" "}Los botones de arriba cambian cuánto tiempo se ve: 1M es el último mes, 1A el último año.
       </div>
 
-      {bars.length === 0 ? (
+      {velas.length === 0 ? (
         <div className="chart-empty">Sin histórico de precio para {ticker}.</div>
       ) : (
-        <div ref={containerRef} className="chart-canvas" />
+        <>
+          <div ref={containerRef} className="chart-canvas" />
+          {/* Si el ticker no llega al rango pedido se dice, no se disimula. */}
+          {aviso && <div className="chart-sub muted">{aviso}</div>}
+        </>
       )}
 
       <div className="legend">

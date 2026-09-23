@@ -22,7 +22,7 @@ describe("diasEntre", () => {
 
 describe("buildEvolucion", () => {
   it("sin fotos no inventa nada", () => {
-    expect(buildEvolucion([])).toEqual({ puntos: [], narracion: null });
+    expect(buildEvolucion([])).toEqual({ puntos: [], narracion: null, marcador: null });
   });
 
   it("una sola foto: hay punto pero no narración (nada con qué comparar)", () => {
@@ -93,6 +93,12 @@ describe("buildEvolucion", () => {
     expect(r.puntos[r.puntos.length - 1].fecha).toBe("2026-08-21"); // la más nueva
   });
 
+  it("sin evaluaciones, los puntos no traen resultado (no se inventa nada)", () => {
+    const r = buildEvolucion([snap({ date: "2026-09-10" })]);
+    expect(r.puntos[0].resultado).toBeNull();
+    expect(r.marcador).toBeNull();
+  });
+
   it("caso real NVDA: 11 ago neutral $220 → 10 sep alcista $225", () => {
     const r = buildEvolucion([
       snap({ date: "2026-09-10", direction: "up", base: 225, confidence: 51 }),
@@ -102,5 +108,82 @@ describe("buildEvolucion", () => {
     expect(r.puntos).toHaveLength(3);
     expect(r.puntos[0].fecha).toBe("2026-08-11");
     expect(r.narracion).toContain("más optimista"); // flat → up
+  });
+});
+
+describe("buildEvolucion con resultados (lo que Aetheris no hace)", () => {
+  const ev = (o: Partial<{ date: string; matured: boolean; directionHit: boolean | null; baseTouched: boolean; actualClose: number | null }> & { date: string }) => ({
+    matured: true, directionHit: null, baseTouched: false, actualClose: 100, ...o,
+  });
+
+  it("marca acertó cuando la dirección se cumplió, y lo cuenta con el precio real", () => {
+    const r = buildEvolucion(
+      [snap({ date: "2026-08-11", direction: "up", spot: 200, base: 220 })],
+      6,
+      [ev({ date: "2026-08-11", directionHit: true, baseTouched: true, actualClose: 232 })],
+    );
+    const res = r.puntos[0].resultado!;
+    expect(res.estado).toBe("acerto");
+    expect(res.txt).toBe("acertó");
+    expect(res.detalle).toContain("$232");
+    expect(res.detalle).toContain("tocar el objetivo");
+  });
+
+  it("marca falló sin adornos", () => {
+    const r = buildEvolucion(
+      [snap({ date: "2026-08-11", direction: "up", spot: 200 })],
+      6,
+      [ev({ date: "2026-08-11", directionHit: false, actualClose: 180 })],
+    );
+    expect(r.puntos[0].resultado!.estado).toBe("fallo");
+    expect(r.puntos[0].resultado!.detalle).toContain("sin llegar al objetivo");
+  });
+
+  it("si todavía no vence, dice 'madurando' en vez de puntuarla", () => {
+    const r = buildEvolucion(
+      [snap({ date: "2026-09-20", direction: "up", horizonDays: 20 })],
+      6,
+      [ev({ date: "2026-09-20", matured: false, actualClose: 105 })],
+    );
+    const res = r.puntos[0].resultado!;
+    expect(res.estado).toBe("madurando");
+    expect(res.detalle).toContain("20 días");
+  });
+
+  it("sin precios posteriores NO cuenta como fallo", () => {
+    const r = buildEvolucion(
+      [snap({ date: "2026-08-11" })],
+      6,
+      [ev({ date: "2026-08-11", actualClose: null })],
+    );
+    const res = r.puntos[0].resultado!;
+    expect(res.estado).toBe("sinDatos");
+    expect(res.detalle).toContain("no cuenta como fallo");
+  });
+
+  it("el marcador solo cuenta las que ya se pueden medir", () => {
+    const r = buildEvolucion(
+      [
+        snap({ date: "2026-08-11", direction: "up" }),
+        snap({ date: "2026-08-20", direction: "down" }),
+        snap({ date: "2026-09-20", direction: "up" }),
+      ],
+      6,
+      [
+        ev({ date: "2026-08-11", directionHit: true }),
+        ev({ date: "2026-08-20", directionHit: false }),
+        ev({ date: "2026-09-20", matured: false }),   // esta no cuenta
+      ],
+    );
+    expect(r.marcador).toBe("De 2 lecturas que ya se pueden medir aquí, acertó la dirección en 1.");
+  });
+
+  it("con una sola medible dice 'lectura' en singular", () => {
+    const r = buildEvolucion(
+      [snap({ date: "2026-08-11", direction: "up" })],
+      6,
+      [ev({ date: "2026-08-11", directionHit: true })],
+    );
+    expect(r.marcador).toBe("De 1 lectura que ya se puede medir aquí, acertó la dirección en 1.");
   });
 });

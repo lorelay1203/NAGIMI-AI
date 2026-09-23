@@ -15,6 +15,14 @@ import type { Move } from "./bigMoney";
 import type { FlowRow, AggressionScore } from "./flow";
 import type { WatchlistEntry } from "./watchlist";
 
+/**
+ * De dónde sale el paso. Se distingue porque los dos no pesan igual: lo que
+ * salió del análisis caduca con el análisis (cambia el ticker, cambia el paso),
+ * y la buena práctica vale igual hoy que en seis meses. Mezclados sin etiqueta,
+ * una regla de sentido común se lee como si fuera una señal del mercado.
+ */
+export type OrigenPaso = "analisis" | "practica";
+
 export interface NextStep {
   id: string;
   /** La acción en una frase, lista para leer — sin tecnicismos. */
@@ -22,7 +30,19 @@ export interface NextStep {
   /** Por qué, en un fragmento corto (opcional, se ve en gris debajo). */
   motivo?: string;
   tipo: "alerta" | "meta" | "riesgo" | "fecha";
+  origen: OrigenPaso;
 }
+
+/** El paso antes de sellarle el origen: evita repetir el campo en cada push. */
+type PasoDeAnalisis = Omit<NextStep, "origen">;
+
+/**
+ * Sella una tanda de pasos como salidos del análisis. Se hace en UN solo sitio
+ * a propósito: si mañana se añade otro builder y se olvida del campo, con pasar
+ * por aquí el origen sale bien igual y ninguna fila queda sin etiqueta.
+ */
+const sellarAnalisis = (pasos: PasoDeAnalisis[]): NextStep[] =>
+  pasos.map((p) => ({ ...p, origen: "analisis" as const }));
 
 const money = (n: number) => `$${n.toFixed(n >= 100 ? 0 : 2)}`;
 const pct = (n: number) => `${n >= 0 ? "+" : ""}${n.toFixed(0)}%`;
@@ -47,9 +67,9 @@ export function buildNextSteps(
   levels: LevelsReport | null,
   gex: GexAnalysis | null,
 ): NextStep[] {
-  const steps: NextStep[] = [];
+  const steps: PasoDeAnalisis[] = [];
   const spot = prediction?.spot ?? levels?.spot ?? gex?.spot ?? 0;
-  if (!(spot > 0)) return steps;
+  if (!(spot > 0)) return [];
 
   // 1) Alerta de precio en el soporte más fuerte — "si cae hasta aquí, mira de comprar".
   const sup = levels?.keySupport;
@@ -121,7 +141,7 @@ export function buildNextSteps(
     });
   }
 
-  return steps;
+  return sellarAnalisis(steps);
 }
 
 /**
@@ -130,9 +150,9 @@ export function buildNextSteps(
  * (VWAP, muros de gamma, rango de apertura) en vez de escenarios a 10-30 días.
  */
 export function buildSessionNextSteps(session: DaySession): NextStep[] {
-  const steps: NextStep[] = [];
+  const steps: PasoDeAnalisis[] = [];
   const { price } = session;
-  if (!(price > 0)) return steps;
+  if (!(price > 0)) return [];
 
   // 1) Muro de puts (soporte del día) — "si cae hasta aquí, ahí suele rebotar".
   if (session.putWall != null && session.putWall < price) {
@@ -190,7 +210,7 @@ export function buildSessionNextSteps(session: DaySession): NextStep[] {
     steps.push({ id: "regimen-hoy", tipo: "riesgo", texto: session.regimeNote });
   }
 
-  return steps;
+  return sellarAnalisis(steps);
 }
 
 /**
@@ -200,7 +220,7 @@ export function buildSessionNextSteps(session: DaySession): NextStep[] {
  * el aumento más grande, y cualquier salida completa como aviso.
  */
 export function buildGrandesNextSteps(investor: string, moves: Move[]): NextStep[] {
-  const steps: NextStep[] = [];
+  const steps: PasoDeAnalisis[] = [];
   const conTicker = moves.filter((m) => m.ticker);
 
   const salidas = conTicker.filter((m) => m.kind === "salida");
@@ -254,7 +274,7 @@ export function buildGrandesNextSteps(investor: string, moves: Move[]): NextStep
     });
   }
 
-  return steps;
+  return sellarAnalisis(steps);
 }
 
 /**
@@ -264,9 +284,9 @@ export function buildGrandesNextSteps(investor: string, moves: Move[]): NextStep
  * real y de cuántos más cupieron — nunca inventan uno.
  */
 export function buildWheelNextSteps(rows: AffordableCandidate[], cash: number): NextStep[] {
-  const steps: NextStep[] = [];
+  const steps: PasoDeAnalisis[] = [];
   const operables = rows.filter((r) => !r.blocked);
-  if (operables.length === 0) return steps;
+  if (operables.length === 0) return [];
 
   const cabenTotal = operables.filter((r) => r.afford.affordable);
   const mejor = cabenTotal[0];
@@ -314,7 +334,7 @@ export function buildWheelNextSteps(rows: AffordableCandidate[], cash: number): 
     });
   }
 
-  return steps;
+  return sellarAnalisis(steps);
 }
 
 /** Días desde hoy hasta una fecha "YYYY-MM-DD". null si la fecha no sirve. */
@@ -354,8 +374,8 @@ export interface SizedIdeaLike {
  * theta — que en contratos comprados es lo que más dinero se lleva en silencio.
  */
 export function buildIdeasNextSteps(rows: SizedIdeaLike[], presupuesto?: number): NextStep[] {
-  const steps: NextStep[] = [];
-  if (rows.length === 0) return steps;
+  const steps: PasoDeAnalisis[] = [];
+  if (rows.length === 0) return [];
 
   const caben = rows.filter((r) => !r.sizing.blocked && r.sizing.maxContracts > 0);
   const mejor = caben[0];
@@ -433,7 +453,7 @@ export function buildIdeasNextSteps(rows: SizedIdeaLike[], presupuesto?: number)
     });
   }
 
-  return steps;
+  return sellarAnalisis(steps);
 }
 
 /**
@@ -443,8 +463,8 @@ export function buildIdeasNextSteps(rows: SizedIdeaLike[], presupuesto?: number)
  * más pesada, y avisan de lo que ya venció (que sirve de historia, no para hoy).
  */
 export function buildFlowNextSteps(ticker: string, rows: FlowRow[], score: AggressionScore): NextStep[] {
-  const steps: NextStep[] = [];
-  if (rows.length === 0) return steps;
+  const steps: PasoDeAnalisis[] = [];
+  if (rows.length === 0) return [];
 
   // 1) Hacia qué lado entró el dinero grande — la lectura principal de la página.
   const denom = score.premiumAsk + score.premiumBid;
@@ -528,7 +548,7 @@ export function buildFlowNextSteps(ticker: string, rows: FlowRow[], score: Aggre
     });
   }
 
-  return steps;
+  return sellarAnalisis(steps);
 }
 
 /**
@@ -538,8 +558,8 @@ export function buildFlowNextSteps(ticker: string, rows: FlowRow[], score: Aggre
  * no se inventa un precio actual que la página no tiene.
  */
 export function buildWatchlistNextSteps(entries: WatchlistEntry[], now: Date): NextStep[] {
-  const steps: NextStep[] = [];
-  if (entries.length === 0) return steps;
+  const steps: PasoDeAnalisis[] = [];
+  if (entries.length === 0) return [];
 
   const conDias = entries.map((e) => ({ e, dias: diasHasta(e.expiration, now) }));
 
@@ -593,5 +613,51 @@ export function buildWatchlistNextSteps(entries: WatchlistEntry[], now: Date): N
     });
   }
 
-  return steps;
+  return sellarAnalisis(steps);
+}
+
+// ---------------------------------------------------------------------------
+// Buena práctica — lo único de esta lista que NO depende del ticker
+// ---------------------------------------------------------------------------
+
+/**
+ * Las reglas de la casa. No salen de ningún análisis: valen igual en NVDA que
+ * en SOFI, y por eso sus ids son FIJOS. Si el id llevara el ticker, la casilla
+ * que ya marcó aparecería vacía al cambiar de acción — y una regla que se
+ * desmarca sola deja de sentirse como una regla.
+ *
+ * Están escritas para su caso real (cuenta chica, opciones, tope del 1% por
+ * operación del perfil conservador) y sin una sola cifra en dólares: esta
+ * función no sabe cuánto hay en la cuenta, y aquí no se inventan números.
+ */
+export function buildBuenasPracticas(): NextStep[] {
+  return [
+    {
+      id: "practica-riesgo-1pct",
+      tipo: "riesgo",
+      origen: "practica",
+      texto: "Antes de dar al botón, saca la cuenta de lo que pierdes si sale mal: con tu perfil, "
+        + "una sola operación no debería arriesgar más del 1% de tu cuenta. Si el contrato cuesta "
+        + "más que eso, no es que la idea sea mala — es que hoy no te toca.",
+      motivo: "Quédate en jugadas de riesgo definido (comprar el contrato, o un spread): ahí sabes "
+        + "desde antes de entrar lo máximo que puedes perder, y por eso puedes calcular ese 1%.",
+    },
+    {
+      id: "practica-salida-antes",
+      tipo: "meta",
+      origen: "practica",
+      texto: "Decide la salida ANTES de entrar: a qué precio tomas la ganancia y a qué precio te "
+        + "sales perdiendo. Apúntalo, aunque sea en las notas del celular.",
+      motivo: "En Robinhood, Schwab, Tastytrade o Webull puedes dejar la orden de salida puesta el "
+        + "mismo día que entras — así no decides con el corazón a mitad de la película.",
+    },
+    {
+      id: "practica-no-todo-un-trade",
+      tipo: "riesgo",
+      origen: "practica",
+      texto: "No metas toda la cuenta en un solo contrato, aunque te alcance justo. Aguanta las "
+        + "ganas: la idea es poder seguir operando la semana que viene, no ganarlo todo hoy.",
+      motivo: "Repartir no es miedo. Es que un mal día no te deje sin con qué jugar el próximo.",
+    },
+  ];
 }
