@@ -161,11 +161,52 @@ roadmap… Plantillas próximamente."
 
 ---
 
+## 5b. Vista **Support / Resistance** del mapa (capturada el 23-sep)
+
+El mapa tiene dos modos, con dos botones arriba a la derecha: `Projections`
+(el de los conos, ya descrito) y `Support / Resistance`. El cono, el panel
+derecho y la leyenda de abajo **no cambian**; lo que cambia es lo que se dibuja
+sobre las velas.
+
+En modo Support / Resistance aparecen **bandas horizontales gruesas**:
+- **Resistencia** en morado (banda + línea punteada) con etiqueta pegada al eje:
+  `Resistance 230` · `230.00`.
+- **Soporte** en dorado con `Support 220` · `220.00`.
+- El `Spot 224.79` sigue como línea fina punteada con su etiqueta azul.
+
+**Lo que de verdad vale de este modo — los chips de abajo cambian y traen los
+VENCIMIENTOS que confirman cada nivel:**
+
+| Marco | Chips de la leyenda |
+|---|---|
+| 30D / 30M | `Spot 224.79` · `S 220 • 16d/23d/30d` · `R 230 • 16d/23d` · `R 235 • 30d` · `Max pain 200.00` · cono 1σ · cono 2σ |
+| 5D / 5M | `Spot 224.78` · `S 220 • 2d` · `R 230 • 2d` · `S 223 • 5d` · `R 225 • 5d` · `Max pain 200.00` · cono 1σ · cono 2σ |
+
+O sea: **un nivel no es un número suelto, es un número + en cuántos
+vencimientos aparece**. `S 220 • 16d/23d/30d` significa que el soporte de 220
+se repite en tres vencimientos seguidos — eso es lo que lo hace fuerte. Uno que
+solo sale en un vencimiento (`R 235 • 30d`) es mucho más débil.
+
+Al cambiar de marco cambian también los números del panel derecho, porque el
+horizonte es otro: en 30D el cono va de 203 a 244 (2σ 183–265) y el bajista
+apunta a $203; en 5D el cono es 212–231 (2σ 203–240) y el bajista a $212.
+
+> **Para Nagimi:** los muros de gamma ya se calculan por vencimiento en la
+> cadena, así que se puede poner exactamente esto: al lado de cada nivel, en
+> qué vencimientos aparece. Un muro que se repite en 3 vencimientos aguanta
+> más que uno de un solo vencimiento, y hoy Nagimi no distingue entre los dos.
+
+---
+
 ## 6. Lo que queda por capturar
 
 - **El detalle de un reporte** (al tocar una fila): ya está en
   `aetheris-referencia.md` con el reporte de NVDA del 10-sep, sección por sección
   (Veredicto, El Negocio, Valuación, vs Competidores, Qué puede salir mal/bien,
   La Puntuación, En Términos Simples, Niveles Clave, Datos Faltantes, Q&A).
-- La vista `Support / Resistance` del mapa de proyección (el otro botón).
-- La pestaña `◬ Pendientes` de un reporte.
+- ~~La vista `Support / Resistance` del mapa de proyección~~ → capturada el
+  23-sep, ver el punto 5b de arriba.
+- ~~La pestaña `◬ Pendientes` de un reporte~~ → capturada, ver
+  `aetheris-reporte-INTC-2026-09-22.md`.
+- Ya no queda nada pendiente de Aetheris: **con estos dos archivos se puede
+  seguir construyendo sin la página.**
