@@ -111,8 +111,8 @@ export default function ProyeccionMapa({
           ...(enEscala ? {} : { autoscaleInfoProvider: () => null }),
         });
 
-      const alto1 = serie("#c9a227", 1, false, true);
-      const bajo1 = serie("#c9a227", 1, false, true);
+      const alto1 = serie("#8b7cff", 1, false, true);
+      const bajo1 = serie("#8b7cff", 1, false, true);
       const alto2 = serie("#4da3ff", 1, true, false);
       const bajo2 = serie("#4da3ff", 1, true, false);
       const trayectoria = serie("#e8d9a0", 2, false, true);
@@ -150,8 +150,8 @@ export default function ProyeccionMapa({
             {n.etiqueta} {n.precio.toFixed(2)}
           </span>
         ))}
-        <span className="mapa-chip" style={{ borderColor: "#c9a22766", color: "#c9a227" }}>
-          Cono dorado = movimiento normal (1σ)
+        <span className="mapa-chip" style={{ borderColor: "#8b7cff66", color: "#8b7cff" }}>
+          Cono violeta = movimiento normal (1σ)
         </span>
         <span className="mapa-chip" style={{ borderColor: "#4da3ff66", color: "#4da3ff" }}>
           Cono azul = rango de estrés (2σ)

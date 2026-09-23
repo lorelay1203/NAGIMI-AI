@@ -16,6 +16,8 @@ import HeaderBar from "./components/HeaderBar";
 import AnalysisLoader from "./components/AnalysisLoader";
 import VeredictoCard from "./components/VeredictoCard";
 import TesisTimelineCard from "./components/TesisTimelineCard";
+import BotonGuardar from "./components/BotonGuardar";
+import ChatBox from "./components/ChatBox";
 import PlanOperacionCard from "./components/PlanOperacionCard";
 import NextStepsCard from "./components/NextStepsCard";
 import { buildNextSteps } from "@/lib/nextSteps";
@@ -609,6 +611,7 @@ export default function Dashboard() {
 
             {/* 1 · Veredicto — la respuesta */}
             <SectionHead n={1} title="Veredicto" sub="La conclusión: ¿sube o baja, y qué tan seguro?" />
+            <BotonGuardar ticker={ticker} />
             <VeredictoCard ticker={ticker} prediction={prediction} horizonDays={horizonDays} onHorizon={setHorizonDays} regime={gex?.regime} />
             <PlanOperacionCard prediction={prediction} />
             {ticker && nextSteps.length > 0 && <NextStepsCard ticker={ticker} steps={nextSteps} />}
@@ -727,6 +730,22 @@ export default function Dashboard() {
                 )}
               </div>
             </details>
+
+            {/* 7 · Pregúntale — el chat acotado A ESTE ticker, con el contexto
+                del análisis que ya está calculado arriba. */}
+            <SectionHead n={7} title="Pregúntale a Nagimi" sub={`Dudas sobre ${ticker}, con los datos de esta pantalla`} />
+            <ChatBox
+              ticker={ticker}
+              prediction={prediction}
+              gex={gex}
+              levels={levels}
+              muros={{
+                callWall: checklistCtx.gexCallWall,
+                putWall: checklistCtx.gexPutWall,
+                magnet: checklistCtx.gexMagnet,
+                gammaFlip: gex?.flipStrike ?? null,
+              }}
+            />
             </>
             )}
 

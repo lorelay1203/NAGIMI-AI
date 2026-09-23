@@ -1,18 +1,17 @@
 import type { Metadata } from "next";
-import { Space_Grotesk, Newsreader } from "next/font/google";
+import { Plus_Jakarta_Sans, Fraunces } from "next/font/google";
 import "./globals.css";
 import Sidebar from "./components/Sidebar";
 
-const spaceGrotesk = Space_Grotesk({
-  subsets: ["latin"],
-  weight: ["400", "500", "600", "700"],
-});
+// Tipografía propia de Nagimi. Antes eran Space Grotesk + Newsreader, que es
+// justo el par de la página que se usó de referencia: se cambiaron a propósito
+// para que Nagimi tenga cara propia y no parezca una copia.
+const jakarta = Plus_Jakarta_Sans({ subsets: ["latin"] });
 
-// Serif editorial para los titulares — es lo que le da el aire de reporte
-// serio en vez de panel de terminal. Solo para titulares, nunca para datos.
-const newsreader = Newsreader({
+// Serif de titulares con más carácter (Fraunces tiene ese aire entre editorial
+// y cálido). Solo para titulares, nunca para datos ni tablas.
+const fraunces = Fraunces({
   subsets: ["latin"],
-  weight: ["300", "400", "500"],
   style: ["normal", "italic"],
   variable: "--font-display",
 });
@@ -29,7 +28,7 @@ export default function RootLayout({
 }) {
   return (
     <html lang="es">
-      <body className={`${spaceGrotesk.className} ${newsreader.variable}`}>
+      <body className={`${jakarta.className} ${fraunces.variable}`}>
         <div className="shell">
           <Sidebar />
           <div className="shell-main">{children}</div>

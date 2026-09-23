@@ -114,7 +114,7 @@ export default function ProyeccionesPage() {
     const out: NivelMapa[] = [];
     if (data.putWall) out.push({ precio: data.putWall, etiqueta: "Suelo", color: "#3fd07a" });
     if (data.callWall) out.push({ precio: data.callWall, etiqueta: "Techo", color: "#ff6b6b" });
-    if (data.magnet) out.push({ precio: data.magnet, etiqueta: "Imán", color: "#c9a227" });
+    if (data.magnet) out.push({ precio: data.magnet, etiqueta: "Imán", color: "#8b7cff" });
     if (data.gammaFlip) out.push({ precio: data.gammaFlip, etiqueta: "Cambio de régimen", color: "#b98cff", punteada: true });
     if (data.maxPain) out.push({ precio: data.maxPain, etiqueta: "Max pain", color: "#8a93a6", punteada: true });
     return out;
