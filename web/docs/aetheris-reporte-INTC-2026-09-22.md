@@ -38,6 +38,33 @@ Al pie: `Report is up to date` · **Registro de cambios IA** (30-day tracking) c
 
 ---
 
+## Pestaña 1b · ⌬ Análisis profundo (verificado el 23-sep)
+
+Es un **acordeón**, no una vista distinta. Trae **las mismas secciones** que
+Investigación completa, con tres diferencias:
+
+1. Llegan **plegadas**, menos dos: `Veredicto` y `El Negocio`, que vienen abiertas.
+2. Cada sección muestra **solo el visual + el párrafo**, SIN la fila de chips de
+   métricas (esos chips son lo que añade Investigación completa).
+3. No tiene el "¿Te resultó útil?" por sección.
+
+Orden del acordeón: Veredicto · El Negocio · Valoración y Objetivos de Precio ·
+vs. Competidores · Qué Podría Salir Mal · Qué Podría Salir Bien · La Puntuación ·
+En Palabras Simples · Niveles Técnicos Clave · Datos Faltantes.
+
+Se abrieron las diez secciones una por una y el texto es **idéntico** al que ya
+está capturado abajo. O sea: los tres niveles de profundidad son el mismo
+reporte con más o menos cosas a la vista — resumen (3 cajas + analogía),
+acordeón (visual + párrafo) y todo abierto (chips + visual + párrafo).
+
+También, al final del **Resumen rápido** (debajo de la analogía) hay dos cosas
+que solo salen ahí: el enlace *"¿Quieres el análisis completo? Cambia a Deep
+Dive o Investigación completa"*, el sello verde **"Report is up to date"** y el
+**Registro de cambios IA · 30-day tracking** con su entrada fechada
+("Reporte creado · Today · Initial analysis: …").
+
+---
+
 ## Pestaña 2 · ⁂ Investigación completa (sección por sección)
 
 Cada sección = fila de chips + un visual + párrafo llano + "¿Te resultó útil?".
