@@ -25,6 +25,7 @@ import MemoriaCard from "./components/MemoriaCard";
 import SentimentCard, { type SentimentPart } from "./components/SentimentCard";
 import PredictionCard from "./components/PredictionCard";
 import NivelesTabs, { type NivelTab } from "./components/NivelesTabs";
+import NivelesConfirmadosCard from "./components/NivelesConfirmadosCard";
 import Cajon from "./components/Cajon";
 import ActivityCard from "./components/ActivityCard";
 import MoneyFlowCard from "./components/MoneyFlowCard";
@@ -650,6 +651,11 @@ export default function Dashboard() {
                   id: "perfil", label: "Perfil de gamma",
                   hint: "Cuánta gamma hay en cada strike: la verde frena el precio, la roja lo acelera.",
                   node: <ChartZoom label="GEX por strike — perfil de gamma"><GexHeatmapCard h={gexChart} /></ChartZoom>,
+                },
+                heatmap && {
+                  id: "vencimientos", label: "Por vencimiento",
+                  hint: "En cuántos vencimientos se repite cada muro: el que sale en tres aguanta más que el que sale en uno.",
+                  node: <NivelesConfirmadosCard ticker={ticker} heat={heatmap} />,
                 },
               ] as (NivelTab | null | false | undefined)[]).filter((t): t is NivelTab => Boolean(t))}
             />

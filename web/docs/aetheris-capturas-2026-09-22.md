@@ -125,6 +125,85 @@ debajo el **ROL PLANEADO** (esto es lo que vale):
 Al final: "Agregar un especialista — los especialistas personalizados están en el
 roadmap… Plantillas próximamente."
 
+### 3b. TEXTO EXACTO de cada agente (para programarlos sin la página)
+
+Copia literal de lo que dice cada tarjeta. La descripción va en español y los
+puntos del ROL PLANEADO están en inglés tal cual aparecen en la página. Cada
+tarjeta muestra además el mismo trío de estados:
+`MÓDULO: Beta · CONTROLES: Pronto · DATOS: Vista previa`, y dos botones muertos
+("Configuración próximamente", "Ejecuciones próximamente") con la etiqueta
+`roadmap`.
+
+**FND · Fundamentales** — señal de adorno: Bullish
+> "Lee reportes 10-K/Q y construye DCF y múltiplos comparables."
+ROL PLANEADO:
+- › connect filings and fundamentals
+- › separate facts from assumptions
+- › publish valuation notes
+- › track source quality
+
+**TCH · Técnicos** — Bullish
+> "Patrones, régimen, volatilidad y momentum."
+ROL PLANEADO:
+- › wire price regime signals
+- › normalize momentum inputs
+- › add timeframe controls
+- › explain invalidation levels
+
+**SNT · Sentimiento** — Bullish
+> "Noticias, transcripciones, redes y tono de analistas."
+ROL PLANEADO:
+- › add verified news lookup
+- › summarize transcript tone
+- › flag stale sources
+- › score source reliability
+
+**RSK · Riesgo** — Neutral
+> "Superficie de volatilidad, riesgo de cola y exposición a factores."
+ROL PLANEADO:
+- › model factor exposures
+- › add downside scenario checks
+- › surface liquidity risks
+- › explain confidence limits
+
+**MAC · Macro** — Cautious
+> "Tasas, divisas, materias primas y pronósticos de régimen."
+ROL PLANEADO:
+- › connect rates and FX context
+- › map macro pressure to sectors
+- › add regime notes
+- › show date-stamped evidence
+
+**SUP · Cadena de suministro** — Bullish
+> "Salud de proveedores, geopolítica y logística."
+ROL PLANEADO:
+- › map suppliers and customers
+- › watch logistics risk
+- › flag concentration exposure
+- › link source evidence
+
+**GOV · Gobernanza** — Bullish
+> "Consejo, compensación, litigios y señales ESG."
+ROL PLANEADO:
+- › track litigation and governance
+- › summarize board and comp signals
+- › flag regulatory events
+- › cite primary sources
+
+### 3c. Cómo va Nagimi contra esa lista (23-sep)
+
+| Rol planeado de Aetheris | En Nagimi |
+|---|---|
+| TCH · señales de régimen, momentum, marcos, niveles de invalidación | ✅ **Hecho** — `lib/agenteTecnico.ts`: medias 20/50, RSI, ATR% y el precio donde la lectura se invalida (el muro contrario) |
+| SNT · noticias verificadas, tono, marcar fuentes viejas | ✅ **Hecho** — `/api/agentes`: titulares del ticker, tono y aviso cuando la más reciente ya tiene días |
+| MAC · tasas y divisas, presión macro, notas de régimen con fecha | ✅ **Hecho** — `lib/agenteMacro.ts`: SPY/TLT/UUP/GLD a 20 sesiones, con la fecha implícita de las sesiones |
+| RSK · escenarios a la baja, riesgos de liquidez, límites de confianza | 🟡 **Parcial** — gamma skew (hacia dónde resbala) ✅; falta liquidez de la cadena y decir el límite de confianza |
+| SNT · puntuar la fiabilidad de cada fuente | ⬜ Falta |
+| TCH · control de marcos de tiempo dentro del agente | 🟡 El rango existe en la gráfica, no dentro del agente |
+| FND · filings, DCF, múltiplos | ⬜ No aquí: ese motor es el proyecto de acciones |
+| SUP · proveedores y logística | ⬜ Sin fuente de datos — no se finge |
+| GOV · litigios, consejo, compensación | ⬜ Sin fuente de datos — lo más cercano es "Sigue a los Grandes" (13F) |
+
 > **En Nagimi (22-sep):** `/agentes` ya tiene **11** agentes de verdad: los 6 que
 > puntúan (AGR, CNV, INU, EST, IV, PRE) + RSK (gamma skew) + CAT (earnings) +
 > **TCH** (medias 20/50, RSI, ATR y nivel de invalidación) + **SNT** (titulares,
