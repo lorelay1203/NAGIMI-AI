@@ -38,7 +38,8 @@ interface Resp {
 
 const d2 = (n: number) => `$${n.toFixed(2)}`;
 const d0 = (n: number) => `$${Math.round(n).toLocaleString("en-US")}`;
-const nivel = (n: number) => (n >= 1000 ? n.toLocaleString("en-US", { maximumFractionDigits: 2 }) : n.toFixed(2));
+/** 767 → "767", 772.83 → "772.83", 7725 → "7,725" (sin ".00" de relleno). */
+const nivel = (n: number) => n.toLocaleString("en-US", { minimumFractionDigits: 0, maximumFractionDigits: 2 });
 
 export default function TicketCard({ ticker, capital = 100 }: { ticker: string; capital?: number }) {
   const [data, setData] = useState<Resp | null>(null);
@@ -190,6 +191,12 @@ export default function TicketCard({ ticker, capital = 100 }: { ticker: string; 
           )}
 
           {t.warning && <div className="tk-aviso">⚠️ {t.warning}</div>}
+          {venceHoy && t.rbOption >= 2 && (
+            <div className="tk-aviso">
+              ⚠️ La ganancia de la meta puede estar inflada: en contratos que se acaban hoy el cálculo sale
+              optimista. Si se da una buena parte del camino, toma algo antes.
+            </div>
+          )}
 
           <div className="tk-pie">
             {venceHoy

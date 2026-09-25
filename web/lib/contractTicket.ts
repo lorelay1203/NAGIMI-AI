@@ -100,7 +100,9 @@ export interface Ticket {
   cost: number;       // mid × 100 — lo que pagas por 1 contrato
   risk: number;       // (mid − stopPx) × 100 — lo que pierdes si toca el stop
   gain: number;       // (targetPx − mid) × 100 — lo que ganas si llega al objetivo
+  /** Ganancia si llega a la meta, en % del precio pagado (587 = +587%). */
   gainPct: number;
+  /** Pérdida si toca la salida, en % del precio pagado. */
   lossPct: number;
   /** % de la cuenta que se arriesga con 1 contrato. */
   riskPctOfCapital: number | null;
@@ -122,7 +124,13 @@ export interface TicketResult {
   /** Por qué no hay contrato, cuando `ticket` es null. */
   reason: string | null;
   /** Cuántos strikes de la cadena se miraron y por qué se descartaron. */
-  rejected: { total: number; byDelta: number; byLiquidity: number; bySpread: number; byCost: number; byRisk: number };
+  rejected: {
+    total: number; byDelta: number; byLiquidity: number; bySpread: number; byCost: number; byRisk: number;
+    /** Lo más barato que costaba un candidato descartado por precio, en $. */
+    minCost?: number;
+    /** Lo menos que arriesgaba un candidato descartado por riesgo, en $. */
+    minRisk?: number;
+  };
 }
 
 /** Proyecta el precio de la opción a un nivel de la acción. Piso $0.05. */
@@ -142,7 +150,7 @@ export function pickTicket(
   params: TicketParams,
   capital?: number,
 ): TicketResult {
-  const rejected = { total: 0, byDelta: 0, byLiquidity: 0, bySpread: 0, byCost: 0, byRisk: 0 };
+  const rejected: TicketResult["rejected"] = { total: 0, byDelta: 0, byLiquidity: 0, bySpread: 0, byCost: 0, byRisk: 0 };
   if (!(spot > 0) || !(setup.target > 0) || !(setup.stop > 0)) {
     return { ticket: null, reason: "Faltan precios del setup.", rejected };
   }
@@ -170,7 +178,11 @@ export function pickTicket(
     if (spreadPct > params.maxSpreadPct) { rejected.bySpread++; continue; }
 
     const cost = mid * 100;
-    if (cost > params.maxCost) { rejected.byCost++; continue; }
+    if (cost > params.maxCost) {
+      rejected.byCost++;
+      rejected.minCost = Math.min(rejected.minCost ?? Infinity, cost);
+      continue;
+    }
 
     const deltaSigned = r.type === "call" ? ad : -ad;
     const targetPx = projectPx(mid, deltaSigned, r.gamma, dST);
@@ -178,7 +190,11 @@ export function pickTicket(
     const gain = targetPx - mid, loss = mid - stopPx;
     if (!(gain > 0) || !(loss > 0)) { rejected.byRisk++; continue; } // proyección incoherente
     const risk = loss * 100;
-    if (risk > params.maxRisk) { rejected.byRisk++; continue; }
+    if (risk > params.maxRisk) {
+      rejected.byRisk++;
+      rejected.minRisk = Math.min(rejected.minRisk ?? Infinity, risk);
+      continue;
+    }
 
     // Se elige la delta más cercana a la ideal; desempata el spread más apretado.
     const score = Math.abs(ad - params.deltaTarget) + spreadPct * 0.1;
@@ -190,7 +206,7 @@ export function pickTicket(
         volume: r.volume, oi: r.oi, spreadPct,
         targetPx, stopPx, rbOption: gain / loss,
         cost, risk, gain: gain * 100,
-        gainPct: gain / mid, lossPct: loss / mid,
+        gainPct: (gain / mid) * 100, lossPct: (loss / mid) * 100,
         riskPctOfCapital: capital && capital > 0 ? (risk / capital) * 100 : null,
         costPctOfCapital: capital && capital > 0 ? (cost / capital) * 100 : null,
         approxPop: ad * 100,
@@ -224,10 +240,20 @@ function popWarning(absDelta: number, rb: number): string | null {
 function explainRejection(r: TicketResult["rejected"], type: "call" | "put"): string {
   const kind = type === "call" ? "calls" : "puts";
   if (r.total === 0) return `La cadena no trae ${kind} para este vencimiento.`;
-  const worst = Math.max(r.byCost, r.byDelta, r.byLiquidity, r.bySpread, r.byRisk);
-  if (worst === r.byCost) return `Hay ${kind} que encajan con la idea, pero todas cuestan más de lo que permite tu cuenta.`;
-  if (worst === r.byRisk) return `Los contratos que caben pierden demasiado si la idea falla.`;
-  if (worst === r.byDelta) return `Ningún contrato ${type === "call" ? "a que sube" : "a que baja"} está a la distancia buscada del precio de hoy.`;
-  if (worst === r.bySpread) return `Hay mucha diferencia entre lo que ofrecen y lo que piden (poca gente negociando): entrar y salir saldría caro.`;
+  // Se explica el ÚLTIMO filtro donde se cayeron candidatos, no el que más
+  // descartó: la mayoría de la cadena siempre queda fuera por estar lejos del
+  // precio, y decir eso escondería la razón de verdad (casi siempre: cuestan
+  // o arriesgan demasiado para la cuenta).
+  const usd = (n: number) => `$${Math.round(n).toLocaleString("en-US")}`;
+  if (r.byRisk > 0) {
+    return r.minRisk != null
+      ? `Hay contratos que encajan con la idea, pero el que menos arriesga perdería ${usd(r.minRisk)} si falla: más de lo que permite tu cuenta.`
+      : `Hay contratos que encajan con la idea, pero con esta meta y esta salida la cuenta no sale a favor.`;
+  }
+  if (r.byCost > 0) {
+    return `Hay contratos que encajan con la idea, pero el más barato cuesta ${usd(r.minCost ?? 0)}: más de lo que permite tu cuenta.`;
+  }
+  if (r.bySpread > 0) return `Hay mucha diferencia entre lo que ofrecen y lo que piden (poca gente negociando): entrar y salir saldría caro.`;
+  if (r.byDelta > 0 && r.byLiquidity === 0) return `Ningún contrato ${type === "call" ? "a que sube" : "a que baja"} está a la distancia buscada del precio de hoy.`;
   return `No hay suficiente gente negociando estos contratos para esta fecha: sería difícil salir.`;
 }

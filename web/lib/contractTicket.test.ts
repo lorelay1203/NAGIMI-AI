@@ -78,6 +78,30 @@ describe("pickTicket", () => {
     expect(t.stopPx).toBeLessThan(t.mid);
   });
 
+  it("la ganancia y la pérdida vienen en % (587 = +587%), no en fracción", () => {
+    const t = pickTicket(LONG, 100, [row({})], params).ticket!;
+    expect(t.gainPct).toBeCloseTo(((t.targetPx - t.mid) / t.mid) * 100, 6);
+    expect(t.lossPct).toBeCloseTo(((t.mid - t.stopPx) / t.mid) * 100, 6);
+    expect(t.gainPct).toBeGreaterThan(10);   // una fracción daría ~2, no >10
+  });
+
+  it("explica el último filtro donde cayeron los buenos, no el que más descartó", () => {
+    // 20 contratos lejos del precio (fuera de la distancia buscada) y uno que
+    // encaja pero cuesta demasiado: la razón tiene que ser el precio.
+    const lejos = Array.from({ length: 20 }, (_, i) => row({ strike: 120 + i, delta: 0.05 }));
+    const caro = row({ bid: 20, ask: 20.4, delta: 0.5 });
+    const r = pickTicket(LONG, 100, [...lejos, caro], ticketParamsFor(1000));
+    expect(r.ticket).toBeNull();
+    expect(r.reason).toMatch(/el más barato cuesta \$2,020/);
+  });
+
+  it("si lo que falla es el riesgo, dice cuánto perdería el mejor", () => {
+    const r = pickTicket({ ...LONG, stop: 90 }, 100, [row({ bid: 3, ask: 3.1, delta: 0.5, gamma: 0 })], ticketParamsFor(800));
+    // con $800: puede pagar hasta $320 (cuesta $305) pero arriesgar solo $280 (perdería ~$300)
+    expect(r.ticket).toBeNull();
+    expect(r.reason).toMatch(/perdería \$\d/);
+  });
+
   it("descarta la horquilla muy abierta (poca liquidez)", () => {
     const r = pickTicket(LONG, 100, [row({ bid: 0.50, ask: 1.50 })], params);
     expect(r.ticket).toBeNull();
