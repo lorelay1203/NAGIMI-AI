@@ -72,15 +72,15 @@ export function porQueEscenario(
   const pegajoso = regimen === "positive";
   if (cual === "neutral") {
     return pegajoso
-      ? "Es el caso del imán: con gamma positiva la cobertura de los dealers frena los extremos y el precio se queda dando vueltas cerca del centro."
-      : "Es el caso de que no pase nada raro: el precio se queda cerca de donde está, aunque hoy la gamma negativa hace menos probable la calma.";
+      ? "Es el caso del imán: hoy es día de rango, o sea que los que vendieron los contratos frenan los extremos y el precio se queda dando vueltas cerca del centro."
+      : "Es el caso de que no pase nada raro: el precio se queda cerca de donde está, aunque hoy es día de empujón y eso hace menos probable la calma.";
   }
   const lado = cual === "alcista" ? "arriba" : "abajo";
   if (pegajoso) {
     return `El precio tendría que romper ${lado === "arriba" ? "el techo" : "el suelo"} de gamma y sostenerse. `
-      + `Con gamma positiva eso cuesta más, porque la cobertura empuja de vuelta al centro`
+      + `Hoy es día de rango, y eso cuesta más porque los que vendieron los contratos empujan de vuelta al centro`
       + `${esElMasProbable ? " — aun así, es el escenario con más peso hoy" : ""}.`;
   }
-  return `Con gamma negativa la cobertura empuja a favor del movimiento: si el precio arranca ${lado}, `
+  return `Hoy es día de empujón: los que vendieron los contratos empujan a favor, así que si el precio arranca ${lado}, `
     + `acelera en vez de frenarse${esElMasProbable ? ", y hoy es el lado con más peso" : ""}.`;
 }

@@ -129,6 +129,6 @@ describe("guía de estrategias", () => {
     const t = explicacion("straddle");
     expect(t).toMatch(/Riesgo:/);
     expect(t).toMatch(/cuenta chica/i);
-    expect(t).toMatch(/MISMO strike/);
+    expect(t).toMatch(/MISMO precio pactado/);
   });
 });

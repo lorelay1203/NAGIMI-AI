@@ -117,12 +117,12 @@ export default function InstitutionalCard({ row, onClose, onPick }: { row: FlowR
 
       {/* Las 8 lecturas */}
       <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(215px, 1fr))", gap: 10 }}>
-        <Read label="Premium" value={money(a.premium.value)} note={`${"⭐".repeat(a.premium.stars.count)} ${a.premium.stars.tier}`} />
+        <Read label="Dinero movido" value={money(a.premium.value)} note={`${"⭐".repeat(a.premium.stars.count)} ${a.premium.stars.tier}`} />
         <Read label="Tamaño" value={`${int.format(a.size.contracts)} contratos`} note={`= ${int.format(a.size.shares)} acciones · Notional ≈ ${money(a.size.notional)}`} />
-        <Read label="Strike / Moneyness" value={a.moneyness.label} note={a.moneyness.note}
+        <Read label="Qué tan lejos está el precio pactado" value={a.moneyness.label} note={a.moneyness.note}
           color={a.moneyness.label.includes("ITM") ? "#4ad991" : a.moneyness.label === "ATM" ? "#f5c451" : "var(--text)"} />
         <Read label="Delta" value={Math.abs(a.delta.value).toFixed(2)} note={a.delta.read} />
-        <Read label="Vencimiento (DTE)" value={`${a.dte.value ?? "?"}d · ${a.dte.bucket}`} note={a.dte.note} />
+        <Read label="Cuándo se acaba" value={`${a.dte.value ?? "?"}d · ${a.dte.bucket}`} note={a.dte.note} />
         <Read label="Bid / Ask" value={a.bidAsk.tone === "bull" ? "Agresivo alcista" : a.bidAsk.tone === "bear" ? "Agresivo bajista" : "Sin urgencia"} note={a.bidAsk.read}
           color={a.bidAsk.tone === "bull" ? "#4ad991" : a.bidAsk.tone === "bear" ? "#ff8a82" : "var(--text)"} />
         <Read label="Open Interest" value={a.oi.newPosition ? "Nueva posición" : "Ajuste / cierre"} note={`Vol ${int.format(a.oi.volume)} vs OI ${int.format(a.oi.openInterest)} — ${a.oi.read}`}

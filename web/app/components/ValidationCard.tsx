@@ -109,7 +109,7 @@ export default function ValidationCard({ s }: { s: ValidationScore }) {
                   <th>Fecha del flow</th>
                   <th>Contrato</th>
                   <th>Apuesta</th>
-                  <th className="num">Premium</th>
+                  <th className="num">Dinero movido</th>
                   <th className="num">A favor</th>
                   <th className="num">En contra</th>
                   <th className="num">Tardó</th>

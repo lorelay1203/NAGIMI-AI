@@ -32,13 +32,13 @@ export default function StructureCard({ s, history = [] }: { s: StructureScore; 
 
           <div className="cv-metrics">
             <div className="cv-metric">
-              <div className="cv-metric-label">Nocional promedio</div>
+              <div className="cv-metric-label">Dinero movido por contrato</div>
               <div className="cv-metric-value">{money.format(s.notional.avgPerStrike)}</div>
               <div className="cv-metric-pts">{s.notional.points}<span className="muted">/10</span></div>
               <div className="cv-metric-hint muted">por strike · {int.format(s.notional.strikeCount)} strikes</div>
             </div>
             <div className="cv-metric">
-              <div className="cv-metric-label">Strikes con dominio</div>
+              <div className="cv-metric-label">Precios donde manda un lado</div>
               <div className="cv-metric-value">
                 {s.strikes.dominantCount}<span className="muted" style={{ fontSize: 14 }}>/{s.strikes.consideredCount}</span>
               </div>
@@ -91,7 +91,7 @@ export default function StructureCard({ s, history = [] }: { s: StructureScore; 
                 <table>
                   <thead>
                     <tr>
-                      <th>Strike</th><th>Nocional</th><th>% del total</th>
+                      <th>Precio pactado</th><th>Dinero movido</th><th>% del total</th>
                       <th>Lado</th><th>Dominio</th><th>Open Interest</th><th>Volumen</th>
                     </tr>
                   </thead>
@@ -124,7 +124,7 @@ export default function StructureCard({ s, history = [] }: { s: StructureScore; 
                 <table>
                   <thead>
                     <tr>
-                      <th className="left">Vencimiento</th><th>Nocional</th>
+                      <th className="left">Cuándo se acaba</th><th>Dinero movido</th>
                       <th>% del total</th><th>Contratos</th><th>Sesgo</th>
                     </tr>
                   </thead>
@@ -172,8 +172,8 @@ export default function StructureCard({ s, history = [] }: { s: StructureScore; 
               <table>
                 <thead>
                   <tr>
-                    <th className="left">Día</th><th>Score</th><th>Nocional prom.</th>
-                    <th>Strikes c/dominio</th><th>Vol &gt; OI</th><th>Calls / Puts</th>
+                    <th className="left">Día</th><th>Nota</th><th>Dinero por contrato</th>
+                    <th>Precios con dueño</th><th>Nuevos &gt; viejos</th><th>Suben / Bajan</th>
                   </tr>
                 </thead>
                 <tbody>

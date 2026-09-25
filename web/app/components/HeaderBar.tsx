@@ -24,6 +24,8 @@ const PAGINAS: [RegExp, string][] = [
   [/^reportes?$/i, "/reportes"],
   [/^(conexiones|schwab)$/i, "/schwab"],
   [/^(marketsnack|cookie)$/i, "/cookie"],
+  [/^(glosario|diccionario)$/i, "/glosario"],
+  [/^(mapa|mapa gex|gex map)$/i, "/mapa"],
   [/^gu[ií]a$/i, "/guia"],
 ];
 

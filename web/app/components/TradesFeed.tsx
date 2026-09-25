@@ -16,9 +16,9 @@ function contractLabel(r: UnusualRow): string {
 
 function signalFor(r: UnusualRow): string {
   const s: string[] = [];
-  if (r.aggression === "ask") s.push("Compra agresiva al ask");
-  else if (r.aggression === "bid") s.push("Venta al bid");
-  if (r.flags.exceededOI) s.push("vol > interés abierto");
+  if (r.aggression === "ask") s.push("Compró con prisa (pagó lo que pedían)");
+  else if (r.aggression === "bid") s.push("Vendió con prisa (aceptó lo que ofrecían)");
+  if (r.flags.exceededOI) s.push("más contratos nuevos que viejos");
   if (r.flags.repeated) s.push("comprador repetido");
   if (r.flags.multileg) s.push("estrategia combinada");
   else if (r.flags.leap) s.push("apuesta a largo plazo");
@@ -53,7 +53,7 @@ export default function TradesFeed({ rows }: { rows: UnusualRow[] }) {
             el agente lo marca y puntúa qué tan inusual es.
           </div>
           <div className="feed-head" style={{ gridTemplateColumns: GRID }}>
-            <div>Hora</div><div>Contrato</div><div>Tipo</div><div>Contratos</div><div>Premium</div><div>Señal</div><div style={{ textAlign: "right" }}>Score</div>
+            <div>Hora</div><div>Contrato</div><div>Tipo</div><div>Contratos</div><div>Dinero movido</div><div>Señal</div><div style={{ textAlign: "right" }}>Nota</div>
           </div>
           <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
             {top.map((r) => {

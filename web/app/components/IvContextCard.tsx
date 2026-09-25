@@ -162,7 +162,7 @@ export default function IvContextCard({ s }: { s: IvContextScore }) {
                   <th>Contrato</th>
                   <th>Tipo</th>
                   <th>Vencimiento</th>
-                  <th className="num">IV</th>
+                  <th className="num">Nerviosismo</th>
                   <th className="num">Contratos</th>
                   <th className="num">Premium</th>
                 </tr>

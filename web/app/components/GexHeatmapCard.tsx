@@ -65,7 +65,7 @@ export default function GexHeatmapCard({ h }: { h: GexHeatmap }) {
       <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 16, flexWrap: "wrap" }}>
         <div>
           <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-            <div className="pro-title">GEX por strike — perfil de gamma</div>
+            <div className="pro-title">Dinero de opciones apilado en cada precio</div>
             <span className="pro-badge">PRO</span>
           </div>
           <div className="pro-sub">
@@ -85,7 +85,7 @@ export default function GexHeatmapCard({ h }: { h: GexHeatmap }) {
       </div>
 
       <div style={{ overflowX: "auto" }}>
-        <svg viewBox={`0 0 ${W} ${Hh}`} width="100%" role="img" aria-label="Perfil de GEX por strike" style={{ display: "block", minWidth: 560 }}>
+        <svg viewBox={`0 0 ${W} ${Hh}`} width="100%" role="img" aria-label="Dinero de opciones apilado en cada precio" style={{ display: "block", minWidth: 560 }}>
           {/* Rejilla + eje Y */}
           {yLevels.map((v) => (
             <g key={v}>
@@ -129,10 +129,10 @@ export default function GexHeatmapCard({ h }: { h: GexHeatmap }) {
 
       <div className="heat-foot">
         <div>
-          <span className="muted">GEX neto total: </span>
+          <span className="muted">Dinero apilado en total: </span>
           <b style={{ color: h.totalNetGex >= 0 ? POS : NEG }}>{fmtGex(h.totalNetGex)}</b>
           <span className="muted">
-            {" "}— régimen {h.totalNetGex >= 0 ? "γ+ (rango: conviene desvanecer extremos)" : "γ− (tendencia: conviene seguir el movimiento)"}
+            {" "}— régimen {h.totalNetGex >= 0 ? "γ+ (rango: conviene desvanecer extremos)" : "Día de empujón: conviene seguir el movimiento"}
           </span>
         </div>
         {hover ? (

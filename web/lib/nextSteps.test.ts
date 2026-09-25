@@ -108,7 +108,7 @@ function session(o: Partial<DaySession> = {}): DaySession {
     ticker: "SPY", sessionDate: "2026-09-08", delayed: false, price: 770,
     score: 6, bias: "alcista", regime: "positive", regimeNote: "Gamma positiva: la sesión tiende a RANGO.",
     flow: null, aggression: null, vwapCard: { score: 6, note: "" }, channelCard: { score: 6, note: "" },
-    vwap: 768, vwapDelta: 2, openRangeLow: 765, openRangeHigh: 772, openRangeClosed: true,
+    vwap: 768, vwapDelta: 2, volume: 52_000_000, openRangeLow: 765, openRangeHigh: 772, openRangeClosed: true,
     dayHigh: 774, dayLow: 764, rangePct: 1.2, atrPct: 0.8, open: 767, prevClose: 766,
     callWall: 775, magnet: 770, putWall: 762, channelPct: 60, callWallDeltaPct: 0.6, putWallDeltaPct: -1.0,
     gexSource: "marketsnack", prints: null,

@@ -236,7 +236,7 @@ export default function DayTradesPage() {
           <div style={grid4}>
             <ScoreTile label="Flujo de hoy" card={s.flow} />
             <ScoreTile label="Agresividad" card={s.aggression} />
-            <ScoreTile label="Precio vs VWAP" card={s.vwapCard} />
+            <ScoreTile label="Precio vs. promedio del día" card={s.vwapCard} />
             <ScoreTile label="Canal de gamma" card={s.channelCard} />
           </div>
 
@@ -244,7 +244,7 @@ export default function DayTradesPage() {
           <div>
             <SectionHead icon="📍" title="Niveles de la sesión" sub="los precios de referencia del día" />
             <div style={grid4}>
-              <InfoTile label="VWAP" value={money(s.vwap)} color="var(--accent)"
+              <InfoTile label="Promedio del día" value={money(s.vwap)} color="var(--accent)"
                 note={s.vwapDelta == null ? undefined : `precio ${s.vwapDelta >= 0 ? "por encima" : "por debajo"} (${s.vwapDelta >= 0 ? "+" : ""}${s.vwapDelta.toFixed(2)})`} />
               <InfoTile label="Rango de apertura · 30 min"
                 value={s.openRangeLow != null ? `${money(s.openRangeLow)} – ${money(s.openRangeHigh)}` : "—"} note="cerrado" />
@@ -257,14 +257,14 @@ export default function DayTradesPage() {
           </div>
 
           {/* Gráfica de GEX estilo MarketSnack (precio + muros e imán) */}
-          {msGex && <ChartZoom label="GEX en vivo — precio, muros e imán"><MarketSnackGexCard data={msGex} /></ChartZoom>}
+          {msGex && <ChartZoom label="Muros en vivo — precio, techo, suelo e imán"><MarketSnackGexCard data={msGex} /></ChartZoom>}
 
           {/* Escalera de gamma por strike (horizontal, tipo MarketSnack) */}
-          {heat && <ChartZoom label="Escalera de gamma por strike"><GexLadderCard h={heat} callWall={s.callWall} putWall={s.putWall} magnet={s.magnet} /></ChartZoom>}
+          {heat && <ChartZoom label="Escalera de gamma por precio pactado"><GexLadderCard h={heat} callWall={s.callWall} putWall={s.putWall} magnet={s.magnet} /></ChartZoom>}
 
           {/* Canal de gamma en vivo */}
           <div>
-            <SectionHead icon="🐍" title="Canal de gamma en vivo" sub="dónde el dealer frena o acelera hoy" />
+            <SectionHead icon="🐍" title="Canal de gamma en vivo" sub="dónde el que vende los contratos frena o acelera hoy" />
             <div style={grid4}>
               <InfoTile label="Muro de calls (techo)" value={money(s.callWall)} color="#12b76a"
                 note={s.callWallDeltaPct != null ? `${s.callWallDeltaPct >= 0 ? "+" : ""}${s.callWallDeltaPct.toFixed(2)}% desde aquí` : undefined} />
@@ -281,13 +281,13 @@ export default function DayTradesPage() {
           {/* Dinero de hoy (prints) — flujo real de MarketSnack */}
           <div>
             <SectionHead icon="💰" title="Dinero de hoy"
-              sub={s.prints ? `${s.prints.count} prints · ${bigMoney(s.prints.premiumTotal)} en prima` : "las apuestas grandes por strike de hoy"} />
+              sub={s.prints ? `${s.prints.count} prints · ${bigMoney(s.prints.premiumTotal)} en prima` : "las apuestas grandes por precio pactado de hoy"} />
             {s.prints && s.prints.byStrike.length > 0 ? (
               <div className="card" style={{ padding: 0, overflow: "hidden" }}>
                 <div style={{ overflowX: "auto" }}>
                   <table style={{ width: "100%", borderCollapse: "collapse", minWidth: 460 }}>
                     <thead><tr>
-                      <th style={dth}>Strike</th>
+                      <th style={dth}>Precio pactado</th>
                       <th style={{ ...dth, textAlign: "right" }}>Dinero</th>
                       <th style={{ ...dth, textAlign: "right" }}>En calls</th>
                       <th style={{ ...dth, textAlign: "right" }}>En puts</th>
@@ -318,7 +318,7 @@ export default function DayTradesPage() {
 
           {/* Ideas */}
           <div>
-            <SectionHead icon="💡" title="Ideas de la sesión" sub="arma la orden con vencimiento de mañana (1DTE), con stop-loss" />
+            <SectionHead icon="💡" title="Ideas de la sesión" sub="arma la orden para que se acabe mañana, con su tope de pérdida" />
             {data!.ideas.length === 0 ? (
               <div className="card" style={{ color: "var(--muted)", fontSize: 13 }}>Sin ideas claras ahora. Espera a que el precio se acerque a un muro.</div>
             ) : (

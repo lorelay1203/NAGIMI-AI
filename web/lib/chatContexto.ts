@@ -154,7 +154,7 @@ export function construirContextoChat(input: ContextoChatInput): ContextoChat {
   const faltantes: string[] = [];
   if (precio == null) faltantes.push("el precio actual");
   if (direccion == null) faltantes.push("la dirección que ve el agente");
-  if (regimen == null) faltantes.push("el régimen de gamma (positiva o negativa)");
+  if (regimen == null) faltantes.push("si el día es de rango o de empujón");
   if (muroCalls == null && muroPuts == null) faltantes.push("los muros de calls y puts");
   if (iman == null) faltantes.push("el precio imán");
   if (sup == null && res == null) faltantes.push("los soportes y resistencias");

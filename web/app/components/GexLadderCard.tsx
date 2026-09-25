@@ -71,7 +71,7 @@ export default function GexLadderCard({ h, callWall, putWall, magnet }: {
         </div>
         {/* Selector de cuántos strikes mostrar */}
         <div style={{ display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap" }}>
-          <span style={{ fontSize: 11, color: "var(--muted)", fontWeight: 700 }}>Strikes:</span>
+          <span style={{ fontSize: 11, color: "var(--muted)", fontWeight: 700 }}>Precios pactados:</span>
           {SHOWN.map((n) => (
             <button key={n} type="button" onClick={() => setShown(n)}
               style={{ fontSize: 12, fontWeight: 700, padding: "3px 9px", borderRadius: 7, cursor: "pointer",
@@ -87,7 +87,7 @@ export default function GexLadderCard({ h, callWall, putWall, magnet }: {
       {/* Encabezado de columnas */}
       <div style={{ display: "flex", alignItems: "center", fontSize: 10.5, color: "var(--muted)", fontWeight: 700, padding: "0 2px 4px", borderBottom: "1px solid var(--border)" }}>
         <div style={{ flex: 1, textAlign: "left" }}>◄ PUTS (gamma)</div>
-        <div style={{ width: 92, textAlign: "center" }}>Strike</div>
+        <div style={{ width: 92, textAlign: "center" }}>Precio pactado</div>
         <div style={{ flex: 1, textAlign: "right" }}>CALLS (gamma) ►</div>
       </div>
 
@@ -102,7 +102,7 @@ export default function GexLadderCard({ h, callWall, putWall, magnet }: {
           const callW = (s.callGex / maxMag) * 100;
           const badge = isCW ? "🟢 CW" : isPW ? "🔴 PW" : isMag ? "🧲" : "";
           return (
-            <div key={s.strike} title={`Strike $${px.format(s.strike)} · calls ${fmtGex(s.callGex)} · puts ${fmtGex(s.putGex)} · OI ${Math.round(s.openInterest).toLocaleString()}`}
+            <div key={s.strike} title={`Precio pactado $${px.format(s.strike)} · calls ${fmtGex(s.callGex)} · puts ${fmtGex(s.putGex)} · OI ${Math.round(s.openInterest).toLocaleString()}`}
               style={{ display: "flex", alignItems: "center", gap: 6, background: isSpot ? "rgba(77,139,255,.12)" : "transparent", borderRadius: 6, padding: "1px 2px" }}>
               {/* PUTS: barra roja a la izquierda + magnitud */}
               <div style={{ flex: 1, display: "flex", alignItems: "center", justifyContent: "flex-end", gap: 5 }}>

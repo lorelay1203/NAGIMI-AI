@@ -211,11 +211,11 @@ export function pickTicket(
 function popWarning(absDelta: number, rb: number): string | null {
   const pop = Math.round(absDelta * 100);
   if (absDelta < 0.25 && rb > 5) {
-    return `Ojo: se ve un premio grande porque es POCO probable (~${pop}% de acabar dentro del dinero). `
-      + `Lo más habitual es que este contrato expire sin valor. Arriesga solo lo que puedas perder entero.`;
+    return `Ojo: se ve un premio grande porque es POCO probable (~${pop}% de terminar valiendo algo). `
+      + `Lo más normal es que este contrato se acabe valiendo cero. Pon solo lo que puedas perder completo.`;
   }
   if (absDelta < 0.35) {
-    return `Probabilidad baja (~${pop}%): es una apuesta barata, cuenta con perderla completa a menudo.`;
+    return `Probabilidad baja (~${pop}%): es una apuesta barata, cuenta con perderla completa muchas veces.`;
   }
   return null;
 }
@@ -226,8 +226,8 @@ function explainRejection(r: TicketResult["rejected"], type: "call" | "put"): st
   if (r.total === 0) return `La cadena no trae ${kind} para este vencimiento.`;
   const worst = Math.max(r.byCost, r.byDelta, r.byLiquidity, r.bySpread, r.byRisk);
   if (worst === r.byCost) return `Hay ${kind} que encajan con la idea, pero todas cuestan más de lo que permite tu cuenta.`;
-  if (worst === r.byRisk) return `Los contratos que caben arriesgan más de la cuenta si toca el stop.`;
-  if (worst === r.byDelta) return `Ningún ${type === "call" ? "call" : "put"} cae en la banda de delta buscada.`;
-  if (worst === r.bySpread) return `Los contratos tienen la horquilla muy abierta (poca liquidez): entrar y salir saldría caro.`;
-  return `No hay ${kind} con liquidez suficiente (volumen/interés abierto) en este vencimiento.`;
+  if (worst === r.byRisk) return `Los contratos que caben pierden demasiado si la idea falla.`;
+  if (worst === r.byDelta) return `Ningún contrato ${type === "call" ? "a que sube" : "a que baja"} está a la distancia buscada del precio de hoy.`;
+  if (worst === r.bySpread) return `Hay mucha diferencia entre lo que ofrecen y lo que piden (poca gente negociando): entrar y salir saldría caro.`;
+  return `No hay suficiente gente negociando estos contratos para esta fecha: sería difícil salir.`;
 }

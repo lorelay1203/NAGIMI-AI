@@ -19,7 +19,7 @@ export function buildRepeatCounts(rows: FlowRow[]): Map<string, number> {
 
 export default function RepeatBadge({ count }: { count: number }) {
   return (
-    <span className="repeat-badge" title={`Contrato repetido — ${count} operaciones sobre el mismo strike`}>
+    <span className="repeat-badge" title={`Contrato repetido — ${count} operaciones sobre el mismo precio pactado`}>
       🔁 ×{Math.max(count, 2)}
     </span>
   );

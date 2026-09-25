@@ -133,7 +133,7 @@ export default function RadarCard({ onPick }: { onPick: (ticker: string) => void
                   <th style={th}>Contrato</th>
                   <th style={th}>Precio</th>
                   <th style={th}>Cambio hoy</th>
-                  <th style={th}>Premium</th>
+                  <th style={th}>Dinero movido</th>
                   <th style={th}>Volumen</th>
                 </tr>
               </thead>

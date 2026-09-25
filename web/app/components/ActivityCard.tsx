@@ -69,11 +69,11 @@ export default function ActivityCard({ rows, unusualCount }: { rows: FlowRow[]; 
 
       <div className="act-stats">
         <div>
-          <div className="act-stat-label">Premium en calls (últ. día)</div>
+          <div className="act-stat-label">Dinero apostado a que sube (últ. día)</div>
           <div className="act-stat-value" style={{ color: "#12b76a" }}>{today ? money.format(today.call) : "—"}</div>
         </div>
         <div>
-          <div className="act-stat-label">Premium en puts (últ. día)</div>
+          <div className="act-stat-label">Dinero apostado a que baja (últ. día)</div>
           <div className="act-stat-value" style={{ color: "#f04438" }}>{today ? money.format(today.put) : "—"}</div>
         </div>
         <div>

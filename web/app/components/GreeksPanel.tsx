@@ -67,10 +67,10 @@ export default function GreeksPanel({ ticker, expiration, legs }: { ticker: stri
               <th style={{ ...th, textAlign: "left" }}>Pata</th>
               <th style={th}>Precio</th>
               <th style={th}>Δ Delta</th>
-              <th style={th}>Γ Gamma</th>
-              <th style={th}>Θ Theta</th>
+              <th style={th}>Acelerón</th>
+              <th style={th}>Gotea por día</th>
               <th style={th}>Vega</th>
-              <th style={th}>IV</th>
+              <th style={th}>Nerviosismo</th>
               <th style={th}>Vol</th>
               <th style={th}>OI</th>
             </tr>

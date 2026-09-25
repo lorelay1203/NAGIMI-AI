@@ -48,7 +48,7 @@ export const GUIA: Record<StratKind, GuiaEstrategia> = {
       + "Cobras la prima de los dos que vendiste. Si al vencimiento el precio quedó entre medias, te quedas con todo lo cobrado.",
     cuandoUsarla: "Cuando esperas que la acción se quede tranquila, sin subidas ni caídas fuertes.",
     riesgo: "Si el precio se dispara o se desploma más allá de tus alas, pierdes bastante más de lo que cobraste.",
-    cuentaChica: "Son cuatro patas: cuesta más colateral que un spread simple. Suele ser lo primero que no cabe con poco dinero.",
+    cuentaChica: "Son cuatro patas: cuesta más dinero congelado que un spread simple. Suele ser lo primero que no cabe con poco dinero.",
   },
   put_credit: {
     kind: "put_credit", nombre: "Credit Put Spread", familia: "vender", sesgo: "alcista",
@@ -57,8 +57,8 @@ export const GUIA: Record<StratKind, GuiaEstrategia> = {
       "Vendes un put y compras otro más abajo para limitar la pérdida. Cobras la diferencia. "
       + "Mientras la acción se quede por encima del put que vendiste, te quedas con la prima.",
     cuandoUsarla: "Cuando crees que la acción sube o al menos no cae. No hace falta que suba: basta con que no baje.",
-    riesgo: "Si cae por debajo, pierdes hasta la diferencia entre los dos strikes, menos lo que cobraste.",
-    cuentaChica: "Es la venta de prima más barata. Elige strikes juntos: cuanto más estrechos, menos colateral.",
+    riesgo: "Si cae por debajo, pierdes hasta la diferencia entre los dos precios pactados, menos lo que cobraste.",
+    cuentaChica: "Es la venta de prima más barata. Elige precios pactados juntos: cuanto más estrechos, menos dinero congelado.",
   },
   call_credit: {
     kind: "call_credit", nombre: "Credit Call Spread", familia: "vender", sesgo: "bajista",
@@ -67,7 +67,7 @@ export const GUIA: Record<StratKind, GuiaEstrategia> = {
       "El espejo del anterior: vendes un call y compras otro más arriba como tope. "
       + "Mientras la acción se quede por debajo del call que vendiste, te quedas con la prima.",
     cuandoUsarla: "Cuando crees que la acción baja o se estanca, o que ya llegó a un techo.",
-    riesgo: "Si rompe hacia arriba, pierdes hasta la diferencia entre strikes menos la prima cobrada.",
+    riesgo: "Si rompe hacia arriba, pierdes hasta la diferencia entre precios pactados menos la prima cobrada.",
     cuentaChica: "Igual de accesible que el put spread. Ojo con las acciones que pueden dispararse por noticias.",
   },
 
@@ -77,7 +77,7 @@ export const GUIA: Record<StratKind, GuiaEstrategia> = {
     apuesta: "A que el precio SUBE, y bastante.",
     comoFunciona:
       "Compras un call y ya está: una sola pata. Pagas la prima y eso es todo lo que puedes perder. "
-      + "Si la acción sube por encima de tu strike más lo que pagaste, empiezas a ganar, y la ganancia no tiene techo.",
+      + "Si la acción sube por encima de tu precio pactado más lo que pagaste, empiezas a ganar, y la ganancia no tiene techo.",
     cuandoUsarla: "Cuando esperas un movimiento al alza claro y pronto. Es la más sencilla de entender y ejecutar.",
     riesgo: "Si la acción no se mueve o baja, pierdes toda la prima. Y el tiempo juega en tu contra cada día.",
     cuentaChica: "La favorita con poco dinero: se compra un solo contrato barato y nunca pierdes más de lo que pagaste.",
@@ -87,7 +87,7 @@ export const GUIA: Record<StratKind, GuiaEstrategia> = {
     apuesta: "A que el precio BAJA, y bastante.",
     comoFunciona:
       "Compras un put. Pagas la prima y eso es tu pérdida máxima. "
-      + "Si la acción cae por debajo de tu strike menos lo que pagaste, empiezas a ganar.",
+      + "Si la acción cae por debajo de tu precio pactado menos lo que pagaste, empiezas a ganar.",
     cuandoUsarla: "Cuando esperas una caída, o para proteger acciones que ya tienes.",
     riesgo: "Si la acción sube o se queda quieta, pierdes toda la prima. El tiempo también corre en tu contra.",
     cuentaChica: "Tan accesible como el call simple. Sirve para aprovechar caídas sin tener que vender nada en corto.",
@@ -99,7 +99,7 @@ export const GUIA: Record<StratKind, GuiaEstrategia> = {
       "Compras un call y vendes otro más arriba. Lo que cobras por el segundo abarata el primero, "
       + "a cambio de poner un techo a la ganancia. Sale bastante más barato que el call solo.",
     cuandoUsarla: "Cuando crees que sube pero no esperas un cohete, o cuando el call solo se te sale de presupuesto.",
-    riesgo: "Pierdes lo que pagaste si no sube. La ganancia está topada en la diferencia de strikes.",
+    riesgo: "Pierdes lo que pagaste si no sube. La ganancia está topada en la diferencia de precios pactados.",
     cuentaChica: "Muy útil: convierte un call de $200 en uno de $60. Riesgo topado y coste bajo.",
   },
   put_debit: {
@@ -115,7 +115,7 @@ export const GUIA: Record<StratKind, GuiaEstrategia> = {
     kind: "straddle", nombre: "Straddle", familia: "comprar", sesgo: "movimiento",
     apuesta: "A que se mueve MUCHO, sin importar hacia dónde.",
     comoFunciona:
-      "Compras un call y un put del MISMO strike, al precio actual. Si la acción se dispara ganas con el call; "
+      "Compras un call y un put del MISMO precio pactado, al precio actual. Si la acción se dispara ganas con el call; "
       + "si se desploma ganas con el put. Te da igual la dirección: lo que necesitas es que se mueva fuerte.",
     cuandoUsarla: "Antes de algo que puede sacudir la acción — resultados, una decisión de la Fed, una noticia esperada.",
     riesgo:
@@ -127,7 +127,7 @@ export const GUIA: Record<StratKind, GuiaEstrategia> = {
     kind: "strangle", nombre: "Strangle", familia: "comprar", sesgo: "movimiento",
     apuesta: "A que se mueve mucho, pagando menos que el straddle.",
     comoFunciona:
-      "Igual que el straddle pero con strikes separados: compras un call por encima y un put por debajo del precio. "
+      "Igual que el straddle pero con precios pactados separados: compras un call por encima y un put por debajo del precio. "
       + "Al estar más lejos, las dos opciones cuestan bastante menos.",
     cuandoUsarla: "Cuando esperas un movimiento fuerte y quieres pagar menos que en un straddle.",
     riesgo: "Necesita un movimiento AÚN MAYOR para ganar, porque partes más lejos. Si no llega, pierdes las dos primas.",

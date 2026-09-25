@@ -4,7 +4,7 @@
 const FEATURES: { icon: string; title: string; desc: string }[] = [
   { icon: "🤖", title: "Motor automático", desc: "Escanea el mercado solo y encuentra trades con la probabilidad de ganar que tú elijas — que quepan en tu capital." },
   { icon: "💡", title: "¿Qué hago con mi dinero?", desc: "Escribe cuánto tienes y te muestra todas las estrategias que caben, con probabilidad, costo y riesgo." },
-  { icon: "🎡", title: "Wheel · ingresos con puts", desc: "Screener de venta de puts en versión spread (cuenta chica): riesgo topado, no colateral gigante." },
+  { icon: "🎡", title: "Wheel · ingresos con puts", desc: "Screener de venta de puts en versión spread (cuenta chica): riesgo topado, no dinero congelado gigante." },
   { icon: "🧱", title: "Muros de dinero (GEX)", desc: "Ve dónde está apostado el dinero grande: call wall, put wall, imán y hacia dónde jala el precio." },
   { icon: "📝", title: "Paper trading", desc: "Prueba cada estrategia con dinero de mentira antes de arriesgar el tuyo. Mide si de verdad gana." },
   { icon: "🍒", title: "Semi-automático seguro", desc: "El agente arma la orden y tú das el clic final en tu bróker. Con stop-loss recomendado en cada trade." },

@@ -75,7 +75,7 @@ export default function PrimaPage() {
   return (
     <main className="wrap page-stack" style={{ maxWidth: 980 }}>
       <div className="page-head">
-        <div className="eyebrow">Spreads de crédito 0DTE</div>
+        <div className="eyebrow">Ventas con techo de pérdida que se acaban hoy</div>
         <h1>🎯 Venta de Prima</h1>
         <p>
           Cobras por adelantado y ganas si el precio NO llega a cierto nivel antes del cierre.

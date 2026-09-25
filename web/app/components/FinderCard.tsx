@@ -87,7 +87,7 @@ export default function FinderCard() {
         <label style={{ fontSize: 12, color: "var(--muted)", fontWeight: 700 }}>
           Plazo
           <div style={{ display: "flex", gap: 5, marginTop: 4 }}>
-            {([["1dte", "1DTE (mañana)"], ["corto", "Corto (3-14d)"], ["mes", "~1 mes"]] as const).map(([tm, lbl]) => (
+            {([["1dte", "Vence mañana"], ["corto", "Corto (3-14 días)"], ["mes", "~1 mes"]] as const).map(([tm, lbl]) => (
               <button key={tm} type="button" onClick={() => setTerm(tm)}
                 style={{ padding: "6px 10px", borderRadius: 6, cursor: "pointer", fontSize: 12, fontWeight: 700, border: term === tm ? "1px solid var(--accent)" : "1px solid var(--border)", background: term === tm ? "var(--accent)" : "transparent", color: term === tm ? "#fff" : "var(--text)" }}>
                 {lbl}

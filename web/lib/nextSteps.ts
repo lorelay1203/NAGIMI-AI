@@ -122,12 +122,12 @@ export function buildNextSteps(
         ? {
             id: "gex-regimen",
             tipo: "riesgo",
-            texto: `Hoy el mercado está en gamma positiva: tiende a moverse poco y volver hacia ${money(gex.kingStrike)}. No esperes un movimiento grande de un solo golpe.`,
+            texto: `Hoy es día de rango: el precio tiende a moverse poco y volver hacia ${money(gex.kingStrike)}. No esperes un movimiento grande de un solo golpe.`,
           }
         : {
             id: "gex-regimen",
             tipo: "riesgo",
-            texto: `Hoy el mercado está en gamma negativa: los movimientos pueden acelerarse más de lo normal, en cualquier dirección. Ten el stop más ancho de lo usual.`,
+            texto: `Hoy es día de empujón: los movimientos pueden acelerarse más de lo normal, para cualquier lado. Ten el stop más ancho de lo usual.`,
           },
     );
   }
@@ -181,7 +181,7 @@ export function buildSessionNextSteps(session: DaySession): NextStep[] {
       steps.push({
         id: "iman-hoy",
         tipo: "meta",
-        texto: `Con gamma positiva, hoy el precio tiende a volver hacia el imán en ${money(session.magnet)} (${dif > 0 ? "arriba" : "abajo"} del precio actual).`,
+        texto: `Hoy es día de rango: el precio tiende a volver hacia el imán en ${money(session.magnet)} (${dif > 0 ? "arriba" : "abajo"} del precio actual).`,
       });
     }
   }
@@ -329,7 +329,7 @@ export function buildWheelNextSteps(rows: AffordableCandidate[], cash: number): 
       id: "wheel-sin-alcance",
       tipo: "riesgo",
       texto: masBarato?.metrics
-        ? `Ninguno de los candidatos de hoy cabe en tus ${money(cash)}. El más barato (${masBarato.ticker}) pide ${money(masBarato.metrics.collateral)} de colateral — te faltarían ${money(masBarato.afford.shortfall)}.`
+        ? `Ninguno de los candidatos de hoy cabe en tus ${money(cash)}. El más barato (${masBarato.ticker}) pide ${money(masBarato.metrics.collateral)} de dinero congelado — te faltarían ${money(masBarato.afford.shortfall)}.`
         : `Ninguno de los candidatos de hoy cabe en tus ${money(cash)}.`,
     });
   }

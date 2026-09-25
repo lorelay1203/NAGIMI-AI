@@ -13,7 +13,7 @@ const money = (n: number) => "$" + Math.abs(Math.round(n)).toLocaleString("en-US
 
 // Vencimientos que la usuaria puede elegir cuando escoge una estrategia concreta.
 const DTE_OPTIONS: { dte: number; label: string }[] = [
-  { dte: 0, label: "0DTE (hoy)" },
+  { dte: 0, label: "Vence hoy" },
   { dte: 7, label: "1 semana" },
   { dte: 14, label: "2 semanas" },
   { dte: 30, label: "1 mes" },
@@ -170,7 +170,7 @@ export default function RecomendacionesCard({ ticker, input }: { ticker: string;
               </button>
             ))}
           </div>
-          {dte === 0 && <div style={{ fontSize: 11, color: "#f5c451", marginTop: 5 }}>⚠ 0DTE vence hoy: se mueve rapidísimo. Solo estudio, riesgo alto.</div>}
+          {dte === 0 && <div style={{ fontSize: 11, color: "#f5c451", marginTop: 5 }}>⚠ Este se acaba hoy mismo: se mueve rapidísimo y puede irse a cero en horas. Solo para estudiarlo.</div>}
         </div>
       )}
 
@@ -205,7 +205,7 @@ export default function RecomendacionesCard({ ticker, input }: { ticker: string;
               <tr>
                 <th style={th}>Plazo</th>
                 <th style={th}>Estrategia</th>
-                <th style={th}>Strikes</th>
+                <th style={th}>Precios pactados</th>
                 <th style={th}>Vence</th>
                 <th style={th}>Riesgo/contrato</th>
                 <th style={th}>Cabe en</th>

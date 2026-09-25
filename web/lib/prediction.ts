@@ -179,8 +179,8 @@ export function predictPro(input: PredictionInput): ProPrediction {
   bullTarget = Math.min(bullTarget, em.upper2);
 
   const regimeWord = regime === "positive"
-    ? "el dealer estabiliza (γ+): el precio tiende a frenarse ahí"
-    : "el dealer amplifica (γ−): si el precio llega, acelera";
+    ? "el que vende los contratos estabiliza (γ+): el precio tiende a frenarse ahí"
+    : "el que vende los contratos amplifica (γ−): si el precio llega, acelera";
 
   /** Describe un nivel por lo que significa, no por la etiqueta cruda del GEX. */
   const wallText = (l: LevelProb) =>

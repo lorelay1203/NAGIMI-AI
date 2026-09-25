@@ -81,19 +81,19 @@ describe("pickTicket", () => {
   it("descarta la horquilla muy abierta (poca liquidez)", () => {
     const r = pickTicket(LONG, 100, [row({ bid: 0.50, ask: 1.50 })], params);
     expect(r.ticket).toBeNull();
-    expect(r.reason).toMatch(/horquilla/i);
+    expect(r.reason).toMatch(/lo que ofrecen y lo que piden/i);
   });
 
   it("descarta lo que no tiene volumen ni interés abierto", () => {
     const r = pickTicket(LONG, 100, [row({ volume: 0, oi: 0 })], params);
     expect(r.ticket).toBeNull();
-    expect(r.reason).toMatch(/liquidez/i);
+    expect(r.reason).toMatch(/suficiente gente negociando/i);
   });
 
   it("descarta contratos fuera de la banda de delta", () => {
     const r = pickTicket(LONG, 100, [row({ delta: 0.95 })], params);
     expect(r.ticket).toBeNull();
-    expect(r.reason).toMatch(/delta/i);
+    expect(r.reason).toMatch(/distancia buscada/i);
   });
 
   // Lo importante para cuenta chica: si no cabe, hay que DECIRLO, no callar.

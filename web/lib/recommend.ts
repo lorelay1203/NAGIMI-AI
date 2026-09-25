@@ -197,7 +197,7 @@ export function buildStrategyIdea(
     ? "Venta de prima: cobras el crédito por adelantado; ganas si el precio se queda en tu zona (theta a favor)."
     : neutral
     ? "Riesgo definido en un rango alrededor del imán; ganas si el precio no se aleja."
-    : "Direccional con riesgo definido según los strikes elegidos.";
+    : "Direccional con riesgo definido según los precios pactados elegidos.";
   const label = STRATEGIES.find((s) => s.id === strategy)?.label ?? strategy;
 
   return {

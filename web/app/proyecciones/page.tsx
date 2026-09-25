@@ -18,7 +18,7 @@ import ProyeccionMapa, { type NivelMapa } from "../components/ProyeccionMapa";
 const PRUEBA = ["SPY", "QQQ", "NVDA", "TSLA"];
 
 const HORIZONTES = [
-  { dias: 10, titulo: "10D", nombre: "Táctico", sub: "2 semanas", que: "La presión de los dealers de ahora mismo y los saltos rápidos de gamma." },
+  { dias: 10, titulo: "10D", nombre: "Táctico", sub: "2 semanas", que: "La presión de los que venden los contratos ahora mismo y los saltos rápidos de gamma." },
   { dias: 20, titulo: "20D", nombre: "Swing", sub: "1 mes", que: "La presión de las opciones alrededor de los vencimientos cercanos." },
   { dias: 30, titulo: "30D", nombre: "Posición", sub: "6 semanas", que: "Presión de plazo más largo y cono de movimiento esperado más ancho." },
 ];
@@ -116,7 +116,7 @@ export default function ProyeccionesPage() {
     if (data.callWall) out.push({ precio: data.callWall, etiqueta: "Techo", color: "#ff6b6b" });
     if (data.magnet) out.push({ precio: data.magnet, etiqueta: "Imán", color: "#8b7cff" });
     if (data.gammaFlip) out.push({ precio: data.gammaFlip, etiqueta: "Cambio de régimen", color: "#b98cff", punteada: true });
-    if (data.maxPain) out.push({ precio: data.maxPain, etiqueta: "Max pain", color: "#8a93a6", punteada: true });
+    if (data.maxPain) out.push({ precio: data.maxPain, etiqueta: "El que menos le duele a Wall Street", color: "#8a93a6", punteada: true });
     return out;
   }, [data]);
 

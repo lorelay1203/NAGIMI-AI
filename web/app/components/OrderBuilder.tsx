@@ -83,7 +83,7 @@ export default function OrderBuilder({ ticker, prefill }: { ticker: string; pref
     const updated = await priceLegs(legs, expiration);
     setLegs(updated);
     setLoading(false);
-    if (updated.every((l) => !l.quote)) setMsg("No se encontraron precios (revisa vencimiento/strikes).");
+    if (updated.every((l) => !l.quote)) setMsg("No se encontraron precios (revisa vencimiento/precios pactados).");
   }
 
   // Sugiere strike central + ancho + vencimiento que quepan en tu cuenta, y trae precios.
@@ -168,7 +168,7 @@ export default function OrderBuilder({ ticker, prefill }: { ticker: string; pref
           </div>
         )}
         <div>
-          <label style={{ fontSize: 11, color: "var(--muted)", fontWeight: 700 }}>Strike central ($)</label>
+          <label style={{ fontSize: 11, color: "var(--muted)", fontWeight: 700 }}>Precio pactado del medio ($)</label>
           <input type="number" style={{ ...field, marginTop: 4 }} value={center || ""} onChange={(e) => { const v = Number(e.target.value); setCenter(v); build(strategy, baseType, v, width); }} />
         </div>
         {strategy !== "single" && (

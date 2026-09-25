@@ -49,6 +49,8 @@ export interface DaySession {
   // Niveles de la sesión
   vwap: number | null;
   vwapDelta: number | null;      // price − vwap
+  /** Acciones negociadas en la sesión. null si no llegaron las velas. */
+  volume: number | null;
   openRangeLow: number | null;
   openRangeHigh: number | null;
   openRangeClosed: boolean;
@@ -135,6 +137,7 @@ export async function getDaySession(ticker: string): Promise<DaySession> {
 
   // Niveles desde las velas de la sesión.
   let vwap: number | null = null, open: number | null = null;
+  let volume: number | null = null;
   let dayHigh: number | null = null, dayLow: number | null = null;
   let orLow: number | null = null, orHigh: number | null = null;
   let price = gex.spot;
@@ -146,6 +149,7 @@ export async function getDaySession(ticker: string): Promise<DaySession> {
     let pv = 0, vv = 0;
     for (const b of sessionBars) { pv += b.vw * b.v; vv += b.v; }
     vwap = vv > 0 ? pv / vv : null;
+    volume = vv > 0 ? vv : null;   // acciones negociadas en la sesión
     // Rango de apertura = primeros 30 min (9:30–10:00 ET).
     const orBars = sessionBars.filter((b) => { const m = etMinutes(b.t); return m >= 570 && m < 600; });
     if (orBars.length) { orHigh = Math.max(...orBars.map((b) => b.h)); orLow = Math.min(...orBars.map((b) => b.l)); }
@@ -178,8 +182,8 @@ export async function getDaySession(ticker: string): Promise<DaySession> {
   if (vwap != null && vwap > 0) vwapScore = clamp(5 + ((price - vwap) / vwap) * 500, 0, 10);
   const vwapCard: ScoreCard = {
     score: Math.round(vwapScore * 10) / 10,
-    note: vwap == null ? "sin datos de VWAP"
-      : vwapDelta! >= 0 ? `por encima · VWAP ${vwap.toFixed(2)}` : `por debajo · VWAP ${vwap.toFixed(2)}`,
+    note: vwap == null ? "sin datos del precio promedio"
+      : vwapDelta! >= 0 ? `por encima del promedio del día ($${vwap.toFixed(2)})` : `por debajo del promedio del día ($${vwap.toFixed(2)})`,
   };
   // Canal de gamma: pegado al suelo = score bajo; al techo = alto.
   const channelScore = channelPct != null ? channelPct / 10 : 5;
@@ -204,7 +208,7 @@ export async function getDaySession(ticker: string): Promise<DaySession> {
       let askPrem = 0, totalPrem = 0;
       for (const r of use) { totalPrem += r.premium; if (r.aggression === "ask") askPrem += r.premium; }
       const askPct = totalPrem > 0 ? (askPrem / totalPrem) * 100 : 0;
-      aggression = { score: Math.round((askPct / 10) * 10) / 10, note: `${Math.round(askPct)}% al ask` };
+      aggression = { score: Math.round((askPct / 10) * 10) / 10, note: `${Math.round(askPct)}% compró pagando lo que pedían (con prisa)` };
 
       // Flujo: prima alcista (comprar calls o vender puts) vs bajista. La regla
       // vive en marketPressure.ts para no tenerla duplicada en dos sitios.
@@ -215,7 +219,7 @@ export async function getDaySession(ticker: string): Promise<DaySession> {
       const bullPct = net > 0 ? bull / net : 0.5;
       flow = {
         score: Math.round(bullPct * 10 * 10) / 10,
-        note: `${bullPct >= 0.55 ? "alcista" : bullPct <= 0.45 ? "bajista" : "mixto"} · ${fmtMoney(totalPrem)} en prima`,
+        note: `${bullPct >= 0.55 ? "alcista" : bullPct <= 0.45 ? "bajista" : "mixto"} · ${fmtMoney(totalPrem)} apostado en opciones`,
       };
 
       // Dinero de hoy: prints agregados por strike.
@@ -240,14 +244,14 @@ export async function getDaySession(ticker: string): Promise<DaySession> {
   const score = Math.round((parts.reduce((a, b) => a + b, 0) / parts.length) * 10) / 10;
   const bias: DaySession["bias"] = score >= 6 ? "alcista" : score <= 4 ? "bajista" : "neutral";
   const regimeNote = gex.regime === "positive"
-    ? "Gamma positiva: la sesión tiende a RANGO — los movimientos tienden a frenarse en los muros."
-    : "Gamma negativa: la sesión tiende a TENDENCIA — los movimientos se aceleran en lugar de frenarse.";
+    ? "Día de rango: el precio tiende a quedarse entre el techo y el suelo — cuando llega a uno, suele frenar."
+    : "Día de empujón: si el precio arranca para un lado, tiende a estirarse en vez de frenar.";
 
   return {
     ticker: clean, sessionDate, delayed: true, price,
     score, bias, regime: gex.regime, regimeNote,
     flow, aggression, vwapCard, channelCard,
-    vwap, vwapDelta,
+    vwap, vwapDelta, volume,
     openRangeLow: orLow, openRangeHigh: orHigh, openRangeClosed: true,
     dayHigh, dayLow, rangePct, atrPct,
     open, prevClose,

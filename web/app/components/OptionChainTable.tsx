@@ -60,11 +60,11 @@ export default function OptionChainTable({ rows, meta }: { rows: Row[]; meta: Ch
             <tr>
               <th onClick={() => toggleSort("expiration")}>Vencimiento{arrow("expiration")}</th>
               <th onClick={() => toggleSort("contractType")}>Tipo{arrow("contractType")}</th>
-              <th onClick={() => toggleSort("strike")}>Strike{arrow("strike")}</th>
+              <th onClick={() => toggleSort("strike")}>Precio pactado{arrow("strike")}</th>
               <th onClick={() => toggleSort("openInterest")}>Open Interest{arrow("openInterest")}</th>
               <th onClick={() => toggleSort("volume")}>Volumen{arrow("volume")}</th>
               <th onClick={() => toggleSort("price")}>Precio{arrow("price")}</th>
-              <th onClick={() => toggleSort("openPremium")}>Open Premium{arrow("openPremium")}</th>
+              <th onClick={() => toggleSort("openPremium")}>Dinero parado ahí{arrow("openPremium")}</th>
               <th onClick={() => toggleSort("notionalValue")}>Notional Value{arrow("notionalValue")}</th>
             </tr>
           </thead>

@@ -154,7 +154,7 @@ export default function AutoScanCard({ onRegistered }: { onRegistered?: () => vo
           {(["0dte", "corto", "normal"] as const).map((tm) => (
             <button key={tm} type="button" onClick={() => setTerm(tm)}
               style={{ padding: "6px 11px", borderRadius: 8, cursor: "pointer", fontSize: 12, fontWeight: 700, border: term === tm ? "1px solid var(--accent)" : "1px solid var(--border)", background: term === tm ? "var(--accent)" : "transparent", color: term === tm ? "#fff" : "var(--text)" }}>
-              {tm === "0dte" ? "0DTE → 1DTE (mañana)" : tm === "corto" ? "Corto (3-14d)" : "~1 mes (14-45d)"}
+              {tm === "0dte" ? "Vence hoy o mañana" : tm === "corto" ? "Corto (3-14 días)" : "~1 mes (14-45 días)"}
             </button>
           ))}
         </div>
@@ -245,7 +245,7 @@ export default function AutoScanCard({ onRegistered }: { onRegistered?: () => vo
         <>
           <div style={{ fontSize: 12.5, color: "var(--muted)" }}>
             Revisó <b style={{ color: "var(--text)" }}>{res.scanned}</b> tickers ·
-            encontró <b style={{ color: "var(--text)" }}>{res.candidates.length}</b> con POP ≥ {Math.round(res.popTarget * 100)}% ·
+            encontró <b style={{ color: "var(--text)" }}>{res.candidates.length}</b> con {Math.round(res.popTarget * 100)}% o más de probabilidad de ganar ·
             registró <b style={{ color: "#4ad991" }}>{res.registered}</b> nuevos en paper.
           </div>
 
@@ -259,7 +259,7 @@ export default function AutoScanCard({ onRegistered }: { onRegistered?: () => vo
                       title="Toca para ver el detalle de este trade">
                       <span style={{ color: "var(--accent)" }}>{isOpen ? "▾" : "▸"}</span>
                       <span style={{ fontWeight: 700, minWidth: 42 }}>{c.ticker}</span>
-                      <span style={{ fontSize: 12.5, color: "#4ad991", fontWeight: 700 }}>{Math.round(c.pop * 100)}% POP</span>
+                      <span style={{ fontSize: 12.5, color: "#4ad991", fontWeight: 700 }}>{Math.round(c.pop * 100)}% de ganar</span>
                       <span style={{ fontSize: 12, color: "var(--muted)" }}>{c.label.split(" · ")[0]}</span>
                       <span style={{ marginLeft: "auto", fontSize: 12 }}>
                         gana <b style={{ color: "#4ad991" }}>{money(c.maxGain)}</b> · pierde <b style={{ color: "#ff8a82" }}>{money(c.maxLoss)}</b>

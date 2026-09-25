@@ -98,8 +98,8 @@ export default function PredictionCard({
                           </span>
                         </div>
                         <div className="tf-sub">
-                          {f.aggression === "ask" ? "Compra agresiva al ask" :
-                            f.aggression === "bid" ? "Venta al bid" : "Ejecutado al medio"}
+                          {f.aggression === "ask" ? "Compró con prisa (pagó lo que pedían)" :
+                            f.aggression === "bid" ? "Vendió con prisa (aceptó lo que ofrecían)" : "Entró a precio del medio"}
                           {" · "}
                           <b style={{ color: alcista ? "#4ad991" : "#ff6b6b" }}>
                             {alcista ? "apuesta alcista" : "apuesta bajista"}

@@ -89,7 +89,7 @@ describe("gatePin (filtro con lo que hace el mercado)", () => {
     const flojo = { direction: "short" as const, entry: 100, target: 99, stop: 110, reason: "" };
     const v = gatePin(flojo, {}, null, P);
     expect(v.status).toBe("wait");
-    expect(v.reason).toMatch(/Riesgo\/beneficio bajo/);
+    expect(v.reason).toMatch(/ganarías solo/);
   });
 
   it("frena si el punto de giro está entre el precio y el imán", () => {
@@ -97,19 +97,19 @@ describe("gatePin (filtro con lo que hace el mercado)", () => {
     const s = { direction: "short" as const, entry: 120, target: 100, stop: 130, reason: "" };
     const v = gatePin(s, {}, 110, P); // flip 110 está entre el precio y el imán
     expect(v.status).toBe("wait");
-    expect(v.reason).toMatch(/punto de giro/);
+    expect(v.reason).toMatch(/cambia el día/);
   });
 
   it("frena si el dinero entra fuerte y rápido en contra", () => {
     const v = gatePin(setup, { velocity: 3, bull: 900, bear: 100 }, 135, P);
     expect(v.status).toBe("wait");
-    expect(v.reason).toMatch(/fuerte al alza/);
+    expect(v.reason).toMatch(/fuerte a que sube/);
   });
 
   it("frena si el flujo domina en contra aunque no sea rápido", () => {
     const v = gatePin(setup, { velocity: 1, bull: 800, bear: 200 }, 135, P);
     expect(v.status).toBe("wait");
-    expect(v.reason).toMatch(/manda al alza/);
+    expect(v.reason).toMatch(/apuesta a que sube/);
   });
 
   it("da luz verde si el flujo acompaña", () => {
@@ -128,7 +128,7 @@ describe("noPinReason", () => {
   });
   it("distingue 'pegado al imán' de 'le falta estiramiento'", () => {
     expect(noPinReason(100, "positive", 100, P)).toMatch(/pegado/);
-    expect(noPinReason(100, "positive", 96, P)).toMatch(/estiramiento/);
+    expect(noPinReason(100, "positive", 96, P)).toMatch(/Le falta estirarse/);
   });
   it("avisa si no hay imán", () => {
     expect(noPinReason(100, "positive", null, P)).toMatch(/imán/);

@@ -83,7 +83,7 @@ export function porQueAFavor(input: {
       + `Los que vendieron esas opciones tienen que cubrirse comprando y vendiendo acciones, `
       + `y esa cobertura hala el precio hacia allá — por eso se le llama imán.`
     : `Ese $${d2(target)} sale del movimiento que la volatilidad de hoy considera normal, `
-      + `no de un muro de opciones: no hay suficiente dinero amontonado en un strike como `
+      + `no de un muro de opciones: no hay suficiente dinero amontonado en un precio pactado como `
       + `para halar el precio. Tómalo como una referencia floja, no como un ancla.`;
 
   // Cuando el imán está encima del precio, la probabilidad de TOCAR sale ~100% y

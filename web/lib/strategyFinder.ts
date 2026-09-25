@@ -123,7 +123,7 @@ export async function findStrategies(
     if (c.implied_volatility && dist < bestDist) { bestDist = dist; ivAtm = c.implied_volatility; }
   }
   const strikes = [...strikeSet].sort((a, b) => a - b);
-  if (strikes.length < 4 || !(ivAtm > 0)) return { error: "La cadena vino incompleta (sin IV o pocos strikes)." };
+  if (strikes.length < 4 || !(ivAtm > 0)) return { error: "La cadena vino incompleta (sin IV o pocos precios pactados)." };
 
   const step = medianStep(strikes);
   const sd = spot * ivAtm * Math.sqrt(dte / 365);
@@ -156,7 +156,7 @@ export async function findStrategies(
     { name: "Iron Condor (rango)", kind: "iron_condor", direction: "neutral", capitalKind: "riesgo",
       legs: [{ side: "sell", t: "put", k: shortPutK }, { side: "buy", t: "put", k: longPutK }, { side: "sell", t: "call", k: shortCallK }, { side: "buy", t: "call", k: longCallK }], note: "Cobras prima si se queda dentro de un rango. Riesgo topado en ambos lados." },
     { name: "Cash-Secured Put (Wheel)", kind: "csp", direction: "alcista", capitalKind: "colateral",
-      legs: [{ side: "sell", t: "put", k: shortPutK }], note: "Vendes un put; si baja, compras 100 acciones. Necesita el efectivo del strike como respaldo." },
+      legs: [{ side: "sell", t: "put", k: shortPutK }], note: "Vendes un put; si baja, compras 100 acciones. Necesita el efectivo del precio pactado como respaldo." },
   ];
 
   const fits: StrategyResult[] = [];

@@ -183,7 +183,7 @@ export default function ChartPanel({
               </div>
               <div className="legend-meta">
                 Vence {c.expiration} · OI {c.openInterest.toLocaleString("en-US")} ·
-                {" "}Open Premium {c.openPremium != null ? money.format(c.openPremium) : "n/a"} ·
+                {" "}Dinero parado ahí {c.openPremium != null ? money.format(c.openPremium) : "n/a"} ·
                 {" "}Notional <b>{money.format(c.notionalValue)}</b>
               </div>
             </div>

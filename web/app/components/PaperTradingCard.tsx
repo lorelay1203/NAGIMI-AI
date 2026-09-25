@@ -348,7 +348,7 @@ export default function PaperTradingCard() {
                   <thead><tr>
                     <th style={{ ...pth, textAlign: "left", cursor: "pointer" }} onClick={() => sortBy("ticker")}>Trade{arrow("ticker")}</th>
                     <th style={{ ...pth, cursor: "pointer" }} onClick={() => sortBy("vence")}>📅 Vence{arrow("vence")}</th>
-                    <th style={{ ...pth, cursor: "pointer" }} onClick={() => sortBy("pop")}>POP{arrow("pop")}</th>
+                    <th style={{ ...pth, cursor: "pointer" }} onClick={() => sortBy("pop")}>Prob. de ganar{arrow("pop")}</th>
                     <th style={{ ...pth, cursor: "pointer" }} onClick={() => sortBy("pl")}>P/L{arrow("pl")}</th>
                     <th style={{ ...pth, cursor: "pointer" }} onClick={() => sortBy("entrada")}>Entrada{arrow("entrada")}</th>
                     <th style={{ ...pth, cursor: "pointer" }} onClick={() => sortBy("riesgo")}>Riesgo{arrow("riesgo")}</th>

@@ -34,7 +34,7 @@ export default function ScorecardPanel({
     { key: "agr", name: "Agresividad", weight: 20, question: "¿Compran al ask con fuerza?", score: aggression?.score ?? null },
     { key: "con", name: "Convicción", weight: 20, question: "¿Cuánto dinero real entró?", score: conviction?.score ?? null },
     { key: "inu", name: "Inusualidad", weight: 20, question: "¿Es flujo anormal?", score: unusuality?.score ?? null },
-    { key: "est", name: "Estructura", weight: 15, question: "¿Strike/DTE de convicción o lotería?", score: structure?.score ?? null },
+    { key: "est", name: "Estructura", weight: 15, question: "¿El precio pactado y la fecha son de alguien que sabe, o es un boleto de lotería?", score: structure?.score ?? null },
     { key: "iv", name: "Contexto IV", weight: 10, question: "¿IV limpia o inflada?", score: ivContext?.score ?? null },
     { key: "cnf", name: "Confirmación de Precio", weight: 15, question: "¿El precio valida o absorbe?", score: validation?.score ?? null },
   ];

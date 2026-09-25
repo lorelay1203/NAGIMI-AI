@@ -25,7 +25,7 @@ const COLS: { key: string; label: string; render: (c: Row) => Cell; sort: (c: Ro
   { key: "anual", label: "📈 Anual", render: (c) => ({ v: pct(c.metrics!.annualizedPct), tone: "good" }), sort: (c) => c.metrics!.annualizedPct },
   { key: "colchon", label: "🛡️ Colchón", render: (c) => ({ v: pct(c.metrics!.cushionPct) }), sort: (c) => c.metrics!.cushionPct },
   { key: "delta", label: "Δ Delta", render: (c) => ({ v: c.delta.toFixed(2) }), sort: (c) => Math.abs(c.delta) },
-  { key: "theta", label: "Θ Theta/día", render: (c) => ({ v: c.theta != null ? `$${Math.round(Math.abs(c.theta) * 100)}` : "—", tone: "good" }), sort: (c) => (c.theta != null ? Math.abs(c.theta) : 0) },
+  { key: "theta", label: "Gotea por día", render: (c) => ({ v: c.theta != null ? `$${Math.round(Math.abs(c.theta) * 100)}` : "—", tone: "good" }), sort: (c) => (c.theta != null ? Math.abs(c.theta) : 0) },
   { key: "iv", label: "📊 IV", render: (c) => ({ v: pct(c.iv * 100) }), sort: (c) => c.iv },
   { key: "dias", label: "📅 Días", render: (c) => ({ v: `${c.dte}d` }), sort: (c) => c.dte },
 ];

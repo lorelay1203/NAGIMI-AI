@@ -82,7 +82,7 @@ export default function MarketSnackGexCard({ data }: { data: MsGexResult }) {
       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, flexWrap: "wrap" }}>
         <div>
           <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-            <div className="pro-title">GEX en vivo — precio, muros e imán</div>
+            <div className="pro-title">Muros en vivo — precio, techo, suelo e imán</div>
             <span className="pro-badge">PRO</span>
           </div>
           <div className="pro-sub">El precio del día entre el put wall (soporte) y el call wall (resistencia), jalando hacia el imán. Datos reales de MarketSnack.</div>
@@ -96,13 +96,13 @@ export default function MarketSnackGexCard({ data }: { data: MsGexResult }) {
         {g.callWall > 0 && <LegendItem color={CALL} label="Call Wall" value={`$${px.format(g.callWall)}`} />}
         {g.magnet > 0 && <LegendItem color={MAG} label="🧲 Imán" value={`$${px.format(g.magnet)}`} />}
         {g.putWall > 0 && <LegendItem color={PUT} label="Put Wall" value={`$${px.format(g.putWall)}`} />}
-        {g.gammaFlip > 0 && <LegendItem color={FLIP} label="Gamma Flip" value={`$${px.format(g.gammaFlip)}`} dashed />}
-        <LegendItem color={posRegime ? CALL : PUT} label="Net GEX" value={fmtGex(g.netGex)} />
+        {g.gammaFlip > 0 && <LegendItem color={FLIP} label="Cambia el día" value={`$${px.format(g.gammaFlip)}`} dashed />}
+        <LegendItem color={posRegime ? CALL : PUT} label="Dinero apilado" value={fmtGex(g.netGex)} />
         {g.maxPain > 0 && <LegendItem color="#7a8699" label="Max Pain" value={`$${px.format(g.maxPain)}`} />}
       </div>
 
       <div style={{ overflowX: "auto" }}>
-        <svg viewBox={`0 0 ${W} ${H}`} width="100%" role="img" aria-label="GEX intradía" style={{ display: "block", minWidth: 520 }}>
+        <svg viewBox={`0 0 ${W} ${H}`} width="100%" role="img" aria-label="Muros del día" style={{ display: "block", minWidth: 520 }}>
           {yTicks.map((v) => (
             <g key={v}>
               <line x1={padL} y1={yOf(v)} x2={W - padR} y2={yOf(v)} stroke="rgba(255,255,255,0.06)" strokeWidth={1} />
@@ -130,7 +130,7 @@ export default function MarketSnackGexCard({ data }: { data: MsGexResult }) {
 
       <div className="heat-foot">
         <div>
-          <span className="muted">Net GEX: </span>
+          <span className="muted">Dinero apilado: </span>
           <b style={{ color: posRegime ? CALL : PUT }}>{fmtGex(g.netGex)}</b>
           <span className="muted"> — {posRegime ? "γ+ estabiliza (rango)" : "γ− amplifica (tendencia)"}</span>
         </div>

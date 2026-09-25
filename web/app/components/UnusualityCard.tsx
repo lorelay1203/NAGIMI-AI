@@ -21,8 +21,8 @@ export interface UnusualityMeta {
 const PARAMS: { key: keyof UnusualityMeta["avgByParam"]; label: string; hint: string }[] = [
   { key: "size", label: "Tamaño", hint: "$ de la orden" },
   { key: "delta", label: "Delta", hint: "qué tan direccional" },
-  { key: "theta", label: "Theta", hint: "decaimiento diario" },
-  { key: "gamma", label: "Gamma", hint: "zona institucional" },
+  { key: "theta", label: "Gotea por día", hint: "lo que pierde el contrato solo porque pasa el tiempo" },
+  { key: "gamma", label: "Acelerón", hint: "zona donde entra el dinero grande" },
   { key: "leg", label: "Condición", hint: "single vs multileg" },
   { key: "expiry", label: "Vencimiento", hint: "plazo del contrato" },
 ];
@@ -106,8 +106,8 @@ export default function UnusualityCard({ meta, rows, onPick }: { meta: Unusualit
                   <th className="left">Vencimiento</th>
                   <th>Dinero</th>
                   <th>Delta</th>
-                  <th>Theta/día</th>
-                  <th>Gamma</th>
+                  <th>Gotea por día</th>
+                  <th>Acelerón</th>
                   <th className="left">Condición</th>
                   <th>Tam</th><th>Δ</th><th>Θ</th><th>Γ</th><th>Leg</th><th>Venc</th>
                   <th>Inusual</th>

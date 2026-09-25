@@ -40,7 +40,7 @@ export const WHEEL_PRESETS: Record<PresetId, WheelPreset> = {
     id: "conservador", label: "Conservador",
     deltaMin: 0.10, deltaMax: 0.20, dteMin: 30, dteMax: 45,
     takeProfitPct: 50, rollDte: 21,
-    explain: "Strikes lejos del precio: cobras menos, pero te asignan pocas veces.",
+    explain: "Precios pactados lejos del precio: cobras menos, pero te asignan pocas veces.",
   },
   balanceado: {
     id: "balanceado", label: "Balanceado",
@@ -266,15 +266,15 @@ function cushionPart(input: ScoreInput): ScorePart {
 
   if (strongest && strongest.strength >= STRONG_SUPPORT)
     return { points: 25, max: 25, band: "bajo soporte fuerte",
-      why: `El strike queda bajo un soporte de fuerza ${Math.round(strongest.strength)}: el precio ya rebotó ahí antes.` };
+      why: `El precio pactado queda bajo un soporte de fuerza ${Math.round(strongest.strength)}: el precio ya rebotó ahí antes.` };
   if (strongest)
     return { points: 15, max: 25, band: "bajo soporte débil",
-      why: "El strike queda bajo un soporte, pero flojo." };
+      why: "El precio pactado queda bajo un soporte, pero flojo." };
   if (input.cushionPct > 10)
     return { points: 12, max: 25, band: "colchón >10%",
       why: "Sin soporte identificado, pero la acción tendría que caer más de un 10% para hacerte daño." };
   return { points: 5, max: 25, band: "sin colchón",
-    why: "El strike está por encima del soporte más cercano: te pueden asignar con facilidad." };
+    why: "El precio pactado está por encima del soporte más cercano: te pueden asignar con facilidad." };
 }
 
 function liquidityPart(oi: number, spreadPct: number | null): ScorePart {

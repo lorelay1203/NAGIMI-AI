@@ -104,8 +104,8 @@ export function evaluatePin(
   }
 
   const dirTxt = direction === "short" ? "por encima" : "por debajo";
-  const reason = `Gamma positiva y el precio está ${gap.toFixed(0)} pts ${dirTxt} del imán `
-    + `${magnet}: se apuesta a que vuelve al imán.`;
+  const reason = `Día de rango y el precio está ${gap.toFixed(0)} pts ${dirTxt} del imán `
+    + `${magnet}: se apuesta a que vuelve hacia él.`;
 
   return { direction, entry: spot, target, stop, reason };
 }
@@ -152,7 +152,7 @@ export function gatePin(
   // 1) Poco recorrido al imán para el riesgo que se corre.
   if (rr < params.minRR) {
     return { status: "wait", rr,
-      reason: `Riesgo/beneficio bajo (${rr.toFixed(1)}:1) — poco recorrido al imán para lo que arriesgas. Espera mejor precio.` };
+      reason: `Por cada $1 que arriesgas ganarías solo $${rr.toFixed(1)}: hay poco recorrido hasta la meta para lo que se arriesga. Espera mejor precio.` };
   }
 
   // 2) El flip está entre el precio y el imán: para llegar habría que cruzar la
@@ -161,7 +161,7 @@ export function gatePin(
     const crosses = short ? (flip < d.entry && flip > d.target) : (flip > d.entry && flip < d.target);
     if (crosses) {
       return { status: "wait", rr,
-        reason: `El punto de giro (${flip.toFixed(0)}) está entre el precio y el imán — habría que cruzar la zona de aceleración. La idea no es limpia.` };
+        reason: `El precio donde cambia el día (${flip.toFixed(0)}) queda entre el precio y la meta: habría que cruzar la zona donde todo se acelera. La idea no es limpia.` };
     }
   }
 
@@ -176,7 +176,7 @@ export function gatePin(
     const against = short ? bullShare >= FLOW_DIR_MIN : bullShare <= 1 - FLOW_DIR_MIN;
     if (against) {
       return { status: "wait", rr,
-        reason: `El dinero está entrando fuerte ${short ? "al alza" : "a la baja"} (velocidad ${vel.toFixed(1)}×), justo en contra. Espera a que se calme o gire.` };
+        reason: `El dinero está entrando fuerte ${short ? "a que sube" : "a que baja"} (${vel.toFixed(1)} veces más rápido de lo normal), justo en contra. Espera a que se calme o gire.` };
     }
   }
 
@@ -185,7 +185,7 @@ export function gatePin(
     const againstShare = short ? bull / total : bear / total;
     if (againstShare >= params.flowBurstShare) {
       return { status: "wait", rr,
-        reason: `El flujo manda ${short ? "al alza" : "a la baja"} (${Math.round(againstShare * 100)}%) en contra de la idea. Espera a que se agote o gire.` };
+        reason: `El ${Math.round(againstShare * 100)}% del dinero apuesta a que ${short ? "sube" : "baja"}, en contra de la idea. Espera a que se agote o gire.` };
     }
   }
 
@@ -199,14 +199,103 @@ export function noPinReason(
   magnet: number | null,
   params: PinParams = DEFAULT_PIN_PARAMS,
 ): string {
-  if (regime === "negative") return "El GEX está negativo: hoy el mercado acelera en vez de frenar, así que la vuelta al imán no aplica.";
-  if (magnet == null) return "No hay un imán de gamma claro.";
+  if (regime === "negative") return "Hoy es día de empujón: el mercado acelera en vez de frenar, así que la vuelta al imán no aplica.";
+  if (magnet == null) return "No hay un imán claro hoy.";
   if (spot == null || !(spot > 0)) return "Sin precio del subyacente.";
   const gap = Math.abs(spot - magnet);
   if (gap < params.minGapPts) {
     const gluedCut = Math.max(3, 0.25 * params.minGapPts);
     if (gap < gluedCut) return `El precio está pegado al imán (${gap.toFixed(0)} pts): no hay recorrido que aprovechar.`;
-    return `Le falta estiramiento: ${gap.toFixed(0)} de ${params.minGapPts.toFixed(0)} pts. Para la volatilidad de hoy, aún no compensa.`;
+    return `Le falta estirarse: está a ${gap.toFixed(0)} de ${params.minGapPts.toFixed(0)} pts del imán. Con lo que se mueve hoy, todavía no compensa.`;
   }
   return "No se cumplen las condiciones de entrada.";
+}
+
+// ============================================================================
+// Día de empujón (gamma negativa): seguir el movimiento hasta el próximo muro.
+//
+// En gamma positiva el precio vuelve al imán (evaluatePin). En gamma negativa
+// pasa lo contrario: los que vendieron los contratos tienen que perseguir el
+// precio, y si arranca para un lado se estira. Ahí la jugada no es "volver",
+// es "ir con él" hasta el siguiente muro.
+//
+// La DIRECCIÓN no se adivina: la pone el dinero. Si el flujo agresivo no se
+// inclina claramente para un lado (≥58%), no hay setup — así lo hacen los que
+// confirman con el "net aggressor" antes de entrar.
+//
+// Además el precio tiene que estar del lado correcto del punto de cambio: en
+// gamma negativa, debajo del flip se acelera la caída y encima se sostiene la
+// subida. Si el dinero dice "sube" pero el precio está debajo del flip, las dos
+// señales se contradicen y se espera.
+// ============================================================================
+
+export interface EmpujonLevels {
+  callWall: number | null;
+  putWall: number | null;
+  gammaFlip: number | null;
+}
+
+export function evaluateEmpujon(
+  spot: number,
+  regime: "positive" | "negative",
+  lv: EmpujonLevels,
+  ctx: FlowCtx,
+  sigma: number | null,
+  params: PinParams = DEFAULT_PIN_PARAMS,
+): { setup: PinSetup | null; reason: string } {
+  if (!(spot > 0)) return { setup: null, reason: "Sin precio del subyacente." };
+  if (regime !== "negative") return { setup: null, reason: "Hoy es día de rango, no de empujón." };
+
+  const bull = ctx.bull ?? 0, bear = ctx.bear ?? 0, total = bull + bear;
+  if (!(total > 0)) {
+    return { setup: null, reason: "Es día de empujón, pero no se pudo leer hacia dónde está entrando el dinero. Sin eso no se adivina la dirección." };
+  }
+  const bullShare = bull / total;
+  const direction: Direction | null =
+    bullShare >= FLOW_DIR_MIN ? "long" : bullShare <= 1 - FLOW_DIR_MIN ? "short" : null;
+  if (!direction) {
+    return { setup: null, reason: `Es día de empujón, pero el dinero está repartido (${Math.round(bullShare * 100)}% apostando a que sube). Nadie manda todavía: espera a que un lado tome el control.` };
+  }
+  const long = direction === "long";
+
+  const flip = lv.gammaFlip;
+  if (flip != null && (long ? spot < flip : spot > flip)) {
+    return { setup: null, reason: `El dinero empuja ${long ? "hacia arriba" : "hacia abajo"}, pero el precio todavía está ${long ? "debajo" : "encima"} del punto de cambio (${flip.toFixed(0)}). Las dos señales chocan: espera a que lo cruce.` };
+  }
+
+  // Objetivo: el siguiente muro en la dirección del empujón. Si no hay muro por
+  // delante, 1σ (lo que el mercado espera que se mueva hoy).
+  const s = sigma != null && sigma > 0 ? sigma : params.fixedStopPts;
+  const muro = long ? lv.callWall : lv.putWall;
+  const hayMuro = muro != null && (long ? muro > spot : muro < spot);
+  const target = hayMuro ? muro! : long ? spot + s : spot - s;
+
+  if (Math.abs(target - spot) < params.minGapPts) {
+    return { setup: null, reason: `El empujón va ${long ? "hacia arriba" : "hacia abajo"}, pero el próximo muro está a solo ${Math.abs(target - spot).toFixed(1)} pts. Queda muy poco recorrido.` };
+  }
+
+  // Stop: si vuelve a cruzar el punto de cambio, la idea murió. Con límites
+  // para que no quede ni pegado al precio ni absurdamente lejos.
+  let stop: number;
+  if (long) {
+    const cand = flip != null && flip < spot ? flip : spot - params.fixedStopPts;
+    stop = Math.min(cand, spot - params.minStopPts);
+    stop = Math.max(stop, spot - params.fixedStopPts * 1.5);
+  } else {
+    const cand = flip != null && flip > spot ? flip : spot + params.fixedStopPts;
+    stop = Math.max(cand, spot + params.minStopPts);
+    stop = Math.min(stop, spot + params.fixedStopPts * 1.5);
+  }
+
+  const setup: PinSetup = {
+    direction, entry: spot, target, stop,
+    reason: `Día de empujón y el ${Math.round((long ? bullShare : 1 - bullShare) * 100)}% del dinero apuesta a que ${long ? "sube" : "baja"}: `
+      + `se va con el movimiento hasta ${hayMuro ? `el ${long ? "techo" : "suelo"} de ${target.toFixed(0)}` : `${target.toFixed(0)} (lo que se espera que se mueva hoy)`}.`,
+  };
+
+  const rr = riskReward(setup);
+  if (rr < params.minRR) {
+    return { setup: null, reason: `El empujón va ${long ? "hacia arriba" : "hacia abajo"}, pero lo que se puede ganar (${Math.abs(target - spot).toFixed(1)} pts) no compensa lo que se arriesga (${Math.abs(spot - stop).toFixed(1)} pts). Espera mejor precio.` };
+  }
+  return { setup, reason: setup.reason };
 }

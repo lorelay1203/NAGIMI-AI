@@ -99,7 +99,7 @@ export function buildPineScript(input: PineInput): string {
       .join("\n") || "    // sin niveles";
 
   // Régimen: usa el que venga; si falta, lo deduce del signo del Net GEX
-  // (positivo = dealers estabilizan; negativo = amplifican).
+  // (positivo = los que venden los contratos estabilizan; negativo = amplifican).
   const regime: "positive" | "negative" | null =
     g.regime ?? (g.netGex != null ? (g.netGex >= 0 ? "positive" : "negative") : null);
 
@@ -195,8 +195,8 @@ ${levelDraws(sup, "s", "color.new(#80cbc4, 0)")}
         table.cell(tb, 1, 3, "${spotTxt}", text_color = color.white, text_size = size.small)
 
 // ---------- Alertas ----------
-alertcondition(ta.crossover(close, px_cw),  "Rompe el Call Wall",  "${t}: el precio ROMPIO el Call Wall hacia arriba.")
-alertcondition(ta.crossunder(close, px_pw), "Pierde el Put Wall",  "${t}: el precio PERDIO el Put Wall hacia abajo.")
-alertcondition(ta.cross(close, px_gf),      "Cruza el Gamma Flip", "${t}: el precio cruzo el Gamma Flip — cambia el regimen de volatilidad.")
+alertcondition(ta.crossover(close, px_cw),  "Rompe el Call Wall",  "${t}: el precio ROMPIO el techo hacia arriba.")
+alertcondition(ta.crossunder(close, px_pw), "Pierde el Put Wall",  "${t}: el precio PERDIO el suelo hacia abajo.")
+alertcondition(ta.cross(close, px_gf),      "Cruza el Gamma Flip", "${t}: el precio cruzo el punto donde cambia el dia.")
 `;
 }

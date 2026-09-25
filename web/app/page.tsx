@@ -628,7 +628,7 @@ export default function Dashboard() {
             </div>
 
             {/* 3 · Niveles GEX — dónde están los precios clave */}
-            <SectionHead n={3} title="Niveles clave (GEX)" sub="Call Wall, Put Wall, Gamma Flip, Max Pain e Imán" />
+            <SectionHead n={3} title="Precios que mandan hoy" sub="El techo, el suelo, el imán y el precio donde cambia el día" />
             {/* Una sola tarjeta con pestañas: antes eran 4 seguidas con los mismos muros. */}
             <NivelesTabs
               tabs={([
@@ -639,18 +639,18 @@ export default function Dashboard() {
                 },
                 structure && {
                   id: "muros", label: "Muros PRO",
-                  hint: "Cada muro de strikes como una banda, con la probabilidad de que el precio llegue ahí.",
+                  hint: "Cada muro de precios pactados como una banda, con la probabilidad de que el precio llegue ahí.",
                   node: <ChartZoom label="Muros de strikes (PRO)"><ProWallsCard ticker={ticker} structure={structure} gex={realGex ?? gex} horizonDays={horizonDays} levels={levels} /></ChartZoom>,
                 },
                 msGex && {
-                  id: "vivo", label: "GEX en vivo",
+                  id: "vivo", label: "Muros en vivo",
                   hint: "El precio de hoy con el techo, el piso, el imán y el flip dibujados encima.",
-                  node: <ChartZoom label="GEX en vivo — precio, muros e imán"><MarketSnackGexCard data={msGex} /></ChartZoom>,
+                  node: <ChartZoom label="Muros en vivo — precio, techo, suelo e imán"><MarketSnackGexCard data={msGex} /></ChartZoom>,
                 },
                 gexChart && {
                   id: "perfil", label: "Perfil de gamma",
-                  hint: "Cuánta gamma hay en cada strike: la verde frena el precio, la roja lo acelera.",
-                  node: <ChartZoom label="GEX por strike — perfil de gamma"><GexHeatmapCard h={gexChart} /></ChartZoom>,
+                  hint: "Cuánta gamma hay en cada precio pactado: la verde frena el precio, la roja lo acelera.",
+                  node: <ChartZoom label="Dinero apilado en cada precio"><GexHeatmapCard h={gexChart} /></ChartZoom>,
                 },
                 heatmap && {
                   id: "vencimientos", label: "Por vencimiento",

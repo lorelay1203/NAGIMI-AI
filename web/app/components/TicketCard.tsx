@@ -1,11 +1,18 @@
 "use client";
 
 /**
- * 🎟️ Ticket del día: la idea del GEX traducida a UN contrato concreto, con lo
- * que cuesta, lo que se gana si acierta y lo que se pierde si toca el stop —
- * todo en dólares, y como % de la cuenta.
+ * 🎟️ Ticket del día: la idea de los muros de dinero traducida a UN contrato
+ * concreto — qué comprar, dónde tomar la ganancia, dónde salir si falla, cuánto
+ * cuesta y si el dinero grande está comprando lo mismo.
+ *
+ * El diseño sigue el "GEX Ticket" que comparte la comunidad (la idea arriba,
+ * el contrato en grande, tres cajas y una fila de datos), pero en palabras
+ * simples y con lo que el original no dice: si cabe con tu regla de riesgo.
+ * El texto para copiar sale de lib/ticketTexto.ts (con pruebas).
  */
 import { useCallback, useEffect, useState } from "react";
+import { cabeEnCuenta, cuandoVence, lineasTicket, ticketComoTexto, REGLA_RIESGO_PCT } from "@/lib/ticketTexto";
+import { fraseBarridas, type Barridas } from "@/lib/barridas";
 
 interface Ticket {
   strike: number; type: "call" | "put"; expiration: string | null; symbol: string | null;
@@ -23,17 +30,21 @@ interface Resp {
   levels?: { spot: number; magnet: number | null; regime: string; source: string };
   setup?: Setup | null; verdict?: Verdict | null; ticket?: Ticket | null;
   ticketReason?: string | null; noSetup?: string; expiration?: string | null;
-  chainSource?: string | null; simulated?: boolean;
+  chainSource?: string | null; simulated?: boolean; estrategia?: "iman" | "empujon";
   flujoRevisado?: boolean; flujoPremium?: number;
   flujoFuente?: string | null; flujoVelocidad?: number | null;
+  barridas?: Barridas | null;
 }
 
-const money = (n: number) => `$${n >= 1000 ? Math.round(n).toLocaleString("es") : n.toFixed(0)}`;
+const d2 = (n: number) => `$${n.toFixed(2)}`;
+const d0 = (n: number) => `$${Math.round(n).toLocaleString("en-US")}`;
+const nivel = (n: number) => (n >= 1000 ? n.toLocaleString("en-US", { maximumFractionDigits: 2 }) : n.toFixed(2));
 
 export default function TicketCard({ ticker, capital = 100 }: { ticker: string; capital?: number }) {
   const [data, setData] = useState<Resp | null>(null);
   const [loading, setLoading] = useState(false);
   const [cap, setCap] = useState(capital);
+  const [copiado, setCopiado] = useState(false);
 
   const load = useCallback(async (c: number) => {
     if (!ticker) return;
@@ -63,131 +74,160 @@ export default function TicketCard({ ticker, capital = 100 }: { ticker: string; 
   const t = data?.ticket;
   const setup = data?.setup;
   const ready = data?.verdict?.status === "ready";
-  const color = !setup ? "#7a8699" : ready ? (setup.direction === "long" ? "#12b76a" : "#f04438") : "#e0a800";
+  const sube = setup?.direction === "long";
+  const empujon = data?.estrategia === "empujon";
+  const ahora = new Date();
+
+  const copiar = () => {
+    if (!t || !setup) return;
+    const texto = ticketComoTexto(lineasTicket({
+      ticker, setup, ticket: t, estrategia: data?.estrategia ?? "iman", capital: cap, ahora: new Date(),
+    }));
+    navigator.clipboard?.writeText(texto).then(() => {
+      setCopiado(true);
+      setTimeout(() => setCopiado(false), 1800);
+    }).catch(() => { /* sin permiso de portapapeles */ });
+  };
+
+  const cabe = t ? cabeEnCuenta(t.risk, cap) : null;
+  const barrida = fraseBarridas(data?.barridas ?? null);
+  const venceHoy = t ? cuandoVence(t.expiration, ahora) === "vence hoy" : false;
 
   return (
-    <section className="card" style={{ gap: 12, border: `1px solid ${color}55`, background: `${color}0d` }}>
-      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: 8 }}>
-        <div style={{ fontSize: 14.5, fontWeight: 800 }}>🎟️ Ticket del día · {ticker}</div>
-        <label style={{ fontSize: 12, color: "var(--muted)", display: "flex", alignItems: "center", gap: 6 }}>
-          Mi cuenta $
-          <input type="number" min={20} step={10} value={cap}
-            onChange={(e) => setCap(Math.max(20, Number(e.target.value) || 20))}
-            style={{ width: 78, padding: "4px 7px", borderRadius: 7, border: "1px solid var(--border)",
-              background: "var(--panel)", color: "var(--text)", fontSize: 12.5 }} />
-        </label>
+    <section className={`card tk ${setup ? (ready ? (sube ? "tk-up" : "tk-down") : "tk-wait") : ""}`}>
+      <div className="tk-head">
+        <div className="tk-titulo">
+          🎟️ Ticket <span className="tk-titulo-sub">— contrato sugerido · {ticker}</span>
+        </div>
+        <div className="tk-head-der">
+          {setup && (
+            <span className={`tk-badge ${ready ? (sube ? "up" : "down") : "wait"}`}>
+              {ready ? "COMPRA" : "ESPERA"}
+            </span>
+          )}
+          <label className="tk-cuenta">
+            Mi cuenta $
+            <input type="number" min={20} step={10} value={cap}
+              onChange={(e) => setCap(Math.max(20, Number(e.target.value) || 20))} />
+          </label>
+        </div>
       </div>
 
-      {loading && <div style={{ fontSize: 12.5, color: "var(--muted)" }}>Buscando el mejor contrato…</div>}
-      {data?.error && <div style={{ fontSize: 12.5, color: "#f04438" }}>⚠️ {data.error}</div>}
+      {loading && <div className="tk-nota">Buscando el mejor contrato con los datos de ahora…</div>}
+      {data?.error && <div className="tk-nota" style={{ color: "var(--red-soft)" }}>⚠️ {data.error}</div>}
 
       {data?.simulated && (
-        <div style={{ fontSize: 11.5, color: "#e0a800", background: "#e0a80015", border: "1px solid #e0a80055",
-          borderRadius: 8, padding: "6px 10px" }}>
-          🧪 Escenario simulado — no es la situación real del mercado ahora mismo.
-        </div>
+        <div className="tk-aviso">🧪 Escenario simulado — no es la situación real del mercado ahora mismo.</div>
       )}
 
-      {/* No hay setup: se explica por qué, en vez de callar. */}
+      {/* No hay idea hoy: se explica por qué, en vez de callar. */}
       {!loading && data && !setup && !data.error && (
-        <div style={{ fontSize: 13, lineHeight: 1.55 }}>
-          <b>Hoy no hay entrada.</b> {data.noSetup}
-        </div>
+        <div className="tk-sin"><b>Hoy no hay entrada.</b> {data.noSetup}</div>
       )}
 
-      {/* Hay tesis */}
       {setup && (
-        <>
-          <div style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center" }}>
-            <span style={{ background: color, color: "#fff", borderRadius: 999, padding: "3px 11px",
-              fontSize: 12, fontWeight: 800 }}>
-              {setup.direction === "long" ? "↑ AL ALZA" : "↓ A LA BAJA"}
-            </span>
-            <span style={{ fontSize: 12.5, color: ready ? "#12b76a" : "#e0a800", fontWeight: 700 }}>
-              {ready ? "✅ Listo" : "⏳ Mejor esperar"}
-            </span>
-            <span style={{ fontSize: 12, color: "var(--muted)" }}>R:B {setup.rr.toFixed(1)}:1</span>
-          </div>
-
-          <div style={{ fontSize: 12.5, lineHeight: 1.55 }}>{data?.verdict?.reason}</div>
-
-          {/* Un "listo" sin haber podido mirar el flujo vale menos: se dice. */}
-          {ready && data?.flujoRevisado === false && (
-            <div style={{ fontSize: 11.5, color: "#e0a800", lineHeight: 1.5 }}>
-              ⚠️ No se pudo revisar el flujo de hoy (falta la cookie de MarketSnack), así que este
-              &quot;listo&quot; solo comprueba el riesgo/beneficio, no si el dinero va en contra.
-            </div>
-          )}
-          {ready && data?.flujoRevisado && (
-            <div style={{ fontSize: 11.5, color: "var(--muted)", lineHeight: 1.5 }}>
-              ✓ Flujo del día revisado{data.flujoPremium ? ` (${(data.flujoPremium / 1e6).toFixed(1)}M en prima)` : ""}: no corre en contra de la idea.
-              {data.flujoVelocidad != null && (
-                <> · Cinta a <b>{data.flujoVelocidad.toFixed(1)}×</b> su ritmo normal
-                  {data.flujoVelocidad >= 1.5 ? " (va rápida)" : data.flujoVelocidad <= 0.6 ? " (tranquila)" : ""}.</>
-              )}
-              {data.flujoVelocidad == null && " · Sin velocidad: el streamer de Tastytrade no está corriendo."}
-            </div>
-          )}
-
-          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(96px,1fr))", gap: 7 }}>
-            {[["Ahora", setup.entry], ["Objetivo", setup.target], ["Stop", setup.stop]].map(([l, v]) => (
-              <div key={String(l)} style={{ border: "1px solid var(--border-soft)", borderRadius: 8,
-                padding: "6px 9px", background: "var(--panel-2)" }}>
-                <div style={{ fontSize: 10.5, color: "var(--muted)" }}>{l}</div>
-                <div style={{ fontSize: 14, fontWeight: 800 }}>{Number(v).toFixed(2)}</div>
-              </div>
-            ))}
-          </div>
-        </>
+        <div className="tk-tesis">
+          La idea: <b style={{ color: sube ? "var(--green)" : "var(--red-soft)" }}>{sube ? "▲ que sube" : "▼ que baja"}</b>
+          {" "}— {empujon ? "ir con el empujón" : "vuelta al imán"} hasta <b>{nivel(setup.target)}</b>
+          {" "}· salir si {sube ? "baja" : "sube"} a <b>{nivel(setup.stop)}</b>
+          {" "}<span className="tk-gris">({empujon ? "día de empujón" : "día de rango"} · {ticker} ahora en {nivel(setup.entry)})</span>
+          {!ready && data?.verdict?.reason && <div className="tk-espera">⏳ {data.verdict.reason}</div>}
+        </div>
       )}
 
       {/* El contrato concreto */}
       {setup && t && (
-        <div style={{ borderTop: "1px solid var(--border-soft)", paddingTop: 11, display: "flex", flexDirection: "column", gap: 9 }}>
-          <div style={{ fontSize: 14, fontWeight: 800 }}>
-            Comprar <span style={{ color }}>{t.type === "call" ? "CALL" : "PUT"} {t.strike}</span>
-            {t.expiration && <span style={{ color: "var(--muted)", fontWeight: 600, fontSize: 12 }}> · vence {t.expiration}</span>}
+        <>
+          <div className="tk-contrato">
+            <span className={`tk-badge ${ready ? (t.type === "call" ? "up" : "down") : "wait"}`}>{ready ? "COMPRA" : "SI SE DA"}</span>
+            <span className="tk-simbolo">{ticker} {nivel(t.strike)} {t.type === "call" ? "CALL" : "PUT"}</span>
+            <span className="tk-a">a</span>
+            <span className="tk-precio">{d2(t.mid)}</span>
+            <span className="tk-gris">
+              te pagan {d2(t.bid)} / te cobran {d2(t.ask)}{t.expiration ? ` · ${cuandoVence(t.expiration, ahora)}` : ""}
+            </span>
+          </div>
+          <div className="tk-gris" style={{ marginTop: -4 }}>
+            {t.type === "call" ? "Un CALL es una apuesta a que sube." : "Un PUT es una apuesta a que baja."}
           </div>
 
-          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(112px,1fr))", gap: 7 }}>
-            {[
-              { l: "Te cuesta", v: money(t.cost), s: t.costPctOfCapital != null ? `${t.costPctOfCapital.toFixed(0)}% de tu cuenta` : "", c: "var(--text)" },
-              { l: "Si acierta ganas", v: money(t.gain), s: `sale a $${t.targetPx.toFixed(2)}`, c: "#12b76a" },
-              { l: "Si toca el stop", v: `−${money(t.risk)}`, s: t.riskPctOfCapital != null ? `${t.riskPctOfCapital.toFixed(0)}% de tu cuenta` : "", c: "#f04438" },
-              { l: "Probabilidad aprox.", v: `${t.approxPop.toFixed(0)}%`, s: `delta ${t.delta.toFixed(2)}`, c: t.approxPop >= 40 ? "#12b76a" : "#e0a800" },
-            ].map((x) => (
-              <div key={x.l} style={{ border: "1px solid var(--border-soft)", borderRadius: 8, padding: "7px 9px", background: "var(--panel-2)" }}>
-                <div style={{ fontSize: 10.5, color: "var(--muted)" }}>{x.l}</div>
-                <div style={{ fontSize: 15, fontWeight: 800, color: x.c }}>{x.v}</div>
-                {x.s && <div style={{ fontSize: 10.5, color: "var(--muted)" }}>{x.s}</div>}
-              </div>
-            ))}
-          </div>
-
-          <div style={{ fontSize: 11.5, color: "var(--muted)", lineHeight: 1.5 }}>
-            Precio de la opción: ahora <b>${t.mid.toFixed(2)}</b> · objetivo <b>${t.targetPx.toFixed(2)}</b> ·
-            stop <b>${t.stopPx.toFixed(2)}</b> — vende si llega a cualquiera de los dos.
-            Horquilla {(t.spreadPct * 100).toFixed(1)}% · volumen {t.volume.toLocaleString("es")} · OI {t.oi.toLocaleString("es")}.
-          </div>
-
-          {t.warning && (
-            <div style={{ fontSize: 12, lineHeight: 1.55, color: "#e0a800", background: "#e0a80012",
-              border: "1px solid #e0a80044", borderRadius: 8, padding: "8px 10px" }}>
-              ⚠️ {t.warning}
+          <div className="tk-cajas">
+            <div className="tk-caja">
+              <div className="tk-caja-label">Meta — toma la ganancia</div>
+              <div className="tk-caja-valor" style={{ color: "var(--green)" }}>{d2(t.targetPx)}</div>
+              <div className="tk-caja-sub">{ticker} en {nivel(setup.target)} · <b style={{ color: "var(--green)" }}>+{Math.round(t.gainPct)}%</b></div>
             </div>
+            <div className="tk-caja">
+              <div className="tk-caja-label">Salida si falla</div>
+              <div className="tk-caja-valor" style={{ color: "var(--red-soft)" }}>{d2(t.stopPx)}</div>
+              <div className="tk-caja-sub">{ticker} en {nivel(setup.stop)} · <b style={{ color: "var(--red-soft)" }}>−{Math.round(t.lossPct)}%</b></div>
+            </div>
+            <div className="tk-caja">
+              <div className="tk-caja-label">Ganas por cada $1 que arriesgas</div>
+              <div className="tk-caja-valor">{t.rbOption.toFixed(1)}</div>
+              <div className="tk-caja-sub">
+                en la acción serían {setup.rr.toFixed(1)}; el contrato {t.rbOption >= setup.rr ? "lo sube porque acelera" : "lo baja porque se mueve menos"} cuando el precio va a tu favor
+              </div>
+            </div>
+          </div>
+
+          <div className="tk-chips">
+            <span className="tk-chip">se mueve <b>{Math.round(t.delta * 100)}%</b> de lo que se mueva {ticker}</span>
+            {t.iv != null && <span className="tk-chip">nerviosismo <b>{Math.round(t.iv * 100)}%</b></span>}
+            <span className="tk-chip">negociados hoy <b>{t.volume.toLocaleString("en-US")}</b></span>
+            <span className="tk-chip">contratos abiertos <b>{t.oi.toLocaleString("en-US")}</b></span>
+            <span className="tk-chip">diferencia compra/venta <b>{(t.spreadPct * 100).toFixed(1)}%</b></span>
+            <span className="tk-chip">cuesta <b>{d0(t.cost)}</b></span>
+            <span className="tk-chip">arriesgas <b>{d0(t.risk)}</b>/contrato</span>
+            <span className="tk-chip">prob. de ganar ≈ <b>{Math.round(t.approxPop)}%</b></span>
+            {barrida && <span className={`tk-chip tk-chip-${barrida.tono}`}>{barrida.texto}</span>}
+          </div>
+
+          {cabe && (
+            cabe.contratos >= 1
+              ? <div className="tk-regla ok">✅ Con tu regla del {REGLA_RIESGO_PCT}% ({d0(cabe.permitido)} de pérdida máxima) te {cabe.contratos === 1 ? "cabe 1 contrato" : `caben ${cabe.contratos} contratos`}.</div>
+              : <div className="tk-regla no">⛔ No cabe en tu regla del {REGLA_RIESGO_PCT}%: puedes perder hasta {d0(cabe.permitido)} y este contrato arriesga {d0(t.risk)}. Míralo para aprender, pero no lo tomes con esta cuenta.</div>
           )}
-        </div>
+
+          {t.warning && <div className="tk-aviso">⚠️ {t.warning}</div>}
+
+          <div className="tk-pie">
+            {venceHoy
+              ? "⏱ Ojo con el tiempo: este contrato se acaba hoy. Si el movimiento es lento, cada minuto que pasa se come la ganancia — llega a la meta a tiempo o sal. "
+              : "⏱ Cada día que pasa el contrato pierde un poco de valor aunque el precio no se mueva. "}
+            Es un cálculo a partir de dónde está apilado el dinero, no un consejo: tú decides y ejecutas.
+          </div>
+
+          <button type="button" className="tk-copiar" onClick={copiar}>
+            {copiado ? "✓ Copiado" : "📋 Copiar ticket"}
+          </button>
+        </>
       )}
 
       {setup && !t && data?.ticketReason && (
-        <div style={{ fontSize: 12.5, lineHeight: 1.55, borderTop: "1px solid var(--border-soft)", paddingTop: 10 }}>
-          <b>Sin contrato que te sirva.</b> {data.ticketReason}
+        <div className="tk-sin"><b>Sin contrato que te sirva todavía.</b> {data.ticketReason}</div>
+      )}
+
+      {/* De dónde salió la dirección */}
+      {setup && data?.flujoRevisado === false && (
+        <div className="tk-nota" style={{ color: "#e0a800" }}>
+          ⚠️ No se pudo revisar hacia dónde va el dinero hoy (falta conectar MarketSnack): esto solo comprueba
+          que la ganancia compense el riesgo, no si el dinero va en contra.
+        </div>
+      )}
+      {setup && data?.flujoRevisado && (
+        <div className="tk-nota">
+          ✓ Se revisó hacia dónde va el dinero hoy{data.flujoPremium ? ` (${d0(data.flujoPremium)} apostados en opciones)` : ""}.
+          {data.flujoVelocidad != null
+            ? <> Las órdenes entran a <b>{data.flujoVelocidad.toFixed(1)}×</b> su ritmo normal
+                {data.flujoVelocidad >= 1.5 ? " (van rápido)" : data.flujoVelocidad <= 0.6 ? " (tranquilas)" : ""}.</>
+            : " No se pudo medir qué tan rápido entran las órdenes (la conexión de Tastytrade no está prendida)."}
         </div>
       )}
 
-      <div style={{ fontSize: 10.5, color: "var(--muted)", lineHeight: 1.5 }}>
+      <div className="tk-nota">
         Nagimi propone, tú decides y ejecutas — nunca envía órdenes solo.
-        {data?.chainSource && ` · cadena: ${data.chainSource}`}
+        {data?.chainSource && ` · contratos leídos de: ${data.chainSource}`}
         {data?.levels && ` · muros: ${data.levels.source}`}
       </div>
     </section>

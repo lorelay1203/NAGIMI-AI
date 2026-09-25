@@ -22,9 +22,9 @@ export const WHEEL_UNIVERSE: WheelSymbol[] = [
   // ── ETFs de índice: el caso de menor riesgo idiosincrático ──
   { ticker: "SPY", tier: "etf", razon: "S&P 500 — la cadena más líquida del mundo" },
   { ticker: "QQQ", tier: "etf", razon: "Nasdaq 100 — muy líquido, más prima que SPY" },
-  { ticker: "IWM", tier: "etf", razon: "Small caps — colateral moderado" },
+  { ticker: "IWM", tier: "etf", razon: "Small caps — dinero congelado moderado" },
   { ticker: "DIA", tier: "etf", razon: "Dow 30 — prima baja pero estable" },
-  { ticker: "XLF", tier: "etf", razon: "Financieras — colateral bajo para un ETF" },
+  { ticker: "XLF", tier: "etf", razon: "Financieras — dinero congelado bajo para un ETF" },
   { ticker: "XLE", tier: "etf", razon: "Energía — IV alta con frecuencia" },
 
   // ── Caro: casi siempre fuera del alcance de cuentas chicas, útil de referencia ──
@@ -38,12 +38,12 @@ export const WHEEL_UNIVERSE: WheelSymbol[] = [
 
   // ── Medio ──
   { ticker: "AAPL", tier: "medio", razon: "La cadena de acción individual más líquida" },
-  { ticker: "AMZN", tier: "medio", razon: "Mega cap con colateral alcanzable" },
+  { ticker: "AMZN", tier: "medio", razon: "Mega cap con dinero congelado alcanzable" },
   { ticker: "GOOGL", tier: "medio", razon: "Mega cap, cadena profunda" },
   { ticker: "TSLA", tier: "medio", razon: "IV alta de forma persistente" },
   { ticker: "AMD", tier: "medio", razon: "Semis con IV alta y cadena líquida" },
   { ticker: "DIS", tier: "medio", razon: "Marca consolidada, prima decente" },
-  { ticker: "BAC", tier: "medio", razon: "Banco grande, colateral bajo" },
+  { ticker: "BAC", tier: "medio", razon: "Banco grande, dinero congelado bajo" },
   { ticker: "KO", tier: "medio", razon: "Defensiva con dividendo — cómoda de poseer" },
   { ticker: "PFE", tier: "medio", razon: "Farmacéutica grande con dividendo" },
   { ticker: "INTC", tier: "medio", razon: "Semis barata, cadena muy activa" },
@@ -53,17 +53,17 @@ export const WHEEL_UNIVERSE: WheelSymbol[] = [
   { ticker: "CVX", tier: "medio", razon: "Energía integrada con dividendo" },
 
   // ── Barato: donde una cuenta pequeña puede operar de verdad ──
-  { ticker: "F", tier: "barato", razon: "Colateral bajo y cadena sorprendentemente líquida" },
+  { ticker: "F", tier: "barato", razon: "Dinero congelado bajo y cadena sorprendentemente líquida" },
   { ticker: "SOFI", tier: "barato", razon: "Fintech barata con opciones activas" },
   { ticker: "PLTR", tier: "barato", razon: "IV alta y cadena muy negociada" },
-  { ticker: "NIO", tier: "barato", razon: "Colateral bajo, IV alta — riesgo país declarado" },
-  { ticker: "WULF", tier: "barato", razon: "Minería de bitcoin, colateral muy bajo" },
+  { ticker: "NIO", tier: "barato", razon: "Dinero congelado bajo, IV alta — riesgo país declarado" },
+  { ticker: "WULF", tier: "barato", razon: "Minería de bitcoin, dinero congelado muy bajo" },
   { ticker: "RIOT", tier: "barato", razon: "Proxy de bitcoin con IV alta" },
   { ticker: "MARA", tier: "barato", razon: "Proxy de bitcoin, cadena activa" },
   { ticker: "CCL", tier: "barato", razon: "Cruceros, colateral bajo" },
   { ticker: "SNAP", tier: "barato", razon: "Colateral bajo, IV alta" },
   { ticker: "T", tier: "barato", razon: "Telecom con dividendo — cómoda de poseer" },
-  { ticker: "VALE", tier: "barato", razon: "Minera con dividendo y colateral bajo" },
+  { ticker: "VALE", tier: "barato", razon: "Minera con dividendo y dinero congelado bajo" },
   { ticker: "HOOD", tier: "barato", razon: "Bróker, IV alta" },
-  { ticker: "LCID", tier: "barato", razon: "Colateral mínimo — el más especulativo de la lista" },
+  { ticker: "LCID", tier: "barato", razon: "Dinero congelado mínimo — el más especulativo de la lista" },
 ];

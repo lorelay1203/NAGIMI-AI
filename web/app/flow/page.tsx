@@ -95,7 +95,7 @@ function ScoreCard({ score }: { score: AggressionScore }) {
   );
 }
 
-const HEADERS = ["Fecha", "Hora", "Contrato", "Tipo", "DTE", "Lado", "Precio", "Bid/Ask", "Tamaño", "Premium", "Δ", "Flags"];
+const HEADERS = ["Fecha", "Hora", "Contrato", "Tipo", "Días que le quedan", "Lado", "Precio", "Ofrecen / Piden", "Tamaño", "Dinero movido", "Δ", "Avisos"];
 
 export default function FlowPage() {
   const [ticker, setTicker] = useState("");

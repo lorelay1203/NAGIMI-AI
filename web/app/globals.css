@@ -1629,3 +1629,150 @@ tfoot .totals td {
 .mesa-viendo { font-size: 12px; color: var(--text); line-height: 1.4; }
 .mesa-viendo-lbl { font-weight: 700; color: var(--faint); text-transform: uppercase; font-size: 10px; letter-spacing: .04em; }
 .mesa-empuje { font-size: 11.5px; font-weight: 600; }
+
+/* 💹 Tarjeta de cotización de la portada ------------------------------- */
+.home-cot { width: 100%; max-width: 760px; margin: 18px auto 0; }
+.cot { gap: 14px; }
+.cot-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 10px; }
+.cot-ticker {
+  font-family: var(--font-display), Georgia, serif;
+  font-size: 30px; font-weight: 700; letter-spacing: -0.6px; line-height: 1.1; margin-top: 2px;
+}
+.cot-cerrar {
+  background: none; border: 1px solid var(--line); color: var(--faint);
+  border-radius: 8px; width: 28px; height: 28px; cursor: pointer; font-size: 13px; line-height: 1;
+}
+.cot-cerrar:hover { color: var(--text); border-color: var(--accent); }
+
+.cot-precio-fila { display: flex; align-items: baseline; flex-wrap: wrap; gap: 12px; }
+.cot-precio { font-size: 34px; font-weight: 800; letter-spacing: -1px; }
+.cot-delta { font-size: 16px; font-weight: 700; }
+.cot-analizar {
+  margin-left: auto; align-self: center;
+  background: var(--accent); color: #fff; border: none; border-radius: 10px;
+  padding: 11px 18px; font-size: 13.5px; font-weight: 700; cursor: pointer;
+  box-shadow: 0 6px 18px rgba(124, 108, 255, 0.28);
+}
+.cot-analizar:hover { background: var(--accent-2); }
+.cot-analizar:disabled { opacity: 0.55; cursor: default; box-shadow: none; }
+
+.cot-tiles { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 10px; }
+.cot-tile { border: 1px solid var(--line); border-radius: 12px; padding: 11px 12px; background: var(--card-2, transparent); }
+.cot-tile-label { font-size: 10.5px; letter-spacing: 0.9px; text-transform: uppercase; color: var(--faint); font-weight: 700; }
+.cot-tile-valor { font-size: 17px; font-weight: 800; margin-top: 4px; letter-spacing: -0.3px; }
+.cot-tile-sub { font-size: 11px; color: var(--muted); margin-top: 3px; line-height: 1.4; }
+
+.cot-pie { font-size: 11.5px; color: var(--muted); line-height: 1.55; border-top: 1px solid var(--line); padding-top: 10px; }
+
+@media (max-width: 620px) {
+  .cot-tiles { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .cot-analizar { margin-left: 0; width: 100%; }
+}
+
+/* 📖 Palabras técnicas traducidas -------------------------------------- */
+.term-wrap { display: inline; }
+.term {
+  background: none; border: none; padding: 0; margin: 0; cursor: help;
+  font: inherit; color: inherit; text-align: left;
+  text-transform: inherit; letter-spacing: inherit;
+  border-bottom: 1px dotted var(--faint);
+}
+.term:hover { border-bottom-color: var(--accent); color: var(--accent); }
+.term-tec {
+  margin-left: 5px; font-size: 0.82em; font-weight: 600; letter-spacing: 0;
+  color: var(--faint); text-transform: none;
+}
+.term-explica {
+  display: block; margin-top: 5px; padding: 7px 9px;
+  border-left: 2px solid var(--accent); background: rgba(124, 108, 255, 0.08);
+  border-radius: 0 7px 7px 0;
+  font-size: 11.5px; font-weight: 400; line-height: 1.5; color: var(--muted);
+  text-transform: none; letter-spacing: 0;
+}
+
+/* Página del glosario */
+.glos-lista { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 12px; }
+.glos-item { border: 1px solid var(--line); border-radius: 12px; padding: 13px 14px; }
+.glos-simple { font-size: 14.5px; font-weight: 700; letter-spacing: -0.2px; }
+.glos-tec { font-size: 11px; font-weight: 600; color: var(--faint); margin-top: 2px; }
+.glos-explica { font-size: 12.5px; color: var(--muted); line-height: 1.55; margin-top: 7px; }
+
+
+/* 🗺️ Mapa GEX (proyección en tres escenarios) --------------------------- */
+.mg { gap: 16px; }
+.mg-head { display: flex; justify-content: space-between; align-items: flex-start; gap: 14px; flex-wrap: wrap; }
+.mg-titulo { font-family: var(--font-display), Georgia, serif; font-size: 34px; font-weight: 700; letter-spacing: -0.8px; line-height: 1.1; }
+.mg-clave { text-align: right; border: 1px solid var(--accent); border-radius: 12px; padding: 10px 14px; background: rgba(124, 108, 255, 0.08); }
+.mg-clave-label { font-size: 10.5px; letter-spacing: 0.9px; text-transform: uppercase; color: var(--faint); font-weight: 700; }
+.mg-clave-valor { font-size: 26px; font-weight: 800; letter-spacing: -0.6px; color: var(--accent-2); }
+.mg-clave-sub { font-size: 11px; color: var(--muted); }
+.mg-lectura { font-size: 14px; line-height: 1.65; margin: 0; }
+.mg-escenarios { display: flex; flex-direction: column; gap: 10px; }
+.mg-esc { border: 1px solid var(--line); border-left: 4px solid; border-radius: 10px; padding: 12px 14px; }
+.mg-esc-titulo { font-size: 15px; font-weight: 800; }
+.mg-esc-cond { font-size: 12px; color: var(--muted); margin-top: 3px; }
+.mg-esc-texto { font-size: 13.5px; line-height: 1.6; margin: 7px 0 0; }
+.mg-metas { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; }
+.mg-meta { font-size: 12px; font-weight: 700; border: 1px solid var(--line); border-radius: 999px; padding: 3px 10px; }
+.mg-bloque p { font-size: 13.5px; line-height: 1.6; margin: 5px 0 0; }
+.mg-bloque-titulo { font-size: 14px; font-weight: 800; }
+.mg-lista { margin: 6px 0 0; padding-left: 20px; font-size: 13.5px; line-height: 1.7; }
+.mg-regla { border-top: 1px solid var(--line); padding-top: 12px; }
+.mg-pie { font-size: 11px; color: var(--muted); line-height: 1.5; }
+@media print {
+  .mg-clave { border-color: #999 !important; background: #fff !important; }
+  .mg-clave-valor { color: #111 !important; }
+  .mg-esc { break-inside: avoid; }
+}
+
+/* 🎟️ Ticket (estilo "GEX Ticket", en palabras simples) ----------------- */
+.tk { gap: 12px; border: 1.5px solid var(--line); }
+.tk.tk-up { border-color: rgba(51, 214, 159, 0.65); background: linear-gradient(180deg, rgba(51, 214, 159, 0.07), transparent 60%); }
+.tk.tk-down { border-color: rgba(255, 95, 109, 0.65); background: linear-gradient(180deg, rgba(255, 95, 109, 0.07), transparent 60%); }
+.tk.tk-wait { border-color: rgba(245, 196, 81, 0.55); }
+.tk-head { display: flex; justify-content: space-between; align-items: center; gap: 10px; flex-wrap: wrap; }
+.tk-titulo { font-size: 21px; font-weight: 800; letter-spacing: -0.4px; }
+.tk-titulo-sub { font-weight: 500; color: var(--muted); font-size: 17px; }
+.tk-head-der { display: flex; align-items: center; gap: 10px; }
+.tk-cuenta { font-size: 12px; color: var(--muted); display: flex; align-items: center; gap: 6px; }
+.tk-cuenta input { width: 78px; padding: 4px 7px; border-radius: 7px; border: 1px solid var(--line); background: var(--panel, transparent); color: var(--text); font-size: 12.5px; }
+.tk-badge { border: 1.5px solid; border-radius: 7px; padding: 3px 10px; font-size: 12px; font-weight: 800; letter-spacing: 0.6px; }
+.tk-badge.up { color: var(--green); border-color: var(--green); }
+.tk-badge.down { color: var(--red-soft); border-color: var(--red-soft); }
+.tk-badge.wait { color: #f5c451; border-color: #f5c451; }
+.tk-tesis { font-size: 13.5px; line-height: 1.55; }
+.tk-espera { margin-top: 5px; color: #f5c451; font-size: 12.5px; }
+.tk-gris { color: var(--muted); font-size: 12px; }
+.tk-contrato { display: flex; align-items: baseline; flex-wrap: wrap; gap: 10px; padding-bottom: 10px; border-bottom: 1px solid var(--line); }
+.tk-contrato .tk-badge { align-self: center; }
+.tk-simbolo { font-size: 24px; font-weight: 800; letter-spacing: -0.5px; }
+.tk-a { color: var(--muted); font-size: 13px; }
+.tk-precio { font-size: 24px; font-weight: 800; }
+.tk-cajas { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; }
+.tk-caja { border: 1px solid var(--line); border-radius: 10px; padding: 11px 13px; background: rgba(0, 0, 0, 0.18); }
+.tk-caja-label { font-size: 10.5px; letter-spacing: 0.8px; text-transform: uppercase; color: var(--faint); font-weight: 700; }
+.tk-caja-valor { font-size: 24px; font-weight: 800; margin-top: 3px; letter-spacing: -0.4px; }
+.tk-caja-sub { font-size: 11.5px; color: var(--muted); margin-top: 3px; line-height: 1.45; }
+.tk-chips { display: flex; flex-wrap: wrap; gap: 6px; }
+.tk-chip { border: 1px solid var(--line); border-radius: 7px; padding: 4px 9px; font-size: 11.5px; color: var(--muted); }
+.tk-chip b { color: var(--text); }
+.tk-chip-bien { border-color: var(--green); color: var(--green); }
+.tk-chip-mal { border-color: var(--red-soft); color: var(--red-soft); }
+.tk-chip-aviso { border-color: #f5c451; color: #f5c451; }
+.tk-regla { font-size: 12.5px; line-height: 1.5; border-radius: 8px; padding: 8px 11px; }
+.tk-regla.ok { background: rgba(51, 214, 159, 0.08); border: 1px solid rgba(51, 214, 159, 0.4); }
+.tk-regla.no { background: rgba(255, 95, 109, 0.08); border: 1px solid rgba(255, 95, 109, 0.4); }
+.tk-aviso { font-size: 12px; line-height: 1.55; color: #f5c451; background: rgba(245, 196, 81, 0.07); border: 1px solid rgba(245, 196, 81, 0.35); border-radius: 8px; padding: 8px 10px; }
+.tk-sin { font-size: 13px; line-height: 1.55; }
+.tk-pie { font-size: 11.5px; color: var(--muted); line-height: 1.5; }
+.tk-nota { font-size: 11px; color: var(--muted); line-height: 1.5; }
+.tk-copiar {
+  align-self: flex-start; background: none; cursor: pointer;
+  border: 1px solid var(--line); color: var(--muted); border-radius: 8px;
+  padding: 5px 11px; font-size: 12px; font-weight: 600;
+}
+.tk-copiar:hover { border-color: var(--accent); color: var(--text); }
+@media (max-width: 620px) {
+  .tk-cajas { grid-template-columns: 1fr; }
+  .tk-simbolo, .tk-precio { font-size: 20px; }
+}

@@ -7,12 +7,13 @@
 import { getDayGex } from "@/lib/dayGex";
 import { getTicketChain, type TicketChainSource } from "@/lib/ticketChain";
 import { pickTicket, ticketParamsFor } from "@/lib/contractTicket";
-import { dynamicPinParams, evaluatePin, gatePin, noPinReason, riskReward, type FlowCtx } from "@/lib/pinStrategy";
+import { dynamicPinParams, evaluateEmpujon, evaluatePin, gatePin, noPinReason, riskReward, type FlowCtx, type PinSetup } from "@/lib/pinStrategy";
 import { expectedMove } from "@/lib/expectedMove";
 import { fetchFlow } from "@/lib/marketsnack";
 import { classifyFlow } from "@/lib/flow";
 import { analyzeMarketPressure } from "@/lib/marketPressure";
 import { getTtFlow } from "@/lib/ttFlow";
+import { contarBarridas, type FilaFlujo } from "@/lib/barridas";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -31,6 +32,8 @@ export const maxDuration = 60;
  */
 async function flowContext(ticker: string): Promise<{
   ctx: FlowCtx; disponible: boolean; premium: number; fuente: string | null; velocidad: number | null;
+  /** Las operaciones del día (MarketSnack), para contar barridas sobre el contrato. */
+  filas: FilaFlujo[];
 }> {
   // Tastytrade en vivo (si el streamer está corriendo). Es lo ÚNICO que puede
   // medir la velocidad de la cinta, porque guarda una serie de tiempo.
@@ -50,7 +53,7 @@ async function flowContext(ticker: string): Promise<{
           ctx: { bull, bear, velocity: velocidad },
           disponible: true, premium: p.side.total,
           fuente: velocidad != null ? "marketsnack+tastytrade" : "marketsnack",
-          velocidad,
+          velocidad, filas: rows,
         };
       }
     }
@@ -60,11 +63,11 @@ async function flowContext(ticker: string): Promise<{
   if (tt?.fresco && tt.bull + tt.bear > 0) {
     return {
       ctx: { bull: tt.bull, bear: tt.bear, velocity: velocidad },
-      disponible: true, premium: tt.bull + tt.bear, fuente: "tastytrade", velocidad,
+      disponible: true, premium: tt.bull + tt.bear, fuente: "tastytrade", velocidad, filas: [],
     };
   }
 
-  return { ctx: {}, disponible: false, premium: 0, fuente: null, velocidad };
+  return { ctx: {}, disponible: false, premium: 0, fuente: null, velocidad, filas: [] };
 }
 
 export async function GET(request: Request) {
@@ -110,12 +113,28 @@ export async function GET(request: Request) {
     const magnet = simulated ? magnetSim : levels.magnet;
     const regime = simulated ? "positive" : levels.regime;
 
-    const setup = evaluatePin(levels.spot, regime, magnet, levels.gammaFlip, params);
+    // Dos recetas según el tipo de día:
+    //   · día de rango (gamma positiva) → volver al imán.
+    //   · día de empujón (gamma negativa) → ir con el dinero hasta el próximo muro.
+    let setup: PinSetup | null = evaluatePin(levels.spot, regime, magnet, levels.gammaFlip, params);
+    let estrategia: "iman" | "empujon" = "iman";
+    let noSetup: string | null = setup ? null : noPinReason(levels.spot, regime, magnet, params);
+
+    // El flujo se lee una sola vez: en día de empujón pone la dirección y,
+    // en los dos casos, sirve de filtro.
+    let flow: Awaited<ReturnType<typeof flowContext>> | null = null;
+    if (!setup && regime === "negative" && !simulated) {
+      flow = await flowContext(ticker);
+      const emp = evaluateEmpujon(levels.spot, regime, levels, flow.ctx, sigma, params);
+      setup = emp.setup;
+      estrategia = "empujon";
+      noSetup = emp.setup ? null : emp.reason;
+    }
 
     if (!setup) {
       return Response.json({
-        ticker, levels, sigma, setup: null, verdict: null, ticket: null,
-        noSetup: noPinReason(levels.spot, regime, magnet, params),
+        ticker, levels, sigma, setup: null, verdict: null, ticket: null, estrategia,
+        noSetup,
         expiration: chain?.expiration ?? null,
         chainSource: chain?.source ?? null,
         chainStats,
@@ -124,13 +143,19 @@ export async function GET(request: Request) {
     }
 
     // Flujo para el filtro: si el dinero corre en contra de la idea, esperar.
-    const flow = await flowContext(ticker);
+    if (!flow) flow = await flowContext(ticker);
     const verdict = gatePin(setup, flow.ctx, levels.gammaFlip, params);
 
     let ticket = null, ticketReason: string | null = null;
     let usedChain = chain;
 
-    if (chain) {
+    // Antes de las 9:30 AM (hora de Nueva York) las opciones no tienen precio
+    // de compra y venta. Eso no es "poca gente": es que no ha abierto. Se dice así.
+    const sinPrecios = chainStats != null && chainStats.conHorquilla === 0;
+
+    if (chain && sinPrecios) {
+      ticketReason = "Las opciones todavía no tienen precio de compra y venta (abren a las 9:30 AM hora de Nueva York). Vuelve a mirar cuando abra el mercado.";
+    } else if (chain) {
       const tp = ticketParamsFor(capital);
       const picked = pickTicket(setup, levels.spot, chain.rows, tp, capital);
       ticket = picked.ticket;
@@ -155,9 +180,18 @@ export async function GET(request: Request) {
       ticketReason = "No se pudo leer la cadena de opciones para elegir el contrato.";
     }
 
+    // ¿El dinero grande con prisa está comprando ESTE mismo contrato hoy?
+    // null = no se pudo mirar (sin operaciones de MarketSnack), que no es lo
+    // mismo que "cero barridas".
+    const barridas = ticket && flow.filas.length > 0
+      ? contarBarridas(flow.filas, { type: ticket.type, strike: ticket.strike, expiration: ticket.expiration }, new Date())
+      : null;
+
     return Response.json({
       ticker, levels, sigma,
       setup: { ...setup, rr: riskReward(setup) },
+      barridas,
+      estrategia,
       verdict, ticket, ticketReason,
       // Si el flujo no se pudo mirar, el "listo" vale menos: solo pasó el filtro
       // de riesgo/beneficio. La pantalla lo advierte.

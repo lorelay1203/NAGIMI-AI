@@ -1,13 +1,16 @@
 "use client";
 
-// Portada del panel, con el mismo orden que la de FinAnalista: etiqueta
-// pequeña, titular grande en serif, una línea de qué hace, "¿qué quieres
-// analizar?" con el buscador y ejemplos de un clic, y debajo tu tabla.
+// Portada del panel: etiqueta pequeña, titular grande en serif, una línea de
+// qué hace, "¿qué quieres analizar?" con el buscador y ejemplos de un clic, y
+// debajo tu tabla.
 //
-// Las tarjetas de "caminos" (Day Trades, Wheel, Reportes…) se quitaron: eran
-// los mismos enlaces del menú lateral, repetidos.
+// Al escribir un ticker (o tocar uno de los ejemplos) sale la tarjeta de
+// cotización con el precio, el volumen, el VWAP y el máximo/mínimo del día,
+// más el botón grande de análisis completo. Así se decide antes de gastar los
+// ~40 segundos que tarda el análisis entero.
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
+import CotizacionCard from "./CotizacionCard";
 
 type HomeHubProps = {
   onSearch: (ticker: string) => void;
@@ -17,8 +20,21 @@ type HomeHubProps = {
 
 const PRUEBA = ["SPY", "QQQ", "NVDA", "TSLA"];
 
+/** Un ticker sirve para pedir cotización si tiene de 1 a 5 letras. */
+const esTicker = (t: string) => /^[A-Z]{1,5}$/.test(t);
+
 export default function HomeHub({ onSearch, children }: HomeHubProps) {
   const [ticker, setTicker] = useState("");
+  const [mirando, setMirando] = useState<string | null>(null);
+
+  // Se espera medio segundo desde la última tecla para no pedir la cotización
+  // de "N", "NV", "NVD" mientras todavía está escribiendo.
+  useEffect(() => {
+    const t = ticker.trim().toUpperCase();
+    if (!esTicker(t)) { setMirando(null); return; }
+    const id = setTimeout(() => setMirando(t), 500);
+    return () => clearTimeout(id);
+  }, [ticker]);
 
   const submit = () => {
     const value = ticker.trim().toUpperCase();
@@ -61,10 +77,20 @@ export default function HomeHub({ onSearch, children }: HomeHubProps) {
         <div className="home-try">
           <span>Prueba</span>
           {PRUEBA.map((t) => (
-            <button key={t} type="button" onClick={() => onSearch(t)}>{t}</button>
+            <button key={t} type="button" onClick={() => setTicker(t)}>{t}</button>
           ))}
         </div>
       </div>
+
+      {mirando && (
+        <div className="home-cot">
+          <CotizacionCard
+            ticker={mirando}
+            onAnalizar={onSearch}
+            onCerrar={() => { setTicker(""); setMirando(null); }}
+          />
+        </div>
+      )}
 
       {children}
     </section>

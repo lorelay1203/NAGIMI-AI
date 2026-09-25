@@ -23,6 +23,7 @@ const ANALIZAR: Item[] = [
   { href: "/flow", label: "Flujo", ico: "≋" },
   { href: "/grandes", label: "Sigue a los Grandes", ico: "🐋" },
   { href: "/proyecciones", label: "Proyecciones", ico: "📈" },
+  { href: "/mapa", label: "Mapa de muros", ico: "🗺️" },
 ];
 
 const OPORTUNIDADES: Item[] = [
@@ -41,6 +42,7 @@ const CUENTA: Item[] = [
   { href: "/portafolio", label: "Portafolio", ico: "💼" },
   { href: "/schwab", label: "Conexiones", ico: "⚯" },
   { href: "/cookie", label: "MarketSnack", ico: "◍" },
+  { href: "/glosario", label: "Diccionario", ico: "📖" },
   { href: "/guia", label: "Guía", ico: "?" },
 ];
 
