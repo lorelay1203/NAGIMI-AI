@@ -7,7 +7,8 @@
 // No se copiaron la campanita ni el botón de panel de agentes: en FinAnalista
 // no hacen nada todavía, y en Nagimi no se pone nada que no funcione.
 
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
+import PanelAgentes, { type NotasAgentes } from "./PanelAgentes";
 import type { CompanyInfo } from "@/lib/types";
 import { pct, px } from "../format";
 
@@ -35,13 +36,18 @@ export default function HeaderBar({
   busy,
   onSearch,
   onHome,
+  notasAgentes,
 }: {
   ticker: string | null;
   company: CompanyInfo | null;
   busy: boolean;
   onSearch: (t: string) => void;
   onHome?: () => void;
+  /** Notas 0-10 de los seis agentes que puntúan (del análisis completo). */
+  notasAgentes?: NotasAgentes;
 }) {
+  const [agentesAbierto, setAgentesAbierto] = useState(false);
+  const cerrarAgentes = useCallback(() => setAgentesAbierto(false), []);
   const [q, setQ] = useState("");
   const input = useRef<HTMLInputElement>(null);
 
@@ -108,6 +114,18 @@ export default function HeaderBar({
         />
         <kbd>Ctrl K</kbd>
       </div>
+
+      <button
+        type="button"
+        className={`hb-agentes ${agentesAbierto ? "on" : ""}`}
+        onClick={() => setAgentesAbierto((v) => !v)}
+        aria-expanded={agentesAbierto}
+        title="Ver qué está mirando cada agente"
+      >
+        👥 Agentes
+      </button>
+
+      <PanelAgentes abierto={agentesAbierto} onCerrar={cerrarAgentes} ticker={ticker} notas={notasAgentes} analizando={busy} />
     </div>
   );
 }

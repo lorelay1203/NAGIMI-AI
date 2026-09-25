@@ -101,13 +101,13 @@ export function lecturaTecnica(input: {
   const tono: LecturaTecnica["tono"] = lateral ? "neutral" : arriba ? "up" : "down";
   const senal = lateral ? "Sin tendencia" : arriba ? "Tendencia ARRIBA" : "Tendencia ABAJO";
 
-  const momento = r >= 70 ? "muy estirado al alza (RSI " + r.toFixed(0) + ")"
-    : r >= 55 ? "con fuerza compradora (RSI " + r.toFixed(0) + ")"
-    : r <= 30 ? "muy castigado (RSI " + r.toFixed(0) + ")"
-    : r <= 45 ? "con fuerza vendedora (RSI " + r.toFixed(0) + ")"
-    : "sin fuerza clara (RSI " + r.toFixed(0) + ")";
+  const momento = r >= 70 ? "muy estirado al alza (termómetro de estirón en " + r.toFixed(0) + " de 100)"
+    : r >= 55 ? "con fuerza compradora (termómetro de estirón en " + r.toFixed(0) + " de 100)"
+    : r <= 30 ? "muy castigado (termómetro de estirón en " + r.toFixed(0) + " de 100)"
+    : r <= 45 ? "con fuerza vendedora (termómetro de estirón en " + r.toFixed(0) + " de 100)"
+    : "sin fuerza clara (termómetro de estirón en " + r.toFixed(0) + " de 100)";
 
-  const viendo = `Media de 20 en $${e20.toFixed(2)} y la de 50 en $${e50.toFixed(2)}; `
+  const viendo = `Precio promedio de los últimos 20 días: $${e20.toFixed(2)}; de los últimos 50: $${e50.toFixed(2)}; `
     + `${momento}. Un día normal se mueve ${a.toFixed(1)}%.`;
 
   // El nivel de invalidación es el muro del lado contrario a la tendencia.

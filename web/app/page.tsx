@@ -550,7 +550,13 @@ export default function Dashboard() {
 
   return (
     <>
-      <HeaderBar ticker={ticker} company={company} busy={busy} onSearch={runSearch} onHome={goHome} />
+      <HeaderBar
+        ticker={ticker} company={company} busy={busy} onSearch={runSearch} onHome={goHome}
+        notasAgentes={{
+          AGR: aggScore?.score ?? null, CNV: conviction?.score ?? null, INU: unusuality?.score ?? null,
+          EST: structure?.score ?? null, IV: ivContext?.score ?? null, PRE: validation?.score ?? null,
+        }}
+      />
       <main className="wrap page-stack">
 
         {!started && !busy && (

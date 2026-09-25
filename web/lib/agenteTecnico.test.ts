@@ -72,9 +72,9 @@ describe("lecturaTecnica", () => {
     expect(lecturaTecnica({ velas: velas([1, 2, 3]), suelo: null, techo: null })).toBeNull();
   });
 
-  it("dice el RSI y el movimiento diario en la línea de 'viendo'", () => {
+  it("dice el termómetro de estirón (RSI) y el movimiento diario en la línea de 'viendo'", () => {
     const l = lecturaTecnica({ velas: velas(subiendo), suelo: 150, techo: 190 })!;
-    expect(l.viendo).toContain("RSI");
+    expect(l.viendo).toContain("termómetro de estirón");
     expect(l.viendo).toContain("Un día normal se mueve");
   });
 });

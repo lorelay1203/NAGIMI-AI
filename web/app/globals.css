@@ -1776,3 +1776,54 @@ tfoot .totals td {
   .tk-cajas { grid-template-columns: 1fr; }
   .tk-simbolo, .tk-precio { font-size: 20px; }
 }
+
+/* 👥 Panel de agentes (lado derecho) ------------------------------------ */
+.hb-agentes {
+  flex: 0 0 auto; background: none; cursor: pointer; white-space: nowrap;
+  border: 1px solid var(--line); color: var(--muted); border-radius: 9px;
+  padding: 6px 12px; font-size: 12.5px; font-weight: 700; margin-left: 8px;
+}
+.hb-agentes:hover, .hb-agentes.on { border-color: var(--accent); color: var(--text); background: rgba(124, 108, 255, 0.1); }
+
+.pa-fondo { position: fixed; inset: 0; background: rgba(5, 6, 12, 0.55); z-index: 80; animation: pa-fade 0.15s ease-out; }
+.pa {
+  position: fixed; top: 0; right: 0; bottom: 0; z-index: 81;
+  width: min(420px, 100vw); overflow-y: auto;
+  background: var(--bg); border-left: 1px solid var(--line);
+  box-shadow: -18px 0 40px rgba(0, 0, 0, 0.45);
+  padding: 18px 16px 28px; display: flex; flex-direction: column; gap: 14px;
+  animation: pa-entra 0.2s ease-out;
+}
+@keyframes pa-entra { from { transform: translateX(40px); opacity: 0; } to { transform: none; opacity: 1; } }
+@keyframes pa-fade { from { opacity: 0; } to { opacity: 1; } }
+.pa-head { display: flex; justify-content: space-between; align-items: flex-start; gap: 10px; }
+.pa-kicker { font-size: 10.5px; letter-spacing: 1px; text-transform: uppercase; color: var(--accent-2); font-weight: 800; }
+.pa-titulo { font-family: var(--font-display), Georgia, serif; font-size: 22px; font-weight: 700; letter-spacing: -0.4px; margin-top: 2px; }
+.pa-tk { color: var(--accent-2); }
+.pa-cerrar { background: none; border: 1px solid var(--line); color: var(--faint); border-radius: 8px; width: 30px; height: 30px; cursor: pointer; }
+.pa-cerrar:hover { color: var(--text); border-color: var(--accent); }
+.pa-vacio { font-size: 13px; color: var(--muted); line-height: 1.55; }
+.pa-lista { display: flex; flex-direction: column; gap: 8px; }
+.pa-card { border: 1px solid var(--line); border-radius: 11px; padding: 10px 12px; display: flex; flex-direction: column; gap: 5px; }
+.pa-card.pa-up { border-left: 3px solid var(--green); }
+.pa-card.pa-down { border-left: 3px solid var(--red-soft); }
+.pa-card.pa-neutral { border-left: 3px solid #f5c451; }
+.pa-card.pa-off { opacity: 0.72; border-style: dashed; }
+.pa-card-top { display: flex; align-items: center; gap: 8px; }
+.pa-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--faint); flex: 0 0 auto; }
+.pa-dot-up { background: var(--green); box-shadow: 0 0 8px var(--green); }
+.pa-dot-down { background: var(--red-soft); box-shadow: 0 0 8px var(--red-soft); }
+.pa-dot-neutral { background: #f5c451; }
+.pa-nombre { font-size: 13.5px; font-weight: 800; }
+.pa-chip { font-size: 9.5px; font-weight: 800; letter-spacing: 0.7px; border: 1px solid var(--line); color: var(--faint); border-radius: 5px; padding: 1px 6px; }
+.pa-chip.vivo { color: var(--green); border-color: rgba(51, 214, 159, 0.5); }
+.pa-nota { margin-left: auto; font-size: 15px; font-weight: 800; }
+.pa-nota small { font-size: 10px; color: var(--faint); font-weight: 600; }
+.pa-quehace { font-size: 11.5px; color: var(--muted); line-height: 1.45; }
+.pa-lectura { font-size: 12.5px; line-height: 1.5; }
+.pa-empuje { color: var(--muted); font-size: 12px; margin-top: 3px; }
+.pa-pendiente { font-size: 11.5px; color: var(--faint); line-height: 1.45; }
+.pa-sep { font-size: 10.5px; letter-spacing: 1px; text-transform: uppercase; color: var(--faint); font-weight: 800; margin-top: 8px; }
+.pa-mas { font-size: 12.5px; font-weight: 700; color: var(--accent-2); text-decoration: none; margin-top: 4px; }
+.pa-mas:hover { text-decoration: underline; }
+@media print { .pa, .pa-fondo, .hb-agentes { display: none !important; } }
