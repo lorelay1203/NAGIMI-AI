@@ -30,7 +30,7 @@ Lorelay el 25-sep: **200 = funciona con su plan, 403 = bloqueado por el plan**.
 
 ## Agente por agente
 
-### RSK · Riesgo — completar (no necesita datos nuevos)
+### RSK · Riesgo — ✅ HECHO el 25-sep (`lib/agenteRiesgo.ts` + `/api/riesgo`, 23 pruebas)
 - **Liquidez de la cadena:** diferencia compra/venta, contratos abiertos y
   volumen de los contratos cerca del precio — ya vienen en la cadena del ticket.
 - **Límite de confianza:** cuántos agentes tuvieron datos, qué tan atrasados
@@ -98,7 +98,7 @@ Lorelay el 25-sep: **200 = funciona con su plan, 403 = bloqueado por el plan**.
 
 ## Orden recomendado
 
-1. **RSK** — protege el dinero y no necesita nada nuevo.
+1. ~~**RSK**~~ — ✅ hecho.
 2. **GOV** — todo gratis y ya probado; los insiders son una señal fuerte.
 3. **SNT** — fiabilidad de fuentes + tono de analistas.
 4. **FND ligero** — múltiplos contra competidores.

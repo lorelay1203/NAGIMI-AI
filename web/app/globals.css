@@ -1827,3 +1827,4 @@ tfoot .totals td {
 .pa-mas { font-size: 12.5px; font-weight: 700; color: var(--accent-2); text-decoration: none; margin-top: 4px; }
 .pa-mas:hover { text-decoration: underline; }
 @media print { .pa, .pa-fondo, .hb-agentes { display: none !important; } }
+.pa-detalles { margin: 6px 0 2px; padding-left: 16px; display: flex; flex-direction: column; gap: 4px; font-size: 11.5px; color: var(--muted); line-height: 1.45; }

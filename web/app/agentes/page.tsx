@@ -99,6 +99,11 @@ export default function AgentesPage() {
                     ? <>se llena con el análisis completo — <a href={`/?ticker=${encodeURIComponent(ticker)}`}>ábrelo en el Panel</a></>
                     : "escribe un ticker arriba"}
               </div>
+              {dato?.detalles && dato.detalles.length > 0 && (
+                <ul className="pa-detalles">
+                  {dato.detalles.map((d, k) => <li key={k}>{d}</li>)}
+                </ul>
+              )}
               {dato?.empuje && <div className="mesa-empuje">{dato.empuje}</div>}
             </div>
           );

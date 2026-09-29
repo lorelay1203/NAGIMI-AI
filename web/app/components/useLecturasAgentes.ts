@@ -9,7 +9,6 @@
 // nunca con una lectura inventada.
 
 import { useCallback, useState } from "react";
-import { gammaSkew } from "@/lib/gammaSkew";
 import type { Catalizador } from "@/lib/catalizador";
 
 export interface Vivo {
@@ -18,6 +17,8 @@ export interface Vivo {
   empuje: string | null;
   senal: string;
   tono: "up" | "down" | "neutral";
+  /** Una línea por pieza de la lectura, cuando el agente las da (Riesgo). */
+  detalles?: string[];
 }
 
 export type EstadoAgente = Vivo | "cargando" | "sin dato";
@@ -57,43 +58,18 @@ export function useLecturasAgentes() {
       })
       .catch(() => setVivos((v) => ({ ...v, CAT: "sin dato" })));
 
-    // Riesgo: la asimetría de la gamma, con los strikes y el flip del día.
-    try {
-      const [cadena, dia] = await Promise.all([
-        fetch(`/api/mschain?ticker=${encodeURIComponent(t)}`).then((r) => r.json()),
-        fetch(`/api/daygex?ticker=${encodeURIComponent(t)}`).then((r) => r.json()),
-      ]);
-      // El perfil por strike sale de los niveles del día cuando la fuente lo da
-      // (Schwab o Massive); si la fuente fue MarketSnack, viene vacío y se usa
-      // la cadena por strike que se pidió aparte.
-      const barras = Array.isArray(dia?.levels?.bars) ? dia.levels.bars : [];
-      const strikes = barras.length > 0 ? barras : (Array.isArray(cadena?.strikes) ? cadena.strikes : []);
-      const spot = dia?.levels?.spot ?? cadena?.spot ?? 0;
-      if (strikes.length === 0 || !(spot > 0)) {
-        setVivos((v) => ({ ...v, RSK: "sin dato" }));
-      } else {
-        const sk = gammaSkew(
-          strikes.map((s: { strike: number; netGex: number }) => ({ strike: s.strike, netGex: s.netGex })),
-          spot,
-          dia?.levels?.gammaFlip ?? null,
-        );
-        const viendo = sk.ladoEngrasado === "abajo" ? "más gamma que acelera por debajo del precio"
-          : sk.ladoEngrasado === "arriba" ? "más gamma que acelera por encima del precio"
-          : "gamma pareja a ambos lados";
+    // Riesgo: las cinco piezas (resbala, liquidez, mercado, día malo y
+    // confianza) vienen armadas de /api/riesgo.
+    fetch(`/api/riesgo?ticker=${encodeURIComponent(t)}`)
+      .then((r) => r.json())
+      .then((d: { riesgo?: Vivo & { detalles?: string[] } }) => {
+        const r = d.riesgo;
         setVivos((v) => ({
           ...v,
-          RSK: {
-            viendo,
-            empuje: sk.lectura,
-            senal: sk.ladoEngrasado === "abajo" ? "Resbala ABAJO"
-              : sk.ladoEngrasado === "arriba" ? "Resbala ARRIBA" : "Parejo",
-            tono: sk.ladoEngrasado === "abajo" ? "down" : sk.ladoEngrasado === "arriba" ? "up" : "neutral",
-          },
+          RSK: r ? { viendo: r.viendo, empuje: r.empuje, senal: r.senal, tono: r.tono, detalles: r.detalles } : "sin dato",
         }));
-      }
-    } catch {
-      setVivos((v) => ({ ...v, RSK: "sin dato" }));
-    }
+      })
+      .catch(() => setVivos((v) => ({ ...v, RSK: "sin dato" })));
   }, []);
 
   return { ticker, vivos, analizar };

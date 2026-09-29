@@ -102,6 +102,11 @@ export default function PanelAgentes({
                   {dato && (
                     <div className="pa-lectura">
                       <b>{dato.senal}:</b> {dato.viendo}
+                      {dato.detalles && dato.detalles.length > 0 && (
+                        <ul className="pa-detalles">
+                          {dato.detalles.map((d, k) => <li key={k}>{d}</li>)}
+                        </ul>
+                      )}
                       {dato.empuje && <div className="pa-empuje">› {dato.empuje}</div>}
                     </div>
                   )}

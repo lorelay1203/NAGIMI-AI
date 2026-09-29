@@ -50,8 +50,8 @@ export const CATALOGO: { codigo: string; nombre: string; queHace: string; weight
     queHace: "Dice si las opciones están caras o baratas frente a su historia (IV inflada = primas caras)." },
   { codigo: "PRE", nombre: "Confirmación de Precio", weight: 15, mira: "Qué hizo el precio",
     queHace: "Chequea si el precio confirma lo que dice el flujo, o lo absorbe sin moverse." },
-  { codigo: "RSK", nombre: "Riesgo (Gamma Skew)", weight: 0, mira: "Hacia dónde resbala",
-    queHace: "Mira hacia qué lado se resbala el precio — para decidir si sigues en el trade o te sales." },
+  { codigo: "RSK", nombre: "Riesgo", weight: 0, mira: "Qué te puede salir mal",
+    queHace: "Mira hacia qué lado resbala el precio, si hay gente negociando los contratos (para poder salir), cuánto se mueve con el mercado, hasta dónde puede caer en un día malo y qué tan confiable es la lectura." },
   { codigo: "CAT", nombre: "Catalizadores (Earnings)", weight: 0, mira: "Fechas que mueven",
     queHace: "Avisa si hay un reporte de resultados cerca — después la IV se desinfla y tu opción pierde valor aunque aciertes." },
   { codigo: "TCH", nombre: "Técnicos", weight: 0, mira: "Tendencia y momentum",
@@ -167,7 +167,7 @@ export function skewComoAgente(input: {
     : "neutral";
   return {
     codigo: "RSK",
-    nombre: "Riesgo (Gamma Skew)",
+    nombre: "Riesgo",
     queHace: "Mira hacia qué lado se resbala el precio — para decidir si sigues en el trade o te sales.",
     viendo: input.viendo,
     score: null,
