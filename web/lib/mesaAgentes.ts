@@ -58,6 +58,8 @@ export const CATALOGO: { codigo: string; nombre: string; queHace: string; weight
     queHace: "Lee la tendencia (medias de 20 y 50), la fuerza (RSI) y cuánto se mueve en un día normal (ATR), y dice en qué precio se rompe esa lectura." },
   { codigo: "SNT", nombre: "Sentimiento", weight: 0, mira: "Lo que dicen las noticias",
     queHace: "Mira los titulares del ticker, si el tono es a favor o en contra, y avisa cuando la noticia más reciente ya está vieja." },
+  { codigo: "GOV", nombre: "Gobernanza", weight: 0, mira: "La gente de adentro",
+    queHace: "Mira si los directivos compran o venden acciones con su dinero, qué eventos serios reportó la empresa a la SEC y cuánto tiene apartado para demandas — cada cosa con su enlace a la SEC." },
   { codigo: "MAC", nombre: "Macro", weight: 0, mira: "El ambiente del mercado",
     queHace: "Mide hacia dónde sopla el viento: el mercado (SPY), las tasas (TLT), el dólar (UUP) y el oro (GLD) en las últimas 20 sesiones." },
 ];
@@ -76,11 +78,6 @@ export const SIN_DATOS: { codigo: string; nombre: string; queHace: string; porQu
     codigo: "SUP", nombre: "Cadena de suministro",
     queHace: "Mapear proveedores y clientes, y vigilar riesgo logístico.",
     porQueNo: "No hay ninguna fuente de datos conectada que dé eso. Antes que inventarlo, se queda fuera.",
-  },
-  {
-    codigo: "GOV", nombre: "Gobernanza",
-    queHace: "Seguir litigios, consejo, compensación y señales regulatorias.",
-    porQueNo: "Haría falta una fuente de insiders y litigios que hoy no está conectada. Lo más cercano que sí tienes es 'Sigue a los Grandes' (13F de la SEC).",
   },
 ];
 

@@ -17,8 +17,10 @@ export interface Vivo {
   empuje: string | null;
   senal: string;
   tono: "up" | "down" | "neutral";
-  /** Una línea por pieza de la lectura, cuando el agente las da (Riesgo). */
+  /** Una línea por pieza de la lectura, cuando el agente las da (Riesgo, Gobernanza). */
   detalles?: string[];
+  /** Enlaces a la fuente primaria (Gobernanza: filings en sec.gov). */
+  fuentes?: { texto: string; url: string }[];
 }
 
 export type EstadoAgente = Vivo | "cargando" | "sin dato";
@@ -29,7 +31,7 @@ export function useLecturasAgentes() {
 
   const analizar = useCallback(async (t: string) => {
     setTicker(t);
-    setVivos({ RSK: "cargando", CAT: "cargando", TCH: "cargando", SNT: "cargando", MAC: "cargando" });
+    setVivos({ RSK: "cargando", CAT: "cargando", TCH: "cargando", SNT: "cargando", MAC: "cargando", GOV: "cargando" });
 
     // Técnicos, Sentimiento y Macro: los tres vienen de la misma ruta.
     fetch(`/api/agentes?ticker=${encodeURIComponent(t)}`)
@@ -57,6 +59,15 @@ export function useLecturasAgentes() {
         }));
       })
       .catch(() => setVivos((v) => ({ ...v, CAT: "sin dato" })));
+
+    // Gobernanza: directivos, eventos de la SEC y demandas, con sus enlaces.
+    fetch(`/api/gobernanza?ticker=${encodeURIComponent(t)}`)
+      .then((r) => r.json())
+      .then((d: { gobernanza?: Vivo }) => {
+        const g = d.gobernanza;
+        setVivos((v) => ({ ...v, GOV: g ? { ...g, empuje: g.empuje ?? null } : "sin dato" }));
+      })
+      .catch(() => setVivos((v) => ({ ...v, GOV: "sin dato" })));
 
     // Riesgo: las cinco piezas (resbala, liquidez, mercado, día malo y
     // confianza) vienen armadas de /api/riesgo.

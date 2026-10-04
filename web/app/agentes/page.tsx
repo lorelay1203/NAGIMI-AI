@@ -3,7 +3,7 @@
 // 👥 Mesa de Agentes — la respuesta a la página "Agentes" de FinAnalista.
 //
 // Allá la página dice "coming soon": siete módulos apagados, sin datos. Aquí
-// los ocho agentes son los que de verdad calculan el puntaje de Nagimi, con su
+// los agentes son los que de verdad calculan el puntaje de Nagimi, con su
 // peso real. Con un ticker, los dos de contexto (Riesgo y Catalizadores) se
 // llenan en vivo aquí mismo, porque son baratos de calcular; los seis que
 // puntúan necesitan el escaneo completo del flujo y se llenan en el Panel.
@@ -33,11 +33,12 @@ export default function AgentesPage() {
     <main className="wrap page-stack" style={{ maxWidth: 1100 }}>
       <div className="page-head">
         <div className="eyebrow">Mesa de agentes</div>
-        <h1>Ocho agentes miran tu ticker. <em>Cada uno vigila algo distinto.</em></h1>
+        <h1>{CATALOGO.length} agentes miran tu ticker. <em>Cada uno vigila algo distinto.</em></h1>
         <p>
           Seis le ponen nota al ticker y esa nota es el puntaje de Nagimi; su peso dice cuánto
-          manda cada uno. Los otros dos no puntúan: avisan de un riesgo o de una fecha. Aquí no
-          hay ninguno apagado — todos trabajan cada vez que analizas.
+          manda cada uno. Los demás no puntúan: dan el contexto — el riesgo, las fechas, la
+          tendencia, las noticias, el mercado y la gente de adentro. Aquí no hay ninguno
+          apagado — todos trabajan cada vez que analizas.
         </p>
       </div>
 
@@ -105,6 +106,13 @@ export default function AgentesPage() {
                 </ul>
               )}
               {dato?.empuje && <div className="mesa-empuje">{dato.empuje}</div>}
+              {dato?.fuentes && dato.fuentes.length > 0 && (
+                <div className="pa-fuentes">
+                  {dato.fuentes.map((s, k) => (
+                    <a key={k} href={s.url} target="_blank" rel="noopener noreferrer">🔗 {s.texto}</a>
+                  ))}
+                </div>
+              )}
             </div>
           );
         })}
@@ -116,7 +124,7 @@ export default function AgentesPage() {
         <div>
           <div className="card-title">Lo que Nagimi todavía no puede mirar</div>
           <div className="card-sub">
-            Estos tres los tiene FinAnalista en su lista, apagados. Aquí no se pone una tarjeta vacía:
+            Estos los tiene FinAnalista en su lista, apagados. Aquí no se pone una tarjeta vacía:
             se dice qué haría y por qué no está.
           </div>
         </div>

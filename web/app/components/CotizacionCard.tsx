@@ -131,7 +131,7 @@ export default function CotizacionCard({
             {s.delayed
               ? `⏱ Datos con retraso: es la sesión del ${fechaHumana(s.sessionDate)}, no el precio de este mismo segundo.`
               : `Sesión del ${fechaHumana(s.sessionDate)}.`}
-            {" "}El análisis completo tarda ~40 s y trae veredicto, niveles y los ocho agentes.
+            {" "}El análisis completo tarda ~40 s y trae veredicto, niveles y la mesa de agentes.
           </div>
         </>
       )}

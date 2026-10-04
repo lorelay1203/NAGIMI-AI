@@ -108,6 +108,13 @@ export default function PanelAgentes({
                         </ul>
                       )}
                       {dato.empuje && <div className="pa-empuje">› {dato.empuje}</div>}
+                      {dato.fuentes && dato.fuentes.length > 0 && (
+                        <div className="pa-fuentes">
+                          {dato.fuentes.map((s, k) => (
+                            <a key={k} href={s.url} target="_blank" rel="noopener noreferrer">🔗 {s.texto}</a>
+                          ))}
+                        </div>
+                      )}
                     </div>
                   )}
                   {puntua && nota != null && (

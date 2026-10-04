@@ -40,7 +40,7 @@ Lorelay el 25-sep: **200 = funciona con su plan, 403 = bloqueado por el plan**.
 - **Escenarios a la baja:** ya existe el cono de movimiento esperado; sumarle
   "si pierde el suelo, hasta dónde".
 
-### GOV · Gobernanza — se puede armar YA, todo gratis
+### GOV · Gobernanza — ✅ HECHO el 29-sep (`lib/agenteGobernanza.ts` + `lib/sec.ts` + `/api/gobernanza`, 14 pruebas)
 - **Insiders:** compras y ventas de directivos (Finnhub Form 4 + MSPR). Una
   compra de un directivo con su dinero pesa mucho más que una venta (las ventas
   suelen ser planes automáticos: código de transacción "S" con plan 10b5-1).
@@ -99,7 +99,7 @@ Lorelay el 25-sep: **200 = funciona con su plan, 403 = bloqueado por el plan**.
 ## Orden recomendado
 
 1. ~~**RSK**~~ — ✅ hecho.
-2. **GOV** — todo gratis y ya probado; los insiders son una señal fuerte.
+2. ~~**GOV**~~ — ✅ hecho.
 3. **SNT** — fiabilidad de fuentes + tono de analistas.
 4. **FND ligero** — múltiplos contra competidores.
 5. **MAC por sectores**.
