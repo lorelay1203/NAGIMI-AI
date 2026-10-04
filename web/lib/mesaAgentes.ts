@@ -57,7 +57,7 @@ export const CATALOGO: { codigo: string; nombre: string; queHace: string; weight
   { codigo: "TCH", nombre: "Técnicos", weight: 0, mira: "Tendencia y momentum",
     queHace: "Lee la tendencia (medias de 20 y 50), la fuerza (RSI) y cuánto se mueve en un día normal (ATR), y dice en qué precio se rompe esa lectura." },
   { codigo: "SNT", nombre: "Sentimiento", weight: 0, mira: "Lo que dicen las noticias",
-    queHace: "Mira los titulares del ticker, si el tono es a favor o en contra, y avisa cuando la noticia más reciente ya está vieja." },
+    queHace: "Mira los titulares del ticker y quién los escribe (una agencia seria pesa más que un sitio de recomendaciones), avisa si ya están viejos, y suma qué opinan los analistas y si se están animando o enfriando." },
   { codigo: "GOV", nombre: "Gobernanza", weight: 0, mira: "La gente de adentro",
     queHace: "Mira si los directivos compran o venden acciones con su dinero, qué eventos serios reportó la empresa a la SEC y cuánto tiene apartado para demandas — cada cosa con su enlace a la SEC." },
   { codigo: "MAC", nombre: "Macro", weight: 0, mira: "El ambiente del mercado",

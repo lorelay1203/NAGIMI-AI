@@ -55,7 +55,10 @@ Lorelay el 25-sep: **200 = funciona con su plan, 403 = bloqueado por el plan**.
   SEC es posible pero más trabajo; ESG no disponible.
 - **Cita siempre la fuente primaria** (link al filing en sec.gov).
 
-### SNT · Sentimiento — completar
+### SNT · Sentimiento — ✅ HECHO el 4-oct (`lib/agenteSentimiento.ts`, 20 pruebas)
+
+Hallazgo: los titulares de empresas que llegan (Massive) son casi todos de The Motley Fool y Zacks; Finnhub `company-news` trae casi todo vía Yahoo, sin decir el medio original y sin tono. Por eso cada fuente pesa según su confiabilidad y se avisa cuando casi todo es flojo.
+
 - **Fiabilidad de cada fuente:** tabla propia (SEC/Reuters/Bloomberg/AP alta,
   medios financieros media, blogs y agregadores baja) — no necesita datos.
 - **Tono de analistas:** Finnhub `recommendation` (200) — cómo cambió de un mes
@@ -100,7 +103,7 @@ Lorelay el 25-sep: **200 = funciona con su plan, 403 = bloqueado por el plan**.
 
 1. ~~**RSK**~~ — ✅ hecho.
 2. ~~**GOV**~~ — ✅ hecho.
-3. **SNT** — fiabilidad de fuentes + tono de analistas.
+3. ~~**SNT**~~ — ✅ hecho.
 4. **FND ligero** — múltiplos contra competidores.
 5. **MAC por sectores**.
 6. **TCH marcos de tiempo**.
