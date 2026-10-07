@@ -31,7 +31,7 @@ export function useLecturasAgentes() {
 
   const analizar = useCallback(async (t: string) => {
     setTicker(t);
-    setVivos({ RSK: "cargando", CAT: "cargando", TCH: "cargando", SNT: "cargando", MAC: "cargando", GOV: "cargando" });
+    setVivos({ RSK: "cargando", CAT: "cargando", TCH: "cargando", SNT: "cargando", MAC: "cargando", GOV: "cargando", FND: "cargando" });
 
     // Técnicos, Sentimiento y Macro: los tres vienen de la misma ruta.
     fetch(`/api/agentes?ticker=${encodeURIComponent(t)}`)
@@ -59,6 +59,15 @@ export function useLecturasAgentes() {
         }));
       })
       .catch(() => setVivos((v) => ({ ...v, CAT: "sin dato" })));
+
+    // Fundamentales: crece, gana, debe, y si está cara contra sus competidores.
+    fetch(`/api/fundamentales?ticker=${encodeURIComponent(t)}`)
+      .then((r) => r.json())
+      .then((d: { fundamentales?: Vivo | null }) => {
+        const f = d.fundamentales;
+        setVivos((v) => ({ ...v, FND: f ? { ...f, empuje: f.empuje ?? null } : "sin dato" }));
+      })
+      .catch(() => setVivos((v) => ({ ...v, FND: "sin dato" })));
 
     // Gobernanza: directivos, eventos de la SEC y demandas, con sus enlaces.
     fetch(`/api/gobernanza?ticker=${encodeURIComponent(t)}`)

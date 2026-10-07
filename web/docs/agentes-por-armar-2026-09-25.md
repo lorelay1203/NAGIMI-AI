@@ -65,7 +65,7 @@ Hallazgo: los titulares de empresas que llegan (Massive) son casi todos de The M
   a otro.
 - **Falta:** redes sociales y transcripciones de llamadas (403).
 
-### FND · Fundamentales — versión para opciones
+### FND · Fundamentales — ✅ HECHO el 4-oct (`lib/agenteFundamentales.ts` + `/api/fundamentales`, 14 pruebas). Calidad (crece/gana/debe) y precio contra competidores se juzgan aparte; precio "mixto" si ventas y ganancia futura dicen cosas distintas. Ojo: los competidores de Finnhub a veces no son los de verdad (TSLA → casas rodantes).
 - Antes se dijo "vive en el proyecto de acciones". Para opciones basta una
   versión ligera: crecimiento de ventas, márgenes, deuda, y **múltiplos contra
   sus competidores** (Finnhub `metric` de cada uno de `peers`).
@@ -104,7 +104,7 @@ Hallazgo: los titulares de empresas que llegan (Massive) son casi todos de The M
 1. ~~**RSK**~~ — ✅ hecho.
 2. ~~**GOV**~~ — ✅ hecho.
 3. ~~**SNT**~~ — ✅ hecho.
-4. **FND ligero** — múltiplos contra competidores.
+4. ~~**FND ligero**~~ — ✅ hecho.
 5. **MAC por sectores**.
 6. **TCH marcos de tiempo**.
 7. **SUP parcial**.

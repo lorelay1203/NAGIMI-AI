@@ -58,6 +58,8 @@ export const CATALOGO: { codigo: string; nombre: string; queHace: string; weight
     queHace: "Lee la tendencia (medias de 20 y 50), la fuerza (RSI) y cuánto se mueve en un día normal (ATR), y dice en qué precio se rompe esa lectura." },
   { codigo: "SNT", nombre: "Sentimiento", weight: 0, mira: "Lo que dicen las noticias",
     queHace: "Mira los titulares del ticker y quién los escribe (una agencia seria pesa más que un sitio de recomendaciones), avisa si ya están viejos, y suma qué opinan los analistas y si se están animando o enfriando." },
+  { codigo: "FND", nombre: "Fundamentales", weight: 0, mira: "Si es buena empresa",
+    queHace: "Mira si la empresa crece, si gana dinero, si debe mucho y si está cara o barata comparada con sus competidores — separando lo que la empresa reportó de lo que estiman los analistas." },
   { codigo: "GOV", nombre: "Gobernanza", weight: 0, mira: "La gente de adentro",
     queHace: "Mira si los directivos compran o venden acciones con su dinero, qué eventos serios reportó la empresa a la SEC y cuánto tiene apartado para demandas — cada cosa con su enlace a la SEC." },
   { codigo: "MAC", nombre: "Macro", weight: 0, mira: "El ambiente del mercado",
@@ -69,11 +71,6 @@ export const CATALOGO: { codigo: string; nombre: string; queHace: string; weight
  * Se muestra igual, con el motivo — es más honesto que una tarjeta apagada.
  */
 export const SIN_DATOS: { codigo: string; nombre: string; queHace: string; porQueNo: string }[] = [
-  {
-    codigo: "FND", nombre: "Fundamentales",
-    queHace: "Leer los reportes 10-K/10-Q, armar valoración y comparar múltiplos.",
-    porQueNo: "Ese motor ya existe, pero en tu otro proyecto (el de acciones). Aquí no se duplica: Nagimi Opciones vive del flujo, no de los fundamentales.",
-  },
   {
     codigo: "SUP", nombre: "Cadena de suministro",
     queHace: "Mapear proveedores y clientes, y vigilar riesgo logístico.",
