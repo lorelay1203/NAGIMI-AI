@@ -82,7 +82,7 @@ Hallazgo: los titulares de empresas que llegan (Massive) son casi todos de The M
 - **Falta:** calendario económico (403). Alternativa gratis: FRED (necesita una
   clave gratuita) o una lista fija de fechas de la Fed/CPI por año.
 
-### TCH · Técnicos — completar
+### TCH · Técnicos — ✅ HECHO el 7-oct (`lib/agenteMarcos.ts`, 9 pruebas): semanal (10/30 semanas), diario (20/50 días) y por hora (20/50 horas, 14 días de velas de Massive); si chocan, la señal lo dice y el tono baja a neutral
 - **Marcos de tiempo:** leer la misma tendencia en diario, semanal y 1 hora
   (las velas ya existen) y decir si coinciden.
 
@@ -106,7 +106,7 @@ Hallazgo: los titulares de empresas que llegan (Massive) son casi todos de The M
 3. ~~**SNT**~~ — ✅ hecho.
 4. ~~**FND ligero**~~ — ✅ hecho.
 5. ~~**MAC por sectores**~~ — ✅ hecho.
-6. **TCH marcos de tiempo**.
+6. ~~**TCH marcos de tiempo**~~ — ✅ hecho.
 7. **SUP parcial**.
 
 Regla para todos: cada lectura dice su fuente y su fecha; lo que no se pudo

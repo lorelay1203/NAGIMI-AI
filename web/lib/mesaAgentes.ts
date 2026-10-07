@@ -55,7 +55,7 @@ export const CATALOGO: { codigo: string; nombre: string; queHace: string; weight
   { codigo: "CAT", nombre: "Catalizadores (Earnings)", weight: 0, mira: "Fechas que mueven",
     queHace: "Avisa si hay un reporte de resultados cerca — después la IV se desinfla y tu opción pierde valor aunque aciertes." },
   { codigo: "TCH", nombre: "Técnicos", weight: 0, mira: "Tendencia y momentum",
-    queHace: "Lee la tendencia (medias de 20 y 50), la fuerza (RSI) y cuánto se mueve en un día normal (ATR), y dice en qué precio se rompe esa lectura." },
+    queHace: "Lee para dónde va el precio en tres escalas (semanal, diario y por hora) y si coinciden, qué tan estirado está y cuánto se mueve en un día normal, y dice en qué precio se rompe esa lectura." },
   { codigo: "SNT", nombre: "Sentimiento", weight: 0, mira: "Lo que dicen las noticias",
     queHace: "Mira los titulares del ticker y quién los escribe (una agencia seria pesa más que un sitio de recomendaciones), avisa si ya están viejos, y suma qué opinan los analistas y si se están animando o enfriando." },
   { codigo: "FND", nombre: "Fundamentales", weight: 0, mira: "Si es buena empresa",

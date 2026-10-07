@@ -10,6 +10,8 @@
 import { cachedDailyBars } from "@/lib/barsStore";
 import { getDayGex } from "@/lib/dayGex";
 import { lecturaTecnica } from "@/lib/agenteTecnico";
+import { lecturaMarcos, marcos } from "@/lib/agenteMarcos";
+import { fetchBars } from "@/lib/massive";
 import { cambioPct, lecturaMacro, PROXIES } from "@/lib/agenteMacro";
 import { lecturaSector, sectorDe } from "@/lib/agenteSector";
 import { buildNewsReport } from "@/lib/news";
@@ -57,16 +59,32 @@ export async function GET(request: Request) {
 
   const [tecnico, sentimiento, macro] = await Promise.all([
     (async (): Promise<Lectura | null> => {
-      const [velas, niveles] = await Promise.all([
+      const [velas, niveles, horas] = await Promise.all([
         cachedDailyBars(ticker, 365, ahora).catch(() => []),
         getDayGex(ticker).catch(() => null),
+        fetchBars(ticker, 60, "minute", 14).catch(() => []),
       ]);
       const l = lecturaTecnica({
         velas: velas.map((v) => ({ high: v.high, low: v.low, close: v.close })),
         suelo: niveles?.putWall ?? null,
         techo: niveles?.callWall ?? null,
       });
-      return l ? { senal: l.senal, tono: l.tono, viendo: l.viendo, empuje: l.empuje } : null;
+      if (!l) return null;
+
+      // Marcos de tiempo: semanal, diario y por hora. Si chocan, la señal lo
+      // dice y el tono baja a neutral: la tendencia diaria sola no basta.
+      const mt = lecturaMarcos(marcos(
+        velas.map((v) => ({ time: v.time, close: v.close })),
+        horas.map((h) => ({ time: h.time, close: h.close })),
+      ));
+      const chocan = mt.acuerdo === "chocan";
+      return {
+        senal: chocan ? `${l.senal} (los marcos chocan)` : mt.acuerdo === "coinciden" && l.tono !== "neutral" ? `${l.senal} en todos los marcos` : l.senal,
+        tono: chocan ? "neutral" : l.tono,
+        viendo: l.viendo,
+        empuje: l.empuje,
+        detalles: [mt.linea, mt.consejo].filter(Boolean),
+      };
     })(),
 
     (async (): Promise<Lectura | null> => {
