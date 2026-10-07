@@ -120,6 +120,7 @@ export default function AgentesPage() {
 
       {/* Lo que NO está — con el motivo. FinAnalista los deja como cuadros
           apagados que dicen "Pronto"; aquí se dice por qué no. */}
+      {SIN_DATOS.length > 0 && (
       <div className="card" style={{ gap: 12 }}>
         <div>
           <div className="card-title">Lo que Nagimi todavía no puede mirar</div>
@@ -141,6 +142,7 @@ export default function AgentesPage() {
           ))}
         </div>
       </div>
+      )}
 
       <div className="disclaimer">
         Los seis agentes con peso necesitan el escaneo completo del flujo, así que su lectura vive

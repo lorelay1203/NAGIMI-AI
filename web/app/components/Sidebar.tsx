@@ -5,45 +5,59 @@
 // la cuenta abajo) con una diferencia deliberada: aquí no hay ninguna entrada
 // en "Pronto". Todo lo que aparece en el menú funciona hoy.
 //
-// Agrupado por lo que HACES, no por cuándo se construyó cada página:
-//   · Analizar      → leer el mercado o un ticker concreto ahora mismo
-//   · Oportunidades → escáneres que te dan un candidato para operar
-//   · Seguimiento   → lo que ya marcaste o lo que Nagimi ya predijo
-// Las mismas categorías se usan en la página de inicio (HomeHub) — si se
-// agrega una página nueva, entra en ambos sitios o se nota al momento.
+// Pensado para un cliente que no conoce la app: pocas opciones, agrupadas por
+// lo que quiere hacer, y lo de configurar y aprender abajo, aparte.
 
 import { usePathname } from "next/navigation";
 import { useEffect, useState } from "react";
 
 interface Item { href: string; label: string; ico: string }
 
-const ANALIZAR: Item[] = [
-  { href: "/", label: "Panel", ico: "◧" },
-  { href: "/daytrades", label: "Day Trades", ico: "⚡" },
-  { href: "/flow", label: "Flujo", ico: "≋" },
-  { href: "/grandes", label: "Sigue a los Grandes", ico: "🐋" },
-  { href: "/proyecciones", label: "Proyecciones", ico: "📈" },
-  { href: "/mapa", label: "Mapa de muros", ico: "🗺️" },
+const INICIO: Item = { href: "/", label: "Inicio", ico: "⌂" };
+
+// Agrupado por lo que el cliente QUIERE HACER, en este orden:
+//   entender una acción → operar hoy → buscar ideas → ver lo suyo.
+// Lo de configurar y aprender va abajo, chiquito: se usa poco y no debe
+// competir con lo de todos los días.
+const GRUPOS: { titulo: string; items: Item[] }[] = [
+  {
+    titulo: "Entender una acción",
+    items: [
+      { href: "/mapa", label: "Mapa de muros", ico: "🗺️" },
+      { href: "/proyecciones", label: "Proyección", ico: "📈" },
+      { href: "/agentes", label: "Agentes", ico: "👥" },
+      { href: "/flow", label: "Flujo de opciones", ico: "≋" },
+    ],
+  },
+  {
+    titulo: "Operar hoy",
+    items: [
+      { href: "/daytrades", label: "Ticket del día", ico: "⚡" },
+      { href: "/prima", label: "Venta de prima", ico: "🎯" },
+    ],
+  },
+  {
+    titulo: "Buscar ideas",
+    items: [
+      { href: "/ideas", label: "Ideas", ico: "◈" },
+      { href: "/wheel", label: "Wheel (rueda)", ico: "◎" },
+      { href: "/grandes", label: "Sigue a los grandes", ico: "🐋" },
+    ],
+  },
+  {
+    titulo: "Lo mío",
+    items: [
+      { href: "/portafolio", label: "Mi dinero", ico: "💼" },
+      { href: "/watchlist", label: "Mi lista", ico: "★" },
+      { href: "/reportes", label: "Historial", ico: "📓" },
+    ],
+  },
 ];
 
-const OPORTUNIDADES: Item[] = [
-  { href: "/ideas", label: "Ideas", ico: "◈" },
-  { href: "/wheel", label: "Wheel", ico: "◎" },
-  { href: "/prima", label: "Venta de Prima", ico: "🎯" },
-];
-
-const SEGUIMIENTO: Item[] = [
-  { href: "/watchlist", label: "Watchlist", ico: "★" },
-  { href: "/reportes", label: "Reportes", ico: "📓" },
-  { href: "/agentes", label: "Agentes", ico: "👥" },
-];
-
-const CUENTA: Item[] = [
-  { href: "/portafolio", label: "Portafolio", ico: "💼" },
-  { href: "/schwab", label: "Conexiones", ico: "⚯" },
-  { href: "/cookie", label: "MarketSnack", ico: "◍" },
-  { href: "/glosario", label: "Diccionario", ico: "📖" },
+const ABAJO: Item[] = [
   { href: "/guia", label: "Guía", ico: "?" },
+  { href: "/glosario", label: "Diccionario", ico: "📖" },
+  { href: "/schwab", label: "Conexiones", ico: "⚙" },
 ];
 
 const money = (n: number) => `$${n.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
@@ -99,24 +113,24 @@ export default function Sidebar() {
         <span className="sb-brand-name">Nagimi<em>AI</em></span>
       </div>
 
-      <div className="sb-section">
-        <div className="sb-label">Analizar</div>
-        {ANALIZAR.map(link)}
-      </div>
+      <div className="sb-section">{link(INICIO)}</div>
 
-      <div className="sb-section">
-        <div className="sb-label">Oportunidades</div>
-        {OPORTUNIDADES.map(link)}
-      </div>
+      {GRUPOS.map((g) => (
+        <div className="sb-section" key={g.titulo}>
+          <div className="sb-label">{g.titulo}</div>
+          {g.items.map(link)}
+        </div>
+      ))}
 
-      <div className="sb-section">
-        <div className="sb-label">Seguimiento</div>
-        {SEGUIMIENTO.map(link)}
-      </div>
-
-      <div className="sb-section">
-        <div className="sb-label">Cuenta</div>
-        {CUENTA.map(link)}
+      <div className="sb-mini">
+        {ABAJO.map((i) => {
+          const active = pathname.startsWith(i.href) || (i.href === "/schwab" && pathname.startsWith("/cookie"));
+          return (
+            <a key={i.href} href={i.href} className={`sb-mini-link${active ? " active" : ""}`}>
+              <span aria-hidden>{i.ico}</span> {i.label}
+            </a>
+          );
+        })}
       </div>
 
       <div className="sb-foot">

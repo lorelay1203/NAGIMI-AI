@@ -139,7 +139,7 @@ export default function PanelAgentes({
               );
             })}
 
-            <div className="pa-sep">Todavía no armados</div>
+            {SIN_DATOS.length > 0 && <div className="pa-sep">Todavía no armados</div>}
             {SIN_DATOS.map((a) => (
               <div key={a.codigo} className="pa-card pa-off">
                 <div className="pa-card-top">

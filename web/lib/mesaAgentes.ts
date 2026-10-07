@@ -62,6 +62,8 @@ export const CATALOGO: { codigo: string; nombre: string; queHace: string; weight
     queHace: "Mira si la empresa crece, si gana dinero, si debe mucho y si está cara o barata comparada con sus competidores — separando lo que la empresa reportó de lo que estiman los analistas." },
   { codigo: "GOV", nombre: "Gobernanza", weight: 0, mira: "La gente de adentro",
     queHace: "Mira si los directivos compran o venden acciones con su dinero, qué eventos serios reportó la empresa a la SEC y cuánto tiene apartado para demandas — cada cosa con su enlace a la SEC." },
+  { codigo: "SUP", nombre: "Cadena de suministro", weight: 0, mira: "De quién depende",
+    queHace: "Mira cuánto depende la empresa de sus clientes más grandes (según su reporte anual), si se le acumula mercancía más rápido de lo que vende y si reportó problemas de aranceles, exportación o escasez. El mapa real de proveedores no está en tu plan de datos, y lo dice." },
   { codigo: "MAC", nombre: "Macro", weight: 0, mira: "El ambiente del mercado",
     queHace: "Mide hacia dónde sopla el viento: el mercado, las tasas, el dólar y el oro en las últimas 20 sesiones; si el sector de la acción va mejor o peor que el mercado, y si la acción es de las fuertes o las flojas de su grupo — con la fecha de los datos." },
 ];
@@ -71,11 +73,6 @@ export const CATALOGO: { codigo: string; nombre: string; queHace: string; weight
  * Se muestra igual, con el motivo — es más honesto que una tarjeta apagada.
  */
 export const SIN_DATOS: { codigo: string; nombre: string; queHace: string; porQueNo: string }[] = [
-  {
-    codigo: "SUP", nombre: "Cadena de suministro",
-    queHace: "Mapear proveedores y clientes, y vigilar riesgo logístico.",
-    porQueNo: "No hay ninguna fuente de datos conectada que dé eso. Antes que inventarlo, se queda fuera.",
-  },
 ];
 
 /** Código de 3 letras + qué hace cada agente, por nombre del scorecard. */

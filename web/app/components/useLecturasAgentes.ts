@@ -31,7 +31,7 @@ export function useLecturasAgentes() {
 
   const analizar = useCallback(async (t: string) => {
     setTicker(t);
-    setVivos({ RSK: "cargando", CAT: "cargando", TCH: "cargando", SNT: "cargando", MAC: "cargando", GOV: "cargando", FND: "cargando" });
+    setVivos({ RSK: "cargando", CAT: "cargando", TCH: "cargando", SNT: "cargando", MAC: "cargando", GOV: "cargando", FND: "cargando", SUP: "cargando" });
 
     // Técnicos, Sentimiento y Macro: los tres vienen de la misma ruta.
     fetch(`/api/agentes?ticker=${encodeURIComponent(t)}`)
@@ -68,6 +68,15 @@ export function useLecturasAgentes() {
         setVivos((v) => ({ ...v, FND: f ? { ...f, empuje: f.empuje ?? null } : "sin dato" }));
       })
       .catch(() => setVivos((v) => ({ ...v, FND: "sin dato" })));
+
+    // Cadena de suministro (parcial): clientes grandes, inventario y avisos.
+    fetch(`/api/suministro?ticker=${encodeURIComponent(t)}`)
+      .then((r) => r.json())
+      .then((d: { suministro?: Vivo | null }) => {
+        const s = d.suministro;
+        setVivos((v) => ({ ...v, SUP: s ? { ...s, empuje: s.empuje ?? null } : "sin dato" }));
+      })
+      .catch(() => setVivos((v) => ({ ...v, SUP: "sin dato" })));
 
     // Gobernanza: directivos, eventos de la SEC y demandas, con sus enlaces.
     fetch(`/api/gobernanza?ticker=${encodeURIComponent(t)}`)

@@ -86,7 +86,7 @@ Hallazgo: los titulares de empresas que llegan (Massive) son casi todos de The M
 - **Marcos de tiempo:** leer la misma tendencia en diario, semanal y 1 hora
   (las velas ya existen) y decir si coinciden.
 
-### SUP · Cadena de suministro — solo parcial, y se dice
+### SUP · Cadena de suministro — ✅ HECHO (parcial) el 7-oct (`lib/agenteSuministro.ts` + `/api/suministro`, 11 pruebas): concentración de clientes leída del 10-K, inventario contra ventas (XBRL), avisos 8-K de aranceles/exportación/escasez (sin los comunicados de resultados, item 2.02)
 - **No hay** fuente de proveedores/clientes reales en su plan (Finnhub 403).
 - Lo que SÍ se puede:
   - **Concentración de clientes** leyendo el 10-K ("Customer A accounted for
@@ -107,7 +107,7 @@ Hallazgo: los titulares de empresas que llegan (Massive) son casi todos de The M
 4. ~~**FND ligero**~~ — ✅ hecho.
 5. ~~**MAC por sectores**~~ — ✅ hecho.
 6. ~~**TCH marcos de tiempo**~~ — ✅ hecho.
-7. **SUP parcial**.
+7. ~~**SUP parcial**~~ — ✅ hecho. **Todos los agentes de Aetheris están armados.**
 
 Regla para todos: cada lectura dice su fuente y su fecha; lo que no se pudo
 medir se dice, nunca se inventa.
