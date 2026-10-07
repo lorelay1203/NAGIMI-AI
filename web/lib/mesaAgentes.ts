@@ -63,7 +63,7 @@ export const CATALOGO: { codigo: string; nombre: string; queHace: string; weight
   { codigo: "GOV", nombre: "Gobernanza", weight: 0, mira: "La gente de adentro",
     queHace: "Mira si los directivos compran o venden acciones con su dinero, qué eventos serios reportó la empresa a la SEC y cuánto tiene apartado para demandas — cada cosa con su enlace a la SEC." },
   { codigo: "MAC", nombre: "Macro", weight: 0, mira: "El ambiente del mercado",
-    queHace: "Mide hacia dónde sopla el viento: el mercado (SPY), las tasas (TLT), el dólar (UUP) y el oro (GLD) en las últimas 20 sesiones." },
+    queHace: "Mide hacia dónde sopla el viento: el mercado, las tasas, el dólar y el oro en las últimas 20 sesiones; si el sector de la acción va mejor o peor que el mercado, y si la acción es de las fuertes o las flojas de su grupo — con la fecha de los datos." },
 ];
 
 /**

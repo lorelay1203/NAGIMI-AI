@@ -75,7 +75,7 @@ Hallazgo: los titulares de empresas que llegan (Massive) son casi todos de The M
   decir de qué fecha es cada dato.
 - Un DCF completo no hace falta para decidir un contrato de días o semanas.
 
-### MAC · Macro — completar
+### MAC · Macro — ✅ HECHO el 7-oct (`lib/agenteSector.ts`, 11 pruebas): industria de Finnhub → fondo de sector (SMH, XLK, XLF, XLE, XLV, XLY, XLP, XLC, XLU, XLRE, XLI, XLB), sector contra mercado y ticker contra su sector a 20 sesiones, con fecha de los datos
 - **Presión por sectores:** ETFs de sector (XLK, XLF, XLE, XLV, SMH…) con las
   velas que ya se bajan; decir si el sector del ticker va con o contra el viento.
 - **Evidencia con fecha:** poner la fecha de cada serie.
@@ -105,7 +105,7 @@ Hallazgo: los titulares de empresas que llegan (Massive) son casi todos de The M
 2. ~~**GOV**~~ — ✅ hecho.
 3. ~~**SNT**~~ — ✅ hecho.
 4. ~~**FND ligero**~~ — ✅ hecho.
-5. **MAC por sectores**.
+5. ~~**MAC por sectores**~~ — ✅ hecho.
 6. **TCH marcos de tiempo**.
 7. **SUP parcial**.
 

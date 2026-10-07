@@ -10,7 +10,8 @@
 import { cachedDailyBars } from "@/lib/barsStore";
 import { getDayGex } from "@/lib/dayGex";
 import { lecturaTecnica } from "@/lib/agenteTecnico";
-import { lecturaMacro, PROXIES } from "@/lib/agenteMacro";
+import { cambioPct, lecturaMacro, PROXIES } from "@/lib/agenteMacro";
+import { lecturaSector, sectorDe } from "@/lib/agenteSector";
 import { buildNewsReport } from "@/lib/news";
 import { lecturaSentimiento, tonoAnalistas, tonoNoticias, type MesAnalistas } from "@/lib/agenteSentimiento";
 
@@ -19,6 +20,22 @@ export const dynamic = "force-dynamic";
 export const maxDuration = 60;
 
 interface Lectura { senal: string; tono: "up" | "down" | "neutral"; viendo: string; empuje: string; detalles?: string[] }
+
+/** Industria de la empresa según Finnhub ("Semiconductors", "Banking"…). Cache de un día. */
+const industrias = new Map<string, { cuando: number; v: string | null }>();
+async function industria(ticker: string): Promise<string | null> {
+  const g = industrias.get(ticker);
+  if (g && Date.now() - g.cuando < 24 * 60 * 60 * 1000) return g.v;
+  const key = process.env.FINNHUB_API_KEY;
+  if (!key) return null;
+  const r = await fetch(`https://finnhub.io/api/v1/stock/profile2?symbol=${encodeURIComponent(ticker)}&token=${key}`, { cache: "no-store" })
+    .catch(() => null);
+  if (!r || !r.ok) return null;
+  const j = (await r.json().catch(() => null)) as { finnhubIndustry?: string } | null;
+  const v = j?.finnhubIndustry || null;
+  industrias.set(ticker, { cuando: Date.now(), v });
+  return v;
+}
 
 /** Opinión de los analistas mes a mes (Finnhub). null si no hay clave o falla. */
 async function recomendaciones(ticker: string): Promise<MesAnalistas[] | null> {
@@ -82,7 +99,38 @@ export async function GET(request: Request) {
         series[p.ticker] = bars.map((b) => b.close);
       }));
       const l = lecturaMacro(series);
-      return l ? { senal: l.senal, tono: l.tono, viendo: l.viendo, empuje: l.empuje } : null;
+      if (!l) return null;
+
+      // El sector: la industria de Finnhub → su fondo de sector, comparado con
+      // el mercado en las mismas 20 sesiones, y el ticker contra su sector.
+      const sector = sectorDe(await industria(ticker));
+      const [velasSector, velasTicker, velasSpy] = await Promise.all([
+        sector ? cachedDailyBars(sector.etf, 365, ahora).catch(() => []) : Promise.resolve([]),
+        cachedDailyBars(ticker, 365, ahora).catch(() => []),
+        cachedDailyBars("SPY", 365, ahora).catch(() => []),
+      ]);
+      const s = lecturaSector({
+        ticker, sector, sesiones: 20,
+        cambioTicker: cambioPct(velasTicker.map((b) => b.close), 20),
+        cambioSector: cambioPct(velasSector.map((b) => b.close), 20),
+        cambioMercado: l.cambios.SPY,
+        fechaDatos: velasSpy.at(-1)?.time ?? null,
+      });
+
+      // El sector mueve la señal solo cuando el ambiente general no decide, o
+      // cuando va en contra del ambiente (se dice el choque).
+      const tono = l.tono === "neutral" && s.puntos !== 0 ? (s.puntos > 0 ? "up" : "down") : l.tono;
+      const senal = l.tono === "up" && s.puntos < 0 ? "Viento a favor, pero su sector se queda atrás"
+        : l.tono === "down" && s.puntos > 0 ? "Viento en contra, pero su sector aguanta"
+          : l.tono === "neutral" && s.puntos > 0 ? "Mercado de lado, sector a favor"
+            : l.tono === "neutral" && s.puntos < 0 ? "Mercado de lado, sector en contra"
+              : l.senal;
+      return {
+        senal, tono,
+        viendo: s.resumen ? `${l.viendo.replace(/\.$/, "")}; ${s.resumen}.` : l.viendo,
+        empuje: l.empuje,
+        detalles: s.detalles,
+      };
     })(),
   ]);
 

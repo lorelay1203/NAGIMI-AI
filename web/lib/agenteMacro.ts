@@ -21,11 +21,11 @@ export interface LecturaMacro {
   cambios: Record<string, number | null>;
 }
 
-export const PROXIES: { ticker: string; que: string }[] = [
-  { ticker: "SPY", que: "el mercado" },
-  { ticker: "TLT", que: "las tasas" },
-  { ticker: "UUP", que: "el dólar" },
-  { ticker: "GLD", que: "el oro" },
+export const PROXIES: { ticker: string; que: string; corto: string }[] = [
+  { ticker: "SPY", que: "el mercado", corto: "mercado" },
+  { ticker: "TLT", que: "las tasas", corto: "bonos largos" },
+  { ticker: "UUP", que: "el dólar", corto: "dólar" },
+  { ticker: "GLD", que: "el oro", corto: "oro" },
 ];
 
 /** Cambio % entre el último cierre y el de hace `sesiones`. */
@@ -65,7 +65,7 @@ export function lecturaMacro(series: Record<string, number[]>, sesiones = 20): L
   const senal = puntos >= 2 ? "Viento a favor" : puntos <= -2 ? "Viento en contra" : "Ambiente mixto";
 
   const partes = PROXIES
-    .map((p) => (cambios[p.ticker] == null ? null : `${p.ticker} ${signo(cambios[p.ticker]!)}`))
+    .map((p) => (cambios[p.ticker] == null ? null : `${p.corto} ${signo(cambios[p.ticker]!)}`))
     .filter(Boolean);
   const viendo = `Últimas ${sesiones} sesiones: ${partes.join(" · ")}.`;
 

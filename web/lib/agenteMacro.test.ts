@@ -47,14 +47,14 @@ describe("lecturaMacro", () => {
   it("dice los números con su signo y cuántas sesiones mira", () => {
     const l = lecturaMacro({ SPY: serie(4), TLT: serie(-2), UUP: serie(1.5), GLD: serie(0.5) })!;
     expect(l.viendo).toContain("Últimas 20 sesiones");
-    expect(l.viendo).toContain("SPY +4.0%");
-    expect(l.viendo).toContain("TLT -2.0%");
+    expect(l.viendo).toContain("mercado +4.0%");
+    expect(l.viendo).toContain("bonos largos -2.0%");
   });
 
   it("si falta un proxy sigue funcionando y lo deja en null", () => {
     const l = lecturaMacro({ SPY: serie(3) })!;
     expect(l.cambios.TLT).toBeNull();
-    expect(l.viendo).not.toContain("TLT");
+    expect(l.viendo).not.toContain("bonos largos");
   });
 
   it("sin el mercado (SPY) no se inventa una lectura", () => {
