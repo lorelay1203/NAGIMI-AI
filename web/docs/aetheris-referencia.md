@@ -1,8 +1,7 @@
 # Aetheris / FinAnalista — anatomía de un reporte (referencia para Nagimi)
 
 Capturado el 2026-09-10 explorando `aetheris.up.railway.app` con la cuenta de
-Lorelay (INFUSION · PRO). Aetheris es de Víctor González (CEO de MarketSnack e
-Infusion Investment). El acceso de Lorelay vence ~fin de septiembre 2026, así
+Lorelay (plan PRO). Aetheris es del creador de MarketSnack. El acceso de Lorelay vence ~fin de septiembre 2026, así
 que esto queda como espec de construcción: **el lenguaje claro que le gusta y
 la estructura, para portarlo a Nagimi sin depender de seguir viendo la página.**
 

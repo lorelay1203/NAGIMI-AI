@@ -31,7 +31,7 @@ interface MsContract {
   open_interest?: number;
   volume?: number;
   implied_volatility?: number | null;
-  greeks?: { gamma?: number; delta?: number };
+  greeks?: { gamma?: number; delta?: number; theta?: number };
   last_quote?: { bid?: number; ask?: number };
 }
 
@@ -87,6 +87,7 @@ async function msTicketChain(ticker: string): Promise<TicketChain> {
       ask: n(c.last_quote?.ask),
       delta: n(c.greeks?.delta),
       gamma: n(c.greeks?.gamma),
+      theta: n(c.greeks?.theta),
       iv: n(c.implied_volatility),
       volume: n(c.volume) ?? 0,
       oi: n(c.open_interest) ?? 0,
@@ -120,6 +121,7 @@ async function schwabTicketChain(ticker: string): Promise<TicketChain> {
       ask: c.quote?.ask ?? null,
       delta: c.greeks?.delta ?? null,
       gamma: c.greeks?.gamma ?? null,
+      theta: c.greeks?.theta ?? null,
       iv: c.greeks?.iv ?? null,
       volume: c.day?.volume ?? 0,
       oi: c.open_interest ?? 0,

@@ -14,6 +14,7 @@ import { classifyFlow } from "@/lib/flow";
 import { analyzeMarketPressure } from "@/lib/marketPressure";
 import { getTtFlow } from "@/lib/ttFlow";
 import { contarBarridas, type FilaFlujo } from "@/lib/barridas";
+import { revisarReglasOro } from "@/lib/reglasOro";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -68,6 +69,14 @@ async function flowContext(ticker: string): Promise<{
   }
 
   return { ctx: {}, disponible: false, premium: 0, fuente: null, velocidad, filas: [] };
+}
+
+/** Días hasta el vencimiento contando desde HOY en Nueva York (0 = vence hoy). */
+function diasParaVencer(expiration: string | null, ahora: Date): number {
+  if (!expiration) return 0;
+  const hoy = new Intl.DateTimeFormat("en-CA", { timeZone: "America/New_York" }).format(ahora);
+  const d = (Date.parse(`${expiration.slice(0, 10)}T00:00:00Z`) - Date.parse(`${hoy}T00:00:00Z`)) / 86_400_000;
+  return Number.isFinite(d) ? Math.max(0, Math.round(d)) : 0;
 }
 
 export async function GET(request: Request) {
@@ -187,9 +196,23 @@ export async function GET(request: Request) {
       ? contarBarridas(flow.filas, { type: ticket.type, strike: ticket.strike, expiration: ticket.expiration }, new Date())
       : null;
 
+    // Chequeo con las reglas de oro: ¿vale la pena tomar este contrato?
+    const ahora = new Date();
+    const reglasOro = revisarReglasOro({
+      ticker, spot: levels.spot, fuenteGex: levels.source, netGex: levels.netGex,
+      gammaFlip: levels.gammaFlip, magnet, callWall: levels.callWall, putWall: levels.putWall,
+      bars: levels.bars, direccion: setup.direction, meta: setup.target,
+      contrato: ticket ? {
+        strike: ticket.strike, type: ticket.type, mid: ticket.mid, delta: ticket.delta,
+        theta: ticket.theta, iv: ticket.iv, dte: diasParaVencer(ticket.expiration, ahora),
+      } : null,
+      ahora,
+    });
+
     return Response.json({
       ticker, levels, sigma,
       setup: { ...setup, rr: riskReward(setup) },
+      reglasOro,
       barridas,
       estrategia,
       verdict, ticket, ticketReason,

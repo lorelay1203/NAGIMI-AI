@@ -41,6 +41,7 @@ export default function ChatBox({
   const [sending, setSending] = useState(false);
   const [hasKey, setHasKey] = useState<boolean | null>(null);
   const [keyInput, setKeyInput] = useState("");
+  const [cambiarClave, setCambiarClave] = useState(false);
   const [keyMsg, setKeyMsg] = useState<string | null>(null);
   // El % que su perfil deja arriesgar. Se lee del navegador porque el SALDO de la
   // cuenta vive solo ahí; al chat viaja el porcentaje, nunca el dinero.
@@ -68,7 +69,7 @@ export default function ChatBox({
     if (!keyInput.trim()) return;
     setKeyMsg(null);
     const r = await fetch("/api/chat/key", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ apiKey: keyInput.trim() }) }).then((x) => x.json()).catch(() => ({ error: "Fallo de red" }));
-    if (r.ok) { setHasKey(true); setKeyInput(""); setKeyMsg(null); }
+    if (r.ok) { setHasKey(true); setKeyInput(""); setKeyMsg(null); setCambiarClave(false); }
     else setKeyMsg("⚠ " + (r.error ?? "No se pudo guardar."));
   }
 
@@ -113,9 +114,9 @@ export default function ChatBox({
         <div style={{ fontSize: 12.5, color: "var(--muted)" }}>Revisando si el chat está conectado…</div>
       )}
 
-      {hasKey === false && (
+      {(hasKey === false || cambiarClave) && (
         <div style={{ background: "var(--panel-2)", border: "1px solid var(--border-soft)", borderRadius: 10, padding: 12, display: "flex", flexDirection: "column", gap: 8 }}>
-          <div style={{ fontSize: 13, fontWeight: 700 }}>🔑 El chat todavía no está conectado</div>
+          <div style={{ fontSize: 13, fontWeight: 700 }}>{cambiarClave ? "🔑 Cambiar la clave de la IA" : "🔑 El chat todavía no está conectado"}</div>
           <div style={{ fontSize: 12, color: "var(--muted)", lineHeight: 1.55 }}>
             Le falta la clave de Anthropic (la que le da la IA). La creas en{" "}
             <b>console.anthropic.com → API Keys</b>, empieza con <code>sk-ant-…</code> y se guarda
@@ -202,6 +203,13 @@ export default function ChatBox({
             </div>
           )}
         </>
+      )}
+
+      {hasKey === true && !cambiarClave && (
+        <button type="button" onClick={() => setCambiarClave(true)}
+          style={{ alignSelf: "flex-start", background: "none", border: "none", color: "var(--faint)", fontSize: 11.5, cursor: "pointer", padding: 0, textDecoration: "underline" }}>
+          🔑 Cambiar la clave de la IA
+        </button>
       )}
 
       <div className="disclaimer">

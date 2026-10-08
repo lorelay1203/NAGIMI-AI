@@ -44,7 +44,7 @@ describe("nivelesConfirmados", () => {
     expect(r.techos[1].veces).toBe(1);
   });
 
-  it("lo dice en llano: tres vencimientos aguantan, uno se rompe primero", () => {
+  it("lo dice en llano: tres vencimientos aguantan, uno es flojo", () => {
     // En cada vencimiento gana UN solo techo, así que para tener un nivel de
     // una sola vez hace falta un vencimiento donde ese otro strike sea el mayor.
     const cuatro = [...VENCS, { expiration: "2026-10-30", dte: 37 }];
@@ -56,7 +56,7 @@ describe("nivelesConfirmados", () => {
     expect(r.techos[0].strike).toBe(230);
     expect(r.techos[0].lectura).toContain("3 vencimientos seguidos");
     expect(r.techos[1].strike).toBe(245);
-    expect(r.techos[1].lectura).toContain("se rompe primero");
+    expect(r.techos[1].lectura).toContain("muro flojo");
   });
 
   it("con IV calcula la probabilidad de tocarlo; sin IV la deja en null", () => {

@@ -28,6 +28,8 @@ export interface TicketChainRow {
   ask: number | null;
   delta: number | null; // firmado por la fuente (put negativo)
   gamma: number | null;
+  /** Cuánto pierde el contrato por día (por acción, negativo). Opcional. */
+  theta?: number | null;
   iv: number | null;
   volume: number;
   oi: number;
@@ -61,8 +63,9 @@ export function ticketParamsFor(capital: number): TicketParams {
   const small = cap < 500;
   return {
     // Con poco capital se amplía la banda hacia abajo: la delta 0.40-0.60 casi
-    // siempre queda fuera de presupuesto.
-    deltaMin: small ? 0.18 : 0.40,
+    // siempre queda fuera de presupuesto. Pero nunca por debajo de 0.25: menos de
+    // eso es "descartar" (regla de oro, ver lib/reglasOro.ts).
+    deltaMin: small ? 0.25 : 0.40,
     deltaMax: 0.60,
     deltaTarget: small ? 0.32 : 0.50,
     // Pisos bajos a propósito: el spread es mejor filtro de liquidez, y en 0DTE
@@ -87,6 +90,7 @@ export interface Ticket {
   mid: number;
   delta: number;      // |delta|
   gamma: number;
+  theta: number | null;
   iv: number | null;
   volume: number;
   oi: number;
@@ -202,7 +206,7 @@ export function pickTicket(
       bestScore = score;
       best = {
         strike: r.strike, type: r.type, expiration: r.expiration ?? null, symbol: r.symbol ?? null,
-        bid: r.bid, ask: r.ask, mid, delta: ad, gamma: r.gamma, iv: r.iv,
+        bid: r.bid, ask: r.ask, mid, delta: ad, gamma: r.gamma, theta: r.theta ?? null, iv: r.iv,
         volume: r.volume, oi: r.oi, spreadPct,
         targetPx, stopPx, rbOption: gain / loss,
         cost, risk, gain: gain * 100,

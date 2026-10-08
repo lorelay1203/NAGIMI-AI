@@ -257,7 +257,7 @@ export default function DayTradesPage() {
           </div>
 
           {/* Gráfica de GEX estilo MarketSnack (precio + muros e imán) */}
-          {msGex && <ChartZoom label="Muros en vivo — precio, techo, suelo e imán"><MarketSnackGexCard data={msGex} /></ChartZoom>}
+          {msGex?.latest && <ChartZoom label="Muros en vivo — precio, techo, suelo e imán"><MarketSnackGexCard data={msGex} /></ChartZoom>}
 
           {/* Escalera de gamma por strike (horizontal, tipo MarketSnack) */}
           {heat && <ChartZoom label="Escalera de gamma por precio pactado"><GexLadderCard h={heat} callWall={s.callWall} putWall={s.putWall} magnet={s.magnet} /></ChartZoom>}

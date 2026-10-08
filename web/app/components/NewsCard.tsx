@@ -4,6 +4,15 @@ import { useEffect, useState } from "react";
 import type { CompanyInfo } from "@/lib/types";
 import type { Bias, NewsItem, NewsReport } from "@/lib/news";
 import { contradictionFlag, flowBias } from "@/lib/news";
+import type { NoticiasSimples, TitularEntrada } from "@/lib/noticiasSimples";
+
+type Simple = NoticiasSimples["noticias"][number];
+const EFECTO: Record<string, { txt: string; cls: string }> = {
+  sube: { txt: "▲ Podría subirla", cls: "up" },
+  baja: { txt: "▼ Podría bajarla", cls: "down" },
+  mixto: { txt: "↕ Mezclado", cls: "neutral" },
+  neutral: { txt: "● Sin efecto claro", cls: "neutral" },
+};
 
 function ago(iso: string): string {
   const min = Math.round((Date.now() - new Date(iso).getTime()) / 60000);
@@ -20,18 +29,38 @@ const BIAS_LABEL: Record<Bias, string> = {
   mixed: "Noticias mixtas", neutral: "Sin dirección clara",
 };
 
-function Article({ n }: { n: NewsItem }) {
+function Article({ n, s }: { n: NewsItem; s?: Simple }) {
   return (
     <a className="news-item" href={n.url} target="_blank" rel="noopener noreferrer">
       <div className="news-item-top">
-        {n.sentiment && <span className={`news-sent ${n.sentiment}`}>{SENT_LABEL[n.sentiment]}</span>}
+        {s ? <span className={`news-efecto ${EFECTO[s.efecto].cls}`}>{EFECTO[s.efecto].txt}</span>
+          : n.sentiment && <span className={`news-sent ${n.sentiment}`}>{SENT_LABEL[n.sentiment]}</span>}
         {n.matchedBy && <span className="news-sent match">RSS · {n.matchedBy}</span>}
         <span className="news-meta">{n.publisher} · {ago(n.publishedUtc)}</span>
       </div>
-      <div className="news-title">{n.title}</div>
-      {n.reasoning && <div className="news-why">{n.reasoning}</div>}
+      <div className="news-title">{s ? s.titulo : n.title}</div>
+      {s && (
+        <>
+          <div className="news-simple">{s.que_significa}</div>
+          <div className="news-afecta"><b>Cómo la afecta:</b> {s.como_afecta}</div>
+          <div className="news-original">Original: {n.title}</div>
+        </>
+      )}
+      {!s && n.reasoning && <div className="news-why">{n.reasoning}</div>}
     </a>
   );
+}
+
+/** Los titulares que se ven en la tarjeta, en el formato que pide la traducción. */
+function aTitulares(r: NewsReport): TitularEntrada[] {
+  const de = (n: NewsItem, capa: TitularEntrada["capa"]): TitularEntrada => ({
+    id: n.id, titulo: n.title, descripcion: n.description, fuente: n.publisher, fecha: n.publishedUtc, capa,
+  });
+  return [
+    ...r.company.slice(0, 4).map((n) => de(n, "empresa")),
+    ...r.promoted.slice(0, 4).map((n) => de(n, "empresa")),
+    ...r.macro.slice(0, 4).map((n) => de(n, "mercado")),
+  ];
 }
 
 /**
@@ -51,6 +80,9 @@ export default function NewsCard({
 }) {
   const [report, setReport] = useState<NewsReport | null>(null);
   const [failed, setFailed] = useState(false);
+  const [simples, setSimples] = useState<NoticiasSimples | null>(null);
+  const [traduciendo, setTraduciendo] = useState(false);
+  const [errTrad, setErrTrad] = useState<string | null>(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -63,6 +95,31 @@ export default function NewsCard({
       .catch(() => { if (!cancelled) setFailed(true); });
     return () => { cancelled = true; };
   }, [ticker, company?.name]);
+
+  // En cuanto llegan los titulares, se piden traducidos y explicados.
+  useEffect(() => {
+    if (!report) return;
+    const titulares = aTitulares(report);
+    if (titulares.length === 0) return;
+    let cancelled = false;
+    setSimples(null); setErrTrad(null); setTraduciendo(true);
+    fetch("/api/news/resumen", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ ticker, empresa: company?.name ?? null, titulares }),
+    })
+      .then((r) => r.json())
+      .then((d: { simples?: NoticiasSimples | null; error?: string }) => {
+        if (cancelled) return;
+        if (d.error) setErrTrad(d.error);
+        else setSimples(d.simples ?? null);
+      })
+      .catch(() => { if (!cancelled) setErrTrad("No se pudieron traducir las noticias ahora mismo."); })
+      .finally(() => { if (!cancelled) setTraduciendo(false); });
+    return () => { cancelled = true; };
+  }, [report, ticker, company?.name]);
+
+  const porId = new Map((simples?.noticias ?? []).map((s) => [s.id, s]));
 
   const flag =
     report && callPct != null ? contradictionFlag(flowBias(callPct), report.bias) : null;
@@ -82,6 +139,21 @@ export default function NewsCard({
 
       {report && (
         <>
+          {/* En palabras simples: qué está pasando y cómo puede afectar */}
+          {traduciendo && <div className="news-resumen cargando">🧠 Traduciendo y resumiendo las noticias en palabras simples…</div>}
+          {errTrad && <div className="feed-empty">{errTrad} Abajo están los titulares originales.</div>}
+          {simples && (
+            <div className="news-resumen">
+              <div className="news-resumen-top">
+                <span className="news-resumen-kicker">🧠 En palabras simples</span>
+                <span className={`news-efecto ${EFECTO[simples.resumen.efecto].cls}`}>{EFECTO[simples.resumen.efecto].txt}</span>
+              </div>
+              <div className="news-resumen-que">{simples.resumen.que_pasa}</div>
+              <div className="news-resumen-porque"><b>Por qué:</b> {simples.resumen.por_que}</div>
+              <div className="news-resumen-nota">Resumen hecho por IA a partir de los titulares de abajo. No es una recomendación.</div>
+            </div>
+          )}
+
           {flag && flag.kind !== "none" && (
             <div className={`news-flag ${flag.kind}`}>
               <div className="news-flag-title">
@@ -101,7 +173,7 @@ export default function NewsCard({
             <div>
               <div className="news-head">De la empresa</div>
               <div className="news-list">
-                {report.company.slice(0, 4).map((n) => <Article key={n.id} n={n} />)}
+                {report.company.slice(0, 4).map((n) => <Article key={n.id} n={n} s={porId.get(n.id)} />)}
               </div>
             </div>
           )}
@@ -110,7 +182,7 @@ export default function NewsCard({
             <div>
               <div className="news-head">En los feeds RSS mencionan a {ticker}</div>
               <div className="news-list">
-                {report.promoted.map((n) => <Article key={n.id} n={n} />)}
+                {report.promoted.map((n) => <Article key={n.id} n={n} s={porId.get(n.id)} />)}
               </div>
             </div>
           )}
@@ -120,7 +192,7 @@ export default function NewsCard({
               Clima de mercado <span className="news-head-note">— afecta a todos los tickers</span>
             </div>
             <div className="news-list">
-              {report.macro.slice(0, 4).map((n) => <Article key={n.id} n={n} />)}
+              {report.macro.slice(0, 4).map((n) => <Article key={n.id} n={n} s={porId.get(n.id)} />)}
               {report.macro.length === 0 && (
                 <div className="feed-empty">Los feeds RSS no respondieron.</div>
               )}

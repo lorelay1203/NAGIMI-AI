@@ -69,17 +69,17 @@ export default function GexHeatmapCard({ h }: { h: GexHeatmap }) {
             <span className="pro-badge">PRO</span>
           </div>
           <div className="pro-sub">
-            Cada barra es la gamma neta en ese strike. <b>Verde arriba</b> = el dealer estabiliza
-            (el precio tiende a revertir); <b>rojo abajo</b> = amplifica (el movimiento acelera).
+            Cada barra es el dinero de opciones (gamma) en ese strike. <b>Verde arriba</b> = ahí el
+            precio frena y tiende a devolverse; <b>rojo abajo</b> = ahí el movimiento se acelera.
             La línea punteada es el precio actual.
           </div>
         </div>
         <div className="pro-legend" style={{ paddingTop: 4 }}>
           <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-            <span style={{ width: 10, height: 10, borderRadius: 3, background: POS }} />γ+ estabiliza
+            <span style={{ width: 10, height: 10, borderRadius: 3, background: POS }} />Frena el precio (γ+)
           </div>
           <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-            <span style={{ width: 10, height: 10, borderRadius: 3, background: NEG }} />γ− amplifica
+            <span style={{ width: 10, height: 10, borderRadius: 3, background: NEG }} />Acelera el precio (γ−)
           </div>
         </div>
       </div>
@@ -122,7 +122,7 @@ export default function GexHeatmapCard({ h }: { h: GexHeatmap }) {
           {/* Línea del Spot */}
           <line x1={spotX} y1={padT - 4} x2={spotX} y2={Hh - padB} stroke="#4d8bff" strokeWidth={1.5} strokeDasharray="4 3" />
           <text x={spotX} y={padT - 7} textAnchor="middle" fontSize={10} fontWeight={700} fill="#4d8bff">
-            Spot ${px.format(h.spot)}
+            Precio ${px.format(h.spot)}
           </text>
         </svg>
       </div>
@@ -132,7 +132,7 @@ export default function GexHeatmapCard({ h }: { h: GexHeatmap }) {
           <span className="muted">Dinero apilado en total: </span>
           <b style={{ color: h.totalNetGex >= 0 ? POS : NEG }}>{fmtGex(h.totalNetGex)}</b>
           <span className="muted">
-            {" "}— régimen {h.totalNetGex >= 0 ? "γ+ (rango: conviene desvanecer extremos)" : "Día de empujón: conviene seguir el movimiento"}
+            {" "}— {h.totalNetGex >= 0 ? "día de rango (γ+): conviene vender los extremos" : "día de empujón (γ−): conviene seguir el movimiento"}
           </span>
         </div>
         {hover ? (

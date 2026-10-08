@@ -55,40 +55,6 @@ function Row({ l }: { l: Level }) {
   );
 }
 
-/** Mapa visual: eje de precio con resistencias (rojo, arriba), soportes (verde,
- *  abajo) y el precio actual en medio. La barra de cada nivel = su fuerza. */
-function Ladder({ r }: { r: LevelsReport }) {
-  const levels = [...r.resistances, ...r.supports];
-  if (levels.length === 0) return null;
-  const prices = [...levels.map((l) => l.price), r.spot];
-  const lo = Math.min(...prices), hi = Math.max(...prices);
-  const pad = (hi - lo || 1) * 0.1;
-  const yLo = lo - pad, yHi = hi + pad;
-  const W = 360, H = Math.max(190, levels.length * 24 + 44), mT = 16, mB = 16, trackX = 92;
-  const y = (p: number) => mT + (1 - (p - yLo) / (yHi - yLo)) * (H - mT - mB);
-  const spotY = y(r.spot);
-  return (
-    <svg viewBox={`0 0 ${W} ${H}`} width="100%" style={{ display: "block" }} preserveAspectRatio="xMidYMid meet">
-      <line x1={trackX} y1={mT} x2={trackX} y2={H - mB} stroke="var(--border)" strokeWidth={1} />
-      {levels.map((l, i) => {
-        const color = l.kind === "soporte" ? SUP : RES;
-        const ly = y(l.price);
-        const barW = Math.max((W - trackX - 70) * (l.strength / 100), 3);
-        return (
-          <g key={i}>
-            <text x={trackX - 7} y={ly + 3.5} fill={color} fontSize={11} fontWeight={700} textAnchor="end">${px.format(l.price)}</text>
-            <rect x={trackX + 3} y={ly - 5} width={barW} height={10} rx={3} fill={color} opacity={0.85} />
-            <text x={trackX + 9 + barW} y={ly + 3.5} fill="var(--muted)" fontSize={9.5}>{l.strength} · {l.distancePct >= 0 ? "+" : ""}{l.distancePct.toFixed(1)}%</text>
-          </g>
-        );
-      })}
-      {/* Precio actual */}
-      <line x1={8} y1={spotY} x2={W - 8} y2={spotY} stroke="var(--accent)" strokeWidth={1.5} strokeDasharray="5 4" />
-      <text x={W - 8} y={spotY - 4} fill="var(--accent)" fontSize={10.5} fontWeight={700} textAnchor="end">precio ${px.format(r.spot)}</text>
-    </svg>
-  );
-}
-
 /**
  * Soportes y resistencias — cruce del precio (pivotes reales) con las opciones
  * (venta de calls = resistencia, venta de puts = soporte).
@@ -139,32 +105,34 @@ export default function LevelsCard({ r, ticker }: { r: LevelsReport; ticker: str
             </div>
           )}
 
-          <div>
-            <div className="news-head">📊 Mapa de niveles — 🔴 resistencias arriba · 🟢 soportes abajo</div>
-            <Ladder r={r} />
-          </div>
+          {/* Una sola escalera: techos arriba (el más cercano pegado al precio),
+              el precio en medio y los suelos abajo. Antes había además un
+              dibujo con los mismos niveles: era la misma información dos veces. */}
+          <div className="lvl-escalera">
+            {r.resistances.length > 0 && (
+              <>
+                <div className="news-head">🔴 Techos (resistencias) — por encima del precio</div>
+                <div className="lvl-list">
+                  {[...r.resistances].sort((a, b) => b.price - a.price).map((l) => <Row key={`r${l.price}`} l={l} />)}
+                </div>
+              </>
+            )}
 
-          {r.resistances.length > 0 && (
-            <div>
-              <div className="news-head">Resistencias — techos por encima del precio</div>
-              <div className="lvl-list">
-                {r.resistances.map((l) => <Row key={`r${l.price}`} l={l} />)}
-              </div>
+            <div className="lvl-spot">
+              <span className="lvl-spot-line" aria-hidden="true" />
+              Precio ahora · <b>${px.format(r.spot)}</b>
+              <span className="lvl-spot-line" aria-hidden="true" />
             </div>
-          )}
 
-          <div className="lvl-spot">
-            Precio actual · <b>${px.format(r.spot)}</b>
+            {r.supports.length > 0 && (
+              <>
+                <div className="news-head">🟢 Suelos (soportes) — por debajo del precio</div>
+                <div className="lvl-list">
+                  {[...r.supports].sort((a, b) => b.price - a.price).map((l) => <Row key={`s${l.price}`} l={l} />)}
+                </div>
+              </>
+            )}
           </div>
-
-          {r.supports.length > 0 && (
-            <div>
-              <div className="news-head">Soportes — suelos por debajo del precio</div>
-              <div className="lvl-list">
-                {r.supports.map((l) => <Row key={`s${l.price}`} l={l} />)}
-              </div>
-            </div>
-          )}
 
           <div style={{ borderTop: "1px solid var(--border-soft)", paddingTop: 10 }}>
             <div className="news-head">📍 Marcar estos niveles en tu gráfica</div>

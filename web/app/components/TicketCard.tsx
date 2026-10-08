@@ -13,6 +13,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { cabeEnCuenta, cuandoVence, lineasTicket, ticketComoTexto, REGLA_RIESGO_PCT } from "@/lib/ticketTexto";
 import { fraseBarridas, type Barridas } from "@/lib/barridas";
+import type { ResultadoReglas } from "@/lib/reglasOro";
 
 interface Ticket {
   strike: number; type: "call" | "put"; expiration: string | null; symbol: string | null;
@@ -34,6 +35,33 @@ interface Resp {
   flujoRevisado?: boolean; flujoPremium?: number;
   flujoFuente?: string | null; flujoVelocidad?: number | null;
   barridas?: Barridas | null;
+  reglasOro?: ResultadoReglas | null;
+}
+
+const ICONO = { ok: "✅", ojo: "⚠️", no: "⛔", sin_dato: "▫️" } as const;
+
+/** Chequeo con las reglas de oro: una línea por regla. */
+function ReglasOroBox({ r }: { r: ResultadoReglas }) {
+  const [abierto, setAbierto] = useState(r.veredicto !== "verde");
+  return (
+    <div className={`tk-reglas tk-reglas-${r.veredicto}`}>
+      <button type="button" className="tk-reglas-head" onClick={() => setAbierto((x) => !x)}>
+        <span className="tk-reglas-sem">{r.veredicto === "verde" ? "🟢" : r.veredicto === "amarillo" ? "🟡" : "🔴"}</span>
+        <span><b>Reglas de oro</b> — {r.resumen}</span>
+        <span className="tk-reglas-flecha">{abierto ? "▲" : "▼"}</span>
+      </button>
+      {abierto && (
+        <ul className="tk-reglas-lista">
+          {r.reglas.map((x) => (
+            <li key={x.id} className={`tk-reglas-${x.estado}`}>
+              <span className="tk-reglas-ico">{ICONO[x.estado]}</span>
+              <span><b>{x.nombre}:</b> {x.texto}</span>
+            </li>
+          ))}
+        </ul>
+      )}
+    </div>
+  );
 }
 
 const d2 = (n: number) => `$${n.toFixed(2)}`;
@@ -74,7 +102,9 @@ export default function TicketCard({ ticker, capital = 100 }: { ticker: string; 
 
   const t = data?.ticket;
   const setup = data?.setup;
-  const ready = data?.verdict?.status === "ready";
+  // Si las reglas de oro dicen que no, no se pinta "COMPRA" aunque el motor diga listo.
+  const reglasNo = data?.reglasOro?.veredicto === "rojo";
+  const ready = data?.verdict?.status === "ready" && !reglasNo;
   const sube = setup?.direction === "long";
   const empujon = data?.estrategia === "empujon";
   const ahora = new Date();
@@ -132,7 +162,10 @@ export default function TicketCard({ ticker, capital = 100 }: { ticker: string; 
           {" "}— {empujon ? "ir con el empujón" : "vuelta al imán"} hasta <b>{nivel(setup.target)}</b>
           {" "}· salir si {sube ? "baja" : "sube"} a <b>{nivel(setup.stop)}</b>
           {" "}<span className="tk-gris">({empujon ? "día de empujón" : "día de rango"} · {ticker} ahora en {nivel(setup.entry)})</span>
-          {!ready && data?.verdict?.reason && <div className="tk-espera">⏳ {data.verdict.reason}</div>}
+          {!ready && data?.verdict?.status !== "ready" && data?.verdict?.reason && <div className="tk-espera">⏳ {data.verdict.reason}</div>}
+          {reglasNo && data?.verdict?.status === "ready" && (
+            <div className="tk-espera">⏳ Los muros dicen que sí, pero las reglas de oro no: {data.reglasOro!.resumen} Espera.</div>
+          )}
         </div>
       )}
 
@@ -184,6 +217,8 @@ export default function TicketCard({ ticker, capital = 100 }: { ticker: string; 
             {barrida && <span className={`tk-chip tk-chip-${barrida.tono}`}>{barrida.texto}</span>}
           </div>
 
+          {data?.reglasOro && <ReglasOroBox r={data.reglasOro} />}
+
           {cabe && (
             cabe.contratos >= 1
               ? <div className="tk-regla ok">✅ Con tu regla del {REGLA_RIESGO_PCT}% ({d0(cabe.permitido)} de pérdida máxima) te {cabe.contratos === 1 ? "cabe 1 contrato" : `caben ${cabe.contratos} contratos`}.</div>
@@ -214,6 +249,7 @@ export default function TicketCard({ ticker, capital = 100 }: { ticker: string; 
       {setup && !t && data?.ticketReason && (
         <div className="tk-sin"><b>Sin contrato que te sirva todavía.</b> {data.ticketReason}</div>
       )}
+      {setup && !t && data?.reglasOro && <ReglasOroBox r={data.reglasOro} />}
 
       {/* De dónde salió la dirección */}
       {setup && data?.flujoRevisado === false && (

@@ -70,8 +70,8 @@ function lecturaDe(veces: number, lado: "techo" | "suelo"): string {
   if (veces === 2) {
     return `Aparece en 2 vencimientos: aguanta, pero no tanto como uno que se repite en tres.`;
   }
-  return `Solo aparece en 1 vencimiento: es el más flojo de los tres — si el precio llega con fuerza, `
-    + `es el que se rompe primero.`;
+  return `Solo aparece en 1 vencimiento: es un muro flojo — si el precio llega con fuerza, `
+    + `${lado === "techo" ? "lo rompe hacia arriba" : "lo rompe hacia abajo"} sin mucho problema.`;
 }
 
 /**

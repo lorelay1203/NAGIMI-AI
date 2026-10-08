@@ -153,10 +153,15 @@ describe("pickTicket", () => {
 describe("aviso de probabilidad (lo que evita leer un R:B enorme como dinero fácil)", () => {
   it("un contrato barato y lejano avisa de que es poco probable", () => {
     const chico = ticketParamsFor(100);
-    const chain = [row({ strike: 103, bid: 0.20, ask: 0.21, delta: 0.22, gamma: 0.06 })];
+    const chain = [row({ strike: 103, bid: 0.20, ask: 0.21, delta: 0.28, gamma: 0.06 })];
     const t = pickTicket(LONG, 100, chain, chico, 100).ticket!;
-    expect(t.approxPop).toBeCloseTo(22, 0);
+    expect(t.approxPop).toBeCloseTo(28, 0);
     expect(t.warning).toMatch(/poco probable|Probabilidad baja/i);
+  });
+
+  it("delta menor de 0.25 ni se considera (regla de oro)", () => {
+    const chain = [row({ strike: 103, bid: 0.20, ask: 0.21, delta: 0.22, gamma: 0.06 })];
+    expect(pickTicket(LONG, 100, chain, ticketParamsFor(100), 100).ticket).toBeNull();
   });
 
   it("un contrato al dinero no lleva aviso", () => {
