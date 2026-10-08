@@ -52,6 +52,14 @@ describe("reglas de oro", () => {
     expect(regla(r, "indice").estado).toBe("ojo");
   });
 
+  it("SPY con muros del SPX cuenta como SPX", () => {
+    const r = revisarReglasOro(base({ ticker: "SPY", espejoDe: "SPX", spot: 700, meta: 705, magnet: 705, callWall: 710, putWall: 695, gammaFlip: 690,
+      contrato: { strike: 703, type: "call", mid: 0.8, delta: 0.4, theta: null, iv: 0.2, dte: 0 }, bars: [] }));
+    expect(regla(r, "indice").estado).toBe("ok");
+    expect(regla(r, "indice").texto).toContain("SPX");
+    expect(regla(r, "gex_total").estado).toBe("ok");
+  });
+
   it("delta menor de 0.25 se descarta", () => {
     const r = revisarReglasOro(base({ contrato: { strike: 7045, type: "call", mid: 1, delta: 0.15, theta: null, iv: 0.2, dte: 0 } }));
     expect(regla(r, "delta").estado).toBe("no");

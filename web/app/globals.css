@@ -2038,3 +2038,12 @@ tfoot .totals td {
 .tk-reglas-lista li { display: flex; gap: 8px; }
 .tk-reglas-ico { flex: 0 0 auto; }
 .tk-reglas-lista .tk-reglas-sin_dato { opacity: .6; }
+
+/* ── Muros espejo (SPY/QQQ con los muros del índice) ── */
+.tk-espejo { display: flex; flex-wrap: wrap; gap: 8px 12px; align-items: center; justify-content: space-between;
+  font-size: 13px; padding: 8px 12px; margin: 6px 0 10px; border-radius: 10px; background: rgba(139, 92, 246, .08);
+  border: 1px solid rgba(139, 92, 246, .25); }
+.tk-espejo-btn { font: inherit; font-size: 12px; padding: 4px 10px; border-radius: 999px; cursor: pointer;
+  background: transparent; color: inherit; border: 1px solid rgba(139, 92, 246, .45); }
+.tk-espejo-btn:hover { background: rgba(139, 92, 246, .15); }
+.tk-espejo-btn:disabled { opacity: .5; cursor: default; }

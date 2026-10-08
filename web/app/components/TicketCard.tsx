@@ -28,7 +28,12 @@ interface Setup { direction: "long" | "short"; entry: number; target: number; st
 interface Verdict { status: "ready" | "wait"; reason: string; rr: number }
 interface Resp {
   error?: string;
-  levels?: { spot: number; magnet: number | null; regime: string; source: string };
+  levels?: {
+    spot: number; magnet: number | null; regime: string; source: string;
+    callWall?: number | null; putWall?: number | null;
+    espejo?: { indice: string; ratio: number; origen: "vivo" | "cierre"; original: { spot: number; magnet: number | null; callWall: number | null; putWall: number | null } };
+  };
+  avisoEspejo?: string | null;
   setup?: Setup | null; verdict?: Verdict | null; ticket?: Ticket | null;
   ticketReason?: string | null; noSetup?: string; expiration?: string | null;
   chainSource?: string | null; simulated?: boolean; estrategia?: "iman" | "empujon";
@@ -74,18 +79,23 @@ export default function TicketCard({ ticker, capital = 100 }: { ticker: string; 
   const [loading, setLoading] = useState(false);
   const [cap, setCap] = useState(capital);
   const [copiado, setCopiado] = useState(false);
+  // En SPY y QQQ: true = usar los muros del propio ETF en vez de los del índice.
+  const [propios, setPropios] = useState(false);
+  const tieneEspejo = ticker === "SPY" || ticker === "QQQ";
+  const indice = ticker === "QQQ" ? "NDX" : "SPX";
 
   const load = useCallback(async (c: number) => {
     if (!ticker) return;
     setLoading(true);
     try {
-      const r = await fetch(`/api/ticket?ticker=${encodeURIComponent(ticker)}&capital=${c}`).then((x) => x.json());
+      const muros = propios ? "&muros=propios" : "";
+      const r = await fetch(`/api/ticket?ticker=${encodeURIComponent(ticker)}&capital=${c}${muros}`).then((x) => x.json());
       setData(r);
     } catch {
       setData({ error: "No se pudo cargar el ticket." });
     }
     setLoading(false);
-  }, [ticker]);
+  }, [ticker, propios]);
 
   useEffect(() => { load(cap); }, [load, cap]);
 
@@ -143,6 +153,25 @@ export default function TicketCard({ ticker, capital = 100 }: { ticker: string; 
           </label>
         </div>
       </div>
+
+      {tieneEspejo && (
+        <div className="tk-espejo">
+          {data?.levels?.espejo ? (
+            <span>
+              🪞 Muros del <b>{data.levels.espejo.indice}</b> pasados a {ticker}
+              {data.levels.espejo.original.magnet != null && data.levels.magnet != null && (
+                <> · imán {nivel(data.levels.espejo.original.magnet)} → <b>{nivel(data.levels.magnet)}</b></>
+              )}
+              {data.levels.espejo.origen === "cierre" && <span className="tk-gris"> (con la proporción del último cierre: un precio venía atrasado)</span>}
+            </span>
+          ) : (
+            <span>{propios ? `Usando los muros propios de ${ticker}.` : (data?.avisoEspejo ?? "")}</span>
+          )}
+          <button type="button" className="tk-espejo-btn" onClick={() => setPropios((x) => !x)} disabled={loading}>
+            {propios ? `Usar muros del ${indice}` : `Usar muros propios de ${ticker}`}
+          </button>
+        </div>
+      )}
 
       {loading && <div className="tk-nota">Buscando el mejor contrato con los datos de ahora…</div>}
       {data?.error && <div className="tk-nota" style={{ color: "var(--red-soft)" }}>⚠️ {data.error}</div>}
@@ -247,7 +276,14 @@ export default function TicketCard({ ticker, capital = 100 }: { ticker: string; 
       )}
 
       {setup && !t && data?.ticketReason && (
-        <div className="tk-sin"><b>Sin contrato que te sirva todavía.</b> {data.ticketReason}</div>
+        <div className="tk-sin">
+          <b>Sin contrato que te sirva todavía.</b> {data.ticketReason}
+          {ticker === "SPX" && (
+            <div style={{ marginTop: 6 }}>
+              👉 <a href="/daytrades?ticker=SPY">Ver la misma idea en SPY</a> — usa estos mismos muros del SPX, con contratos ~10 veces más baratos.
+            </div>
+          )}
+        </div>
       )}
       {setup && !t && data?.reglasOro && <ReglasOroBox r={data.reglasOro} />}
 

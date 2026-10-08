@@ -30,6 +30,8 @@ export interface ReglaOro {
 
 export interface EntradaReglas {
   ticker: string;
+  /** Si los muros vienen del índice (SPX para SPY, NDX para QQQ), cuál. */
+  espejoDe?: string | null;
   spot: number;
   /** Fuente de los muros: solo con MarketSnack el GEX total viene en dólares comparables a los de Víctor. */
   fuenteGex: string;
@@ -64,6 +66,7 @@ export interface ResultadoReglas {
 
 const B = 1e9;
 const esSpx = (t: string) => /^\^?SPXW?$/i.test(t.trim());
+const esNdx = (t: string) => /^\^?NDX$/i.test(t.trim());
 const fmt = (n: number) => n.toLocaleString("en-US", { maximumFractionDigits: 2 });
 
 /** Minutos desde la medianoche en Nueva York. */
@@ -103,7 +106,9 @@ export function salidaAntes(meta: number, spot: number, direccion: "long" | "sho
 
 export function revisarReglasOro(e: EntradaReglas): ResultadoReglas {
   const reglas: ReglaOro[] = [];
-  const spx = esSpx(e.ticker);
+  // De dónde salen los muros: el índice (si vienen "en espejo") o el propio ticker.
+  const base = e.espejoDe ?? e.ticker;
+  const spx = esSpx(base);
 
   // 1) La hora: la primera hora los muros todavía se están acomodando.
   const min = minutosNY(e.ahora);
@@ -117,10 +122,14 @@ export function revisarReglasOro(e: EntradaReglas): ResultadoReglas {
     reglas.push({ id: "hora", nombre: "Hora", estado: "ok", texto: "Buena hora para operar los muros (después de las 10:30 AM)." });
   }
 
-  // 2) ¿El GEX es SPX? Víctor opera los muros en SPX.
-  reglas.push(spx
-    ? { id: "indice", nombre: "Dónde se usa", estado: "ok", texto: "SPX: es donde los muros funcionan mejor (se liquida en efectivo)." }
-    : { id: "indice", nombre: "Dónde se usa", estado: "ojo", texto: `Los muros funcionan mejor en SPX. En ${e.ticker} sirven de guía, pero respétalos menos y confirma con el flujo.` });
+  // 2) ¿De dónde salen los muros? Funcionan mejor en índices que se liquidan en efectivo.
+  if (e.espejoDe && (spx || esNdx(base))) {
+    reglas.push({ id: "indice", nombre: "Dónde se usa", estado: "ok", texto: `Muros del ${base} (se liquida en efectivo) pasados a precios de ${e.ticker}: la misma idea, más barata.` });
+  } else if (spx || esNdx(base)) {
+    reglas.push({ id: "indice", nombre: "Dónde se usa", estado: "ok", texto: `${base}: índice que se liquida en efectivo, donde los muros funcionan mejor.` });
+  } else {
+    reglas.push({ id: "indice", nombre: "Dónde se usa", estado: "ojo", texto: `Los muros funcionan mejor en SPX. En ${e.ticker} sirven de guía, pero respétalos menos y confirma con el flujo.` });
+  }
 
   // 3) Tamaño del GEX total (solo comparable en SPX con datos de MarketSnack).
   if (spx && e.fuenteGex === "marketsnack" && e.netGex != null) {
@@ -246,7 +255,7 @@ export function revisarReglasOro(e: EntradaReglas): ResultadoReglas {
     ? `No pasa las reglas de oro: ${nos.map((r) => r.nombre.toLowerCase()).join(", ")}.`
     : veredicto === "amarillo"
       ? `Pasa, pero con varias señales de cuidado (${ojos.length}). Entra con poco o espera.`
-      : "Cumple las reglas de oro.";
+      : k ? "Cumple las reglas de oro." : "Los muros pasan las reglas de oro (el contrato todavía no se pudo revisar).";
 
   return { reglas, veredicto, resumen };
 }

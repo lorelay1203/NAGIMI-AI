@@ -19,8 +19,9 @@ import { buildSessionNextSteps } from "@/lib/nextSteps";
 import ChartZoom from "../components/ChartZoom";
 
 const TICKERS: { sym: string; note?: string }[] = [
-  { sym: "SPY", note: "= SPX ÷10 · espejo de /ES y /MES" },
-  { sym: "SPX", note: "solo con cookie de MarketSnack" },
+  { sym: "SPY", note: "= SPX ÷10 · su Ticket usa los muros del SPX" },
+  { sym: "SPX", note: "el índice: contratos de cientos de dólares" },
+  { sym: "QQQ", note: "≈ NDX ÷41 · su Ticket usa los muros del NDX" },
   { sym: "NVDA" }, { sym: "TSLA" }, { sym: "META" }, { sym: "AMD" },
   { sym: "MU" }, { sym: "AAPL" }, { sym: "AMZN" }, { sym: "GOOGL" },
   { sym: "MSFT" }, { sym: "AVGO" }, { sym: "PLTR" }, { sym: "HOOD" }, { sym: "NFLX" },
@@ -210,7 +211,7 @@ export default function DayTradesPage() {
         <div className="card" style={{ border: "1px solid #f0443855" }}>
           <div style={{ fontWeight: 700, color: "#ff8a82", marginBottom: 4 }}>No se pudo cargar {ticker}</div>
           <div style={{ fontSize: 13, color: "var(--muted)" }}>{error}</div>
-          {ticker === "SPX" && <div style={{ fontSize: 12.5, color: "var(--muted)", marginTop: 8 }}>💡 SPX directo necesita la cookie de MarketSnack. Mientras, usa <b>SPY</b> (es lo mismo ÷10).</div>}
+          {ticker === "SPX" && <div style={{ fontSize: 12.5, color: "var(--muted)", marginTop: 8 }}>💡 Un contrato de SPX cuesta cientos de dólares. Para la misma idea más barata usa <b>SPY</b>: su Ticket lee los muros del SPX y los pasa a precios de SPY.</div>}
         </div>
       )}
 
