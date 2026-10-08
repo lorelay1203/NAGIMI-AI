@@ -338,7 +338,9 @@ export function revisarReglasPrima(e: EntradaPrima): ResultadoReglas {
     if (sp.esperanza != null && sp.esperanza < 0) {
       reglas.push({ id: "spread", nombre: "A la larga", estado: "ojo", texto: `Gana muchas veces (≈${Math.round(sp.popPct ?? 0)}%) pero a la larga pierde: cuando falla, quita más de lo que suma.` });
     }
-    const muro = sp.lado === "call" ? e.callWall : e.putWall;
+    const muro0 = sp.lado === "call" ? e.callWall : e.putWall;
+    // El muro solo sirve de alarma si está entre el precio y tu strike.
+    const muro = muro0 != null && (sp.lado === "call" ? muro0 > e.spot : muro0 < e.spot) ? muro0 : null;
     reglas.push({ id: "salida", nombre: "Dónde salir", estado: "ok", texto: muro != null
       ? `Si el precio toca el muro de ${sp.lado === "call" ? "arriba" : "abajo"} (${fmt(muro)}), cierra: no esperes a que llegue a tu strike (${fmt(sp.vender)}).`
       : `Si el precio se acerca a tu strike (${fmt(sp.vender)}), cierra antes de que llegue.` });

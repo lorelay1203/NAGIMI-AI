@@ -165,9 +165,11 @@ export function buildCreditPlan(
           : (popPct / 100) * credito - (1 - popPct / 100) * riesgoMax;
 
         const muro = lado === "call" ? callWall : putWall;
+        // Solo cuenta si el muro está del lado correcto del precio (techo arriba,
+        // suelo abajo). Si el precio ya lo pasó, ese muro no protege nada.
         const trasElMuro = muro == null
           ? false
-          : lado === "call" ? vender >= muro : vender <= muro;
+          : lado === "call" ? muro > spot && vender >= muro : muro < spot && vender <= muro;
 
         const cabe = riesgoMax <= capital;
         const sospechoso = esperanza != null && esperanza > ancho * MULT * UMBRAL_SOSPECHA;
