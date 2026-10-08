@@ -1,9 +1,10 @@
 // ============================================================================
 // "Reto Webull" — la escalera para subir la cuenta chica de a poco.
 //
-// Es el plan de Lorelay hecho rastreador: empezó con $10.75 y la idea es subir
-// despacio, sin forzar opciones que no caben. Cada peldaño desbloquea algo real
-// en Nagimi. Puro y testable — el saldo entra como número, no se lee aquí.
+// Es el plan de Lorelay hecho rastreador: empezó con $10.75. Con $10 SÍ caben
+// opciones (contratos baratos y lejanos) — así subió Robinhood de $10 a $3,000.
+// Cada peldaño desbloquea algo más en Nagimi. Puro y testable — el saldo entra
+// como número, no se lee aquí.
 // ============================================================================
 
 export interface Peldano {
@@ -15,11 +16,14 @@ export interface Peldano {
   desbloquea: string;
 }
 
-/** La escalera. Debajo de $100 no hay opciones — solo acciones fraccionadas. */
+/**
+ * La escalera. Debajo de $100 caben contratos baratos (comprados: lo más que
+ * pierdes es lo que pagaste); a $100 llega el primer spread con techo.
+ */
 export const ESCALERA: Peldano[] = [
-  { desde: 0, hasta: 25, desbloquea: "Acciones fraccionadas de algo estable (pedacitos de SPY/QQQ). Nada volátil." },
-  { desde: 25, hasta: 50, desbloquea: "Sigues fraccionado, pero ya puedes repartir en 2 — no todo en uno." },
-  { desde: 50, hasta: 100, desbloquea: "Cerca del primer spread. Aguanta: a $100 se desbloquea riesgo topado." },
+  { desde: 0, hasta: 25, desbloquea: "Contratos baratos y lejanos ($0.02–$0.10) SÍ caben: premio grande si pega, pero casi siempre terminan en $0. Abajo te enseño cuáles." },
+  { desde: 25, hasta: 50, desbloquea: "Ya puedes repartir: 2 o 3 contratos baratos en ideas distintas, o uno un poco más cerca del precio." },
+  { desde: 50, hasta: 100, desbloquea: "Caben contratos más cerca del dinero (más probabilidad). A $100, el primer spread con techo de pérdida." },
   { desde: 100, hasta: Infinity, desbloquea: "¡Tu primer spread de crédito ya cabe! Wheel (spread) y Venta de Prima." },
 ];
 

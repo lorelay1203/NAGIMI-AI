@@ -41,7 +41,7 @@ describe("estadoReto", () => {
   });
 
   it("cada peldaño trae su explicación de qué se desbloquea", () => {
-    expect(estadoReto(15).peldano.desbloquea).toContain("fraccionadas");
+    expect(estadoReto(15).peldano.desbloquea).toContain("SÍ caben");
     expect(estadoReto(70).peldano.desbloquea).toContain("spread");
     expect(estadoReto(150).peldano.desbloquea).toContain("Venta de Prima");
   });

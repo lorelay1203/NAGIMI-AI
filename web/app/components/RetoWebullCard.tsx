@@ -7,6 +7,7 @@
 
 import { useEffect, useState } from "react";
 import { estadoReto, ESCALERA, type EstadoReto } from "@/lib/retoWebull";
+import BaratosReto from "./BaratosReto";
 
 const money = (n: number) => `$${n.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 
@@ -77,10 +78,12 @@ export default function RetoWebullCard() {
         })}
       </div>
 
+      <BaratosReto saldoInicial={estado.saldo} />
+
       <div className="reto-pie">
         {estado.desbloqueaOpciones
           ? "Ya puedes operar opciones con riesgo topado. Nagimi te muestra lo que cabe."
-          : "Con este saldo aún no caben opciones — el camino es acciones fraccionadas. Cuando me digas el saldo nuevo, actualizo la foto."}
+          : "Con este saldo caben contratos baratos y lejanos (arriba te enseño cuáles). Los spreads con techo de pérdida llegan a los $100. Cuando me digas el saldo nuevo, actualizo la foto."}
         {" "}Material de estudio, no consejo financiero.
       </div>
     </section>
