@@ -5,8 +5,7 @@
 //   flujo? → ¿qué CONTRATO concreto lo expresa, y cabe en la cuenta?
 
 import { getDayGex } from "@/lib/dayGex";
-import { convertirNiveles, elegirProporcion, indiceEspejo, type NivelesConEspejo } from "@/lib/nivelesEspejo";
-import { fetchSchwabDailyCloses, fetchSchwabQuote } from "@/lib/schwabMarket";
+import { nivelesConEspejo } from "@/lib/nivelesEspejoServidor";
 import { getTicketChain, type TicketChainSource } from "@/lib/ticketChain";
 import { pickTicket, ticketParamsFor } from "@/lib/contractTicket";
 import { dynamicPinParams, evaluateEmpujon, evaluatePin, gatePin, noPinReason, riskReward, type FlowCtx, type PinSetup } from "@/lib/pinStrategy";
@@ -73,33 +72,6 @@ async function flowContext(ticker: string): Promise<{
   return { ctx: {}, disponible: false, premium: 0, fuente: null, velocidad, filas: [] };
 }
 
-/**
- * Niveles para el ticket. En SPY y QQQ, por defecto se usan los muros del
- * ÍNDICE (SPX / NDX) pasados a precios del ETF: ahí los muros funcionan mejor y
- * el contrato del ETF cuesta ~10 veces menos. `propios` fuerza los del ETF.
- * Si el índice falla, se cae a los propios y se avisa.
- */
-async function nivelesParaTicket(ticker: string, propios: boolean): Promise<{ levels: NivelesConEspejo; avisoEspejo: string | null }> {
-  const idx = propios ? null : indiceEspejo(ticker);
-  if (!idx) return { levels: await getDayGex(ticker), avisoEspejo: null };
-  try {
-    const [ind, spotEtf, cierresEtf, cierresIdx] = await Promise.all([
-      getDayGex(idx),
-      fetchSchwabQuote(ticker).catch(() => null),
-      fetchSchwabDailyCloses(ticker, 5).catch(() => [] as number[]),
-      fetchSchwabDailyCloses(idx, 5).catch(() => [] as number[]),
-    ]);
-    const spot = spotEtf ?? (await getDayGex(ticker)).spot;
-    const ce = cierresEtf[cierresEtf.length - 1], ci = cierresIdx[cierresIdx.length - 1];
-    const prop = elegirProporcion(spot > 0 && ind.spot > 0 ? spot / ind.spot : null, ce > 0 && ci > 0 ? ce / ci : null);
-    if (prop && spot > 0) return { levels: convertirNiveles(ind, ticker, spot, prop), avisoEspejo: null };
-  } catch { /* se cae a los muros propios */ }
-  return {
-    levels: await getDayGex(ticker),
-    avisoEspejo: `No se pudieron leer los muros del ${idx}; se usan los propios de ${ticker}.`,
-  };
-}
-
 /** Días hasta el vencimiento contando desde HOY en Nueva York (0 = vence hoy). */
 function diasParaVencer(expiration: string | null, ahora: Date): number {
   if (!expiration) return 0;
@@ -120,7 +92,7 @@ export async function GET(request: Request) {
   const only = (["marketsnack", "schwab"] as const).find((s) => s === rawSrc) as TicketChainSource | undefined;
 
   try {
-    const { levels, avisoEspejo } = await nivelesParaTicket(ticker, propios);
+    const { levels, avisoEspejo } = await nivelesConEspejo(ticker, propios);
 
     const chain = await getTicketChain(ticker, only).catch(() => null);
 

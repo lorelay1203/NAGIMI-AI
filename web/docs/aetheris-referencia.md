@@ -223,7 +223,7 @@ todos estos datos; lo que falta es PRESENTARLOS así.
 ## Área de Agentes ("Mesa Aetheris") — vitrina, NO funciona todavía
 
 Toda la sección dice "Coming soon / Próximamente": controles, ejecuciones y
-orquestación no están activos. Es una maqueta de la visión de Víctor, sin
+orquestación no están activos. Es una maqueta de la visión de su creador, sin
 contenido real que leer. Son 7 especialistas de ACCIONES, cada uno con una
 señal (Bullish/Neutral/Cautious):
 

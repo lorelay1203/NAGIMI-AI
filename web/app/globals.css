@@ -1113,7 +1113,7 @@ tfoot .totals td {
 .sb-ico { width: 17px; text-align: center; flex: none; font-size: 13.5px; opacity: .9; }
 .sb-link.active .sb-ico { opacity: 1; }
 
-/* Pie del lateral: el dinero real, que es lo que Víctor no tiene. */
+/* Pie del lateral: el dinero real (lo que otras páginas de referencia no muestran). */
 .sb-foot { margin-top: auto; display: flex; flex-direction: column; gap: 10px; padding: 0 4px; }
 .sb-money {
   border: 1px solid var(--border); border-radius: 11px;
@@ -2047,3 +2047,20 @@ tfoot .totals td {
   background: transparent; color: inherit; border: 1px solid rgba(139, 92, 246, .45); }
 .tk-espejo-btn:hover { background: rgba(139, 92, 246, .15); }
 .tk-espejo-btn:disabled { opacity: .5; cursor: default; }
+
+/* ── Venta de prima: propuesta y alternativas ── */
+.prima-gris { color: var(--muted); }
+.prima-prop { gap: 10px; border: 1px solid rgba(34, 197, 94, .35); }
+.prima-prop-head { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.prima-prop-titulo { font-weight: 700; font-size: 14px; }
+.prima-prop-orden { display: grid; gap: 4px; font-size: 14px; }
+.prima-alts { gap: 10px; }
+.prima-alts-lista { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 10px; }
+.prima-alt { text-align: left; background: var(--panel-2); border: 1px solid var(--border); border-radius: 12px;
+  padding: 10px 12px; color: var(--text); font: inherit; cursor: pointer; display: flex; flex-direction: column; gap: 6px; }
+.prima-alt:hover { border-color: var(--accent); }
+.prima-alt.activa { border: 2px solid var(--accent); }
+.prima-alt-top { display: flex; align-items: center; gap: 4px; font-size: 14px; }
+.prima-alt-cuerpo { font-size: 12.5px; line-height: 1.5; }
+.prima-alt-pie { font-size: 11.5px; color: var(--muted); }
+.prima-alts a, .tk-sin a { color: var(--accent); font-weight: 700; }

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { cambiosDeSigno, minutosNY, revisarReglasOro, salidaAntes, type EntradaReglas } from "./reglasOro";
+import { cambiosDeSigno, minutosNY, revisarReglasOro, revisarReglasPrima, salidaAntes, type EntradaReglas } from "./reglasOro";
 
 // 11:30 AM en Nueva York (horario de verano, UTC−4).
 const MEDIODIA = new Date("2026-10-08T15:30:00Z");
@@ -104,5 +104,35 @@ describe("reglas de oro", () => {
   it("sale unos puntos antes de la meta", () => {
     expect(salidaAntes(7000, 7000, "long")).toBe(6995.8);
     expect(salidaAntes(700, 700, "short")).toBe(700.42);
+  });
+});
+
+describe("reglas de oro para vender prima", () => {
+  const dia = {
+    ticker: "SPY", espejoDe: "SPX", spot: 700, fuenteGex: "schwab", netGex: 8e9, gammaFlip: 690,
+    magnet: 702, callWall: 705, putWall: 695, bars: [], ahora: MEDIODIA,
+  };
+  const spread = { lado: "call" as const, vender: 706, comprar: 707, popPct: 88, esperanza: 2, trasElMuro: true };
+
+  it("día de rango, vendiendo más allá del muro → verde", () => {
+    const r = revisarReglasPrima({ ...dia, regimen: "positive", ivAtm: 0.2, spread });
+    expect(r.veredicto).toBe("verde");
+    expect(r.reglas.find((x) => x.id === "salida")?.texto).toContain("705");
+  });
+
+  it("día de empujón → no vender prima", () => {
+    const r = revisarReglasPrima({ ...dia, regimen: "negative", ivAtm: 0.2, spread });
+    expect(r.veredicto).toBe("rojo");
+    expect(r.resumen).toContain("tipo de día");
+  });
+
+  it("vender dentro del rango → no", () => {
+    const r = revisarReglasPrima({ ...dia, regimen: "positive", ivAtm: 0.2, spread: { ...spread, vender: 703, comprar: 704, trasElMuro: false } });
+    expect(r.reglas.find((x) => x.id === "spread")?.estado).toBe("no");
+  });
+
+  it("después de las 3 PM la prima ya se derritió", () => {
+    const r = revisarReglasPrima({ ...dia, regimen: "positive", ivAtm: 0.2, spread, ahora: new Date("2026-10-08T19:20:00Z") });
+    expect(r.reglas.find((x) => x.id === "tarde")?.estado).toBe("ojo");
   });
 });

@@ -10,11 +10,14 @@
 import { useCallback, useEffect, useState } from "react";
 import { GUIA } from "@/lib/strategyGuide";
 import type { CreditPlan, SpreadCandidate } from "@/lib/creditSpread0dte";
+import type { InfoEspejo } from "@/lib/nivelesEspejo";
+import type { ResultadoReglas } from "@/lib/reglasOro";
+import ReglasOroBox from "../components/ReglasOroBox";
 
 const TICKERS = [
   { sym: "SPX", note: "índice — sin comisión, no asignable" },
-  { sym: "SPY", note: "= SPX ÷10 · más barato de contrato" },
-  { sym: "QQQ", note: "Nasdaq 100" },
+  { sym: "SPY", note: "= SPX ÷10 · usa los muros del SPX" },
+  { sym: "QQQ", note: "Nasdaq 100 · usa los muros del NDX" },
 ];
 
 interface PrimaResponse extends CreditPlan {
@@ -29,6 +32,25 @@ interface PrimaResponse extends CreditPlan {
   /** De dónde salió `spot`: de las opciones en vivo o de los niveles. */
   spotFuente?: "cadena" | "niveles";
   desfasePct?: number | null;
+  espejo?: InfoEspejo | null;
+  avisoEspejo?: string | null;
+  reglasOro?: ResultadoReglas;
+  /** El que Nagimi propone: el mejor que cabe y sin precio viejo. */
+  mejor?: SpreadCandidate | null;
+}
+
+/** Una fila de "tus alternativas hoy" (/api/prima/alternativas). */
+interface Alternativa {
+  ticker: string;
+  error: string | null;
+  espejoDe: string | null;
+  regimen: "positive" | "negative" | null;
+  mejor: SpreadCandidate | null;
+  sinPrecios: boolean;
+  caben: number;
+  menorRiesgo: number | null;
+  veredicto: "verde" | "amarillo" | "rojo" | null;
+  resumen: string | null;
 }
 
 const money = (n: number) =>
@@ -42,20 +64,24 @@ export default function PrimaPage() {
   const [data, setData] = useState<PrimaResponse | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  // En SPY/QQQ: true = usar los muros propios del ETF en vez de los del índice.
+  const [propios, setPropios] = useState(false);
+  const [alts, setAlts] = useState<Alternativa[] | null>(null);
+  const [altsCargando, setAltsCargando] = useState(false);
 
   // Dinero real de los brókers conectados. Manda sobre lo escrito a mano.
   useEffect(() => {
     fetch("/api/balances").then((r) => r.json())
       .then((r: { total?: number }) => {
-        if (r.total && r.total > 0) { setCapital(r.total); setSaldoFuente("real"); }
+        if (r.total && r.total > 0) { setCapital(Math.round(r.total * 100) / 100); setSaldoFuente("real"); }
         else setCapital(100);
       })
       .catch(() => setCapital(100));
   }, []);
 
-  const buscar = useCallback((t: string, cap: number) => {
+  const buscar = useCallback((t: string, cap: number, prop: boolean) => {
     setLoading(true); setError(null);
-    fetch(`/api/prima?ticker=${encodeURIComponent(t)}&capital=${cap}`)
+    fetch(`/api/prima?ticker=${encodeURIComponent(t)}&capital=${cap}${prop ? "&muros=propios" : ""}`)
       .then((r) => r.json())
       .then((r: PrimaResponse & { error?: string }) => {
         if (r.error) { setError(r.error); setData(null); }
@@ -66,8 +92,24 @@ export default function PrimaPage() {
   }, []);
 
   useEffect(() => {
-    if (capital != null) buscar(ticker, capital);
-  }, [ticker, capital, buscar]);
+    if (capital != null) buscar(ticker, capital, propios);
+  }, [ticker, capital, propios, buscar]);
+
+  // Las tres alternativas a la vez (SPX, SPY, QQQ), para comparar.
+  const buscarAlts = useCallback((cap: number) => {
+    setAltsCargando(true);
+    fetch(`/api/prima/alternativas?capital=${cap}`)
+      .then((r) => r.json())
+      .then((r: { filas?: Alternativa[] }) => setAlts(r.filas ?? null))
+      .catch(() => setAlts(null))
+      .finally(() => setAltsCargando(false));
+  }, []);
+  useEffect(() => {
+    if (capital != null && capital > 0) buscarAlts(capital);
+  }, [capital, buscarAlts]);
+
+  const tieneEspejo = ticker === "SPY" || ticker === "QQQ";
+  const indice = ticker === "QQQ" ? "NDX" : "SPX";
 
   const gCall = GUIA.call_credit;
   const gPut = GUIA.put_credit;
@@ -110,12 +152,34 @@ export default function PrimaPage() {
           <span style={{ color: saldoFuente === "real" ? "var(--green)" : "var(--muted)" }}>
             {saldoFuente === "real" ? "✓ saldo real de tus brókers" : "escrito a mano"}
           </span>
-          <button type="button" onClick={() => capital != null && buscar(ticker, capital)}
+          <button type="button" onClick={() => { if (capital != null) { buscar(ticker, capital, propios); buscarAlts(capital); } }}
             style={{ marginLeft: "auto", background: "var(--panel-2)", border: "1px solid var(--border)", borderRadius: 8, color: "var(--text)", padding: "6px 12px", fontSize: 12.5, fontWeight: 700, cursor: "pointer" }}>
             ↻ Volver a mirar
           </button>
         </div>
       </div>
+
+      {/* Tus alternativas hoy: SPX, SPY y QQQ lado a lado */}
+      <Alternativas filas={alts} cargando={altsCargando} actual={ticker} onVer={(t) => { setPropios(false); setTicker(t); }} />
+
+      {tieneEspejo && (
+        <div className="tk-espejo">
+          {data?.espejo ? (
+            <span>
+              🪞 Muros del <b>{data.espejo.indice}</b> pasados a {ticker}
+              {data.espejo.original.magnet != null && data.magnet != null && (
+                <> · imán {px(data.espejo.original.magnet)} → <b>{px(data.magnet)}</b></>
+              )}
+              {data.espejo.origen === "cierre" && <span style={{ color: "var(--muted)" }}> (con la proporción del último cierre: un precio venía atrasado)</span>}
+            </span>
+          ) : (
+            <span>{propios ? `Usando los muros propios de ${ticker}.` : (data?.avisoEspejo ?? "")}</span>
+          )}
+          <button type="button" className="tk-espejo-btn" onClick={() => setPropios((x) => !x)} disabled={loading}>
+            {propios ? `Usar muros del ${indice}` : `Usar muros propios de ${ticker}`}
+          </button>
+        </div>
+      )}
 
       {loading && <div className="card" style={{ textAlign: "center", color: "var(--muted)" }}>Escaneando la cadena de {ticker}…</div>}
       {error && !loading && (
@@ -155,6 +219,11 @@ export default function PrimaPage() {
               ⚠️ {data.aviso}
             </div>
           )}
+
+          {/* Lo que Nagimi propone, en palabras */}
+          {data.mejor && <Propuesta c={data.mejor} ticker={ticker} expiration={data.expiration} />}
+
+          {data.reglasOro && <ReglasOroBox r={data.reglasOro} />}
 
           {/* Candidatos */}
           {data.candidatos.length > 0 ? (
@@ -213,6 +282,97 @@ export default function PrimaPage() {
         Nagimi prepara, tú decides y colocas la orden en tu bróker.
       </div>
     </main>
+  );
+}
+
+/** El spread que Nagimi propone, explicado como una orden. */
+function Propuesta({ c, ticker, expiration }: { c: SpreadCandidate; ticker: string; expiration: string }) {
+  const call = c.lado === "call";
+  const tipo = call ? "CALL" : "PUT";
+  return (
+    <div className="card prima-prop">
+      <div className="prima-prop-head">
+        <span className="tk-badge up">PROPUESTA</span>
+        <span className="prima-prop-titulo">{call ? "Call" : "Put"} credit spread · {ticker} · vence {expiration}</span>
+      </div>
+      <div className="prima-prop-orden">
+        <div>1️⃣ <b>Vende</b> el {ticker} <b>{px(c.vender)} {tipo}</b> <span className="prima-gris">(cobras)</span></div>
+        <div>2️⃣ <b>Compra</b> el {ticker} <b>{px(c.comprar)} {tipo}</b> <span className="prima-gris">(tu seguro: topa la pérdida)</span></div>
+      </div>
+      <div className="tk-cajas">
+        <div className="tk-caja">
+          <div className="tk-caja-label">Cobras hoy</div>
+          <div className="tk-caja-valor" style={{ color: "var(--green)" }}>{money(c.credito)}</div>
+          <div className="tk-caja-sub">por contrato · es tu ganancia máxima</div>
+        </div>
+        <div className="tk-caja">
+          <div className="tk-caja-label">Lo más que pierdes</div>
+          <div className="tk-caja-valor" style={{ color: "var(--red-soft)" }}>{money(c.riesgoMax)}</div>
+          <div className="tk-caja-sub">el bróker te lo aparta mientras esté abierto</div>
+        </div>
+        <div className="tk-caja">
+          <div className="tk-caja-label">Prob. de ganar</div>
+          <div className="tk-caja-valor">{c.popPct != null ? `${Math.round(c.popPct)}%` : "—"}</div>
+          <div className="tk-caja-sub">
+            {c.esperanza != null ? (c.esperanza >= 0 ? `a la larga +${money(c.esperanza)} por vez` : `a la larga −${money(c.esperanza)} por vez`) : ""}
+          </div>
+        </div>
+      </div>
+      <div className="prima-gris" style={{ fontSize: 12.5, lineHeight: 1.5 }}>
+        Ganas todo lo cobrado si {ticker} cierra hoy {call ? "por DEBAJO" : "por ENCIMA"} de {px(c.vender)}.
+        {" "}Pon la orden como <b>límite</b> por {money(c.credito / 100)} de crédito (no a mercado).
+        {c.trasElMuro ? " Está más allá del muro: el precio tendría que romperlo para hacerte daño." : " ⚠️ Está DENTRO del rango de los muros."}
+      </div>
+    </div>
+  );
+}
+
+/** "¿Qué puedo hacer hoy?": la mejor opción de cada índice, lado a lado. */
+function Alternativas({ filas, cargando, actual, onVer }: {
+  filas: Alternativa[] | null; cargando: boolean; actual: string; onVer: (t: string) => void;
+}) {
+  if (!filas && !cargando) return null;
+  const sem = (v: Alternativa["veredicto"]) => (v === "verde" ? "🟢" : v === "amarillo" ? "🟡" : v === "rojo" ? "🔴" : "▫️");
+  return (
+    <div className="card prima-alts">
+      <div style={{ fontWeight: 700, fontSize: 14 }}>🧭 Tus alternativas hoy</div>
+      <div className="prima-gris" style={{ fontSize: 12.5 }}>
+        La misma búsqueda en los tres, con tu dinero. Toca uno para ver el detalle.
+      </div>
+      {cargando && !filas && <div className="prima-gris" style={{ fontSize: 13 }}>Comparando SPX, SPY y QQQ…</div>}
+      {filas && (
+        <div className="prima-alts-lista">
+          {filas.map((f) => (
+            <button key={f.ticker} type="button" onClick={() => onVer(f.ticker)}
+              className={`prima-alt ${f.ticker === actual ? "activa" : ""}`}>
+              <div className="prima-alt-top">
+                <b>{f.ticker}</b>
+                {f.espejoDe && <span className="prima-gris"> · muros del {f.espejoDe}</span>}
+                <span style={{ marginLeft: "auto" }}>{sem(f.veredicto)}</span>
+              </div>
+              <div className="prima-alt-cuerpo">
+                {f.error ? <span style={{ color: "var(--red-soft)" }}>{f.error}</span>
+                  : f.mejor ? (
+                    <>
+                      Vende {px(f.mejor.vender)} / compra {px(f.mejor.comprar)} {f.mejor.lado === "call" ? "CALL" : "PUT"}
+                      <br />cobras <b style={{ color: "var(--green)" }}>{money(f.mejor.credito)}</b> · arriesgas <b>{money(f.mejor.riesgoMax)}</b>
+                      {f.mejor.popPct != null && <> · ≈{Math.round(f.mejor.popPct)}% gana</>}
+                    </>
+                  ) : f.sinPrecios
+                    ? <>Las opciones todavía no tienen precio (abren 9:30 AM NY).</>
+                  : f.menorRiesgo != null
+                    ? <>Ninguno cabe: el más chico arriesga {money(f.menorRiesgo)}.</>
+                    : <>Ningún spread paga lo suficiente ahora.</>}
+              </div>
+              {f.resumen && <div className="prima-alt-pie">{f.resumen}</div>}
+            </button>
+          ))}
+        </div>
+      )}
+      <div className="prima-gris" style={{ fontSize: 12.5 }}>
+        ¿Prefieres <b>comprar</b> en vez de vender? Mira el <a href={`/daytrades?ticker=${actual === "SPX" ? "SPY" : actual}`}>Ticket del día</a> — la vuelta al imán con los mismos muros.
+      </div>
+    </div>
   );
 }
 

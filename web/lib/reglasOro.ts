@@ -22,18 +22,20 @@
 export type EstadoRegla = "ok" | "ojo" | "no" | "sin_dato";
 
 export interface ReglaOro {
-  id: "hora" | "gex_total" | "flip" | "zigzag" | "indice" | "delta" | "theta" | "iv" | "strike" | "salida" | "iman_muro" | "extremo";
+  id: "hora" | "gex_total" | "flip" | "zigzag" | "indice" | "delta" | "theta" | "iv" | "strike" | "salida" | "iman_muro" | "extremo"
+    | "regimen" | "prima_iv" | "spread" | "tarde";
   nombre: string;
   estado: EstadoRegla;
   texto: string;
 }
 
-export interface EntradaReglas {
+/** Lo que hace falta saber del DÍA (muros, hora), sin importar la estrategia. */
+export interface EntradaDia {
   ticker: string;
   /** Si los muros vienen del índice (SPX para SPY, NDX para QQQ), cuál. */
   espejoDe?: string | null;
   spot: number;
-  /** Fuente de los muros: solo con MarketSnack el GEX total viene en dólares comparables a los de Víctor. */
+  /** Fuente de los muros: solo con MarketSnack el GEX total viene en dólares comparables a las medidas de fuerza (2B, 3B, 20B). */
   fuenteGex: string;
   netGex: number | null;
   gammaFlip: number | null;
@@ -42,6 +44,11 @@ export interface EntradaReglas {
   putWall: number | null;
   /** Perfil por strike (puede venir vacío). */
   bars: { strike: number; netGex: number }[];
+  ahora: Date;
+}
+
+/** Para COMPRAR un contrato (el Ticket). */
+export interface EntradaReglas extends EntradaDia {
   /** Hacia dónde va la idea y su meta en el precio de la acción. */
   direccion: "long" | "short";
   meta: number;
@@ -55,7 +62,22 @@ export interface EntradaReglas {
     iv: number | null;      // decimal (0.25 = 25%)
     dte: number;            // días para vencer (0 = hoy)
   } | null;
-  ahora: Date;
+}
+
+/** Para VENDER prima con un spread de crédito. */
+export interface EntradaPrima extends EntradaDia {
+  regimen: "positive" | "negative";
+  /** IV de los contratos al dinero (decimal). Alta = la prima viene gorda. */
+  ivAtm: number | null;
+  /** El spread que se propone (el mejor que cabe), o null. */
+  spread: {
+    lado: "call" | "put";
+    vender: number;
+    comprar: number;
+    popPct: number | null;
+    esperanza: number | null;
+    trasElMuro: boolean;
+  } | null;
 }
 
 export interface ResultadoReglas {
@@ -104,7 +126,12 @@ export function salidaAntes(meta: number, spot: number, direccion: "long" | "sho
   return Math.round(x * 100) / 100;
 }
 
-export function revisarReglasOro(e: EntradaReglas): ResultadoReglas {
+/**
+ * Las reglas del DÍA que valen para cualquier estrategia: la hora, de dónde
+ * salen los muros, su fuerza, el punto de cambio, el zigzag, el imán pegado a
+ * un muro y el precio pasado de un muro.
+ */
+function reglasDelDia(e: EntradaDia, venceHoy: boolean): ReglaOro[] {
   const reglas: ReglaOro[] = [];
   // De dónde salen los muros: el índice (si vienen "en espejo") o el propio ticker.
   const base = e.espejoDe ?? e.ticker;
@@ -116,7 +143,7 @@ export function revisarReglasOro(e: EntradaReglas): ResultadoReglas {
     reglas.push({ id: "hora", nombre: "Hora", estado: "ojo", texto: "El mercado está cerrado: los muros de ahora son de la última foto. Revísalo cuando abra." });
   } else if (min < 630) {
     reglas.push({ id: "hora", nombre: "Hora", estado: "ojo", texto: "Primera hora (9:30-10:30 AM NY): no se opera el GEX todavía — los muros se están acomodando. Espera a las 10:30." });
-  } else if (min >= 930 && e.contrato?.dte === 0) {
+  } else if (min >= 930 && venceHoy) {
     reglas.push({ id: "hora", nombre: "Hora", estado: "ojo", texto: "Última media hora con un contrato que se acaba hoy: el tiempo corre en contra muy rápido." });
   } else {
     reglas.push({ id: "hora", nombre: "Hora", estado: "ok", texto: "Buena hora para operar los muros (después de las 10:30 AM)." });
@@ -164,7 +191,7 @@ export function revisarReglasOro(e: EntradaReglas): ResultadoReglas {
     reglas.push({ id: "zigzag", nombre: "Zigzag", estado: "sin_dato", texto: "No hay el dibujo por strike para revisar si hay zigzag." });
   }
 
-  // 6) Imán pegado a un muro → ahí puede rebotar: Víctor se sale.
+  // 6) Imán pegado a un muro → ahí puede rebotar: se toma la ganancia ahí.
   const pegado = (x: number | null) => x != null && e.magnet != null && Math.abs(x - e.magnet) <= e.spot * 0.001;
   if (e.magnet != null && (pegado(e.callWall) || pegado(e.putWall))) {
     reglas.push({ id: "iman_muro", nombre: "Imán = muro", estado: "ojo", texto: `El imán (${fmt(e.magnet)}) está en el mismo sitio que un muro: toma la ganancia AHÍ, porque puede rebotar.` });
@@ -176,6 +203,25 @@ export function revisarReglasOro(e: EntradaReglas): ResultadoReglas {
   } else if (e.putWall != null && e.spot < e.putWall) {
     reglas.push({ id: "extremo", nombre: "Pasó el muro", estado: "ojo", texto: `El precio rompió el muro de abajo (${fmt(e.putWall)}). Si el muro NO se mueve hacia abajo, lo normal es que regrese al muro (idea de subida).` });
   }
+
+  return reglas;
+}
+
+/** Semáforo: un "no" pone rojo; tres o más "ojo", amarillo. */
+function semaforo(reglas: ReglaOro[], textoVerde: string): ResultadoReglas {
+  const nos = reglas.filter((r) => r.estado === "no");
+  const ojos = reglas.filter((r) => r.estado === "ojo");
+  const veredicto: ResultadoReglas["veredicto"] = nos.length > 0 ? "rojo" : ojos.length >= 3 ? "amarillo" : "verde";
+  const resumen = veredicto === "rojo"
+    ? `No pasa las reglas de oro: ${nos.map((r) => r.nombre.toLowerCase()).join(", ")}.`
+    : veredicto === "amarillo"
+      ? `Pasa, pero con varias señales de cuidado (${ojos.length}). Entra con poco o espera.`
+      : textoVerde;
+  return { reglas, veredicto, resumen };
+}
+
+export function revisarReglasOro(e: EntradaReglas): ResultadoReglas {
+  const reglas = reglasDelDia(e, e.contrato?.dte === 0);
 
   // 8-12) El contrato.
   const k = e.contrato;
@@ -248,14 +294,55 @@ export function revisarReglasOro(e: EntradaReglas): ResultadoReglas {
   const sal = salidaAntes(e.meta, e.spot, e.direccion);
   reglas.push({ id: "salida", nombre: "Dónde salir", estado: "ok", texto: `No esperes el número exacto: toma la ganancia cerca de ${fmt(sal)} (la meta es ${fmt(e.meta)}; ahí suele rebotar).` });
 
-  const nos = reglas.filter((r) => r.estado === "no");
-  const ojos = reglas.filter((r) => r.estado === "ojo");
-  const veredicto: ResultadoReglas["veredicto"] = nos.length > 0 ? "rojo" : ojos.length >= 3 ? "amarillo" : "verde";
-  const resumen = veredicto === "rojo"
-    ? `No pasa las reglas de oro: ${nos.map((r) => r.nombre.toLowerCase()).join(", ")}.`
-    : veredicto === "amarillo"
-      ? `Pasa, pero con varias señales de cuidado (${ojos.length}). Entra con poco o espera.`
-      : k ? "Cumple las reglas de oro." : "Los muros pasan las reglas de oro (el contrato todavía no se pudo revisar).";
+  return semaforo(reglas, k ? "Cumple las reglas de oro." : "Los muros pasan las reglas de oro (el contrato todavía no se pudo revisar).");
+}
 
-  return { reglas, veredicto, resumen };
+/**
+ * Reglas de oro para VENDER prima: las mismas del día, más las que importan
+ * al cobrar por el tiempo — que el día sea de rango (los muros frenan), que la
+ * prima venga gorda, vender MÁS ALLÁ del muro y salir si el precio toca el muro.
+ */
+export function revisarReglasPrima(e: EntradaPrima): ResultadoReglas {
+  const reglas = reglasDelDia(e, true);
+
+  // Tarde: la prima de 0DTE ya se derritió.
+  const min = minutosNY(e.ahora);
+  if (min >= 900 && min < 960) {
+    reglas.push({ id: "tarde", nombre: "Tarde", estado: "ojo", texto: "Después de las 3:00 PM la prima de hoy ya casi se derritió: cobras muy poco por el mismo riesgo." });
+  }
+
+  // El tipo de día manda: vender prima necesita que los muros frenen.
+  reglas.push(e.regimen === "positive"
+    ? { id: "regimen", nombre: "Tipo de día", estado: "ok", texto: "Día de rango (gamma positiva): los muros frenan el precio — es el día bueno para vender prima." }
+    : { id: "regimen", nombre: "Tipo de día", estado: "no", texto: "Día de empujón (gamma negativa): los movimientos se aceleran y rompen muros. Vender prima hoy es nadar contra la corriente." });
+
+  // La prima: al revés que al comprar, aquí la IV alta ayuda (cobras más).
+  if (e.ivAtm != null && e.ivAtm > 0) {
+    const iv = e.ivAtm < 5 ? e.ivAtm * 100 : e.ivAtm;
+    const txt = `Nerviosismo (IV) ${Math.round(iv)}%.`;
+    reglas.push(iv >= 48
+      ? { id: "prima_iv", nombre: "Prima", estado: "ok", texto: `${txt} Prima gorda: es cuando conviene VENDER (lo contrario de comprar).` }
+      : iv >= 15
+        ? { id: "prima_iv", nombre: "Prima", estado: "ok", texto: `${txt} Prima normal.` }
+        : { id: "prima_iv", nombre: "Prima", estado: "ojo", texto: `${txt} Prima flaca: cobras poco por lo que arriesgas.` });
+  } else {
+    reglas.push({ id: "prima_iv", nombre: "Prima", estado: "sin_dato", texto: "La fuente no trajo la IV de hoy." });
+  }
+
+  const sp = e.spread;
+  if (sp) {
+    const lado = sp.lado === "call" ? "calls" : "puts";
+    reglas.push(sp.trasElMuro
+      ? { id: "spread", nombre: "Dónde vendes", estado: "ok", texto: `Vendes ${lado} en ${fmt(sp.vender)}, más allá del muro: el precio tendría que romperlo para hacerte daño.` }
+      : { id: "spread", nombre: "Dónde vendes", estado: "no", texto: `Vendes ${lado} en ${fmt(sp.vender)}, DENTRO del rango: es apostar a que el precio no llegue a donde suele ir.` });
+    if (sp.esperanza != null && sp.esperanza < 0) {
+      reglas.push({ id: "spread", nombre: "A la larga", estado: "ojo", texto: `Gana muchas veces (≈${Math.round(sp.popPct ?? 0)}%) pero a la larga pierde: cuando falla, quita más de lo que suma.` });
+    }
+    const muro = sp.lado === "call" ? e.callWall : e.putWall;
+    reglas.push({ id: "salida", nombre: "Dónde salir", estado: "ok", texto: muro != null
+      ? `Si el precio toca el muro de ${sp.lado === "call" ? "arriba" : "abajo"} (${fmt(muro)}), cierra: no esperes a que llegue a tu strike (${fmt(sp.vender)}).`
+      : `Si el precio se acerca a tu strike (${fmt(sp.vender)}), cierra antes de que llegue.` });
+  }
+
+  return semaforo(reglas, sp ? "Cumple las reglas de oro para vender prima." : "El día pasa las reglas de oro para vender prima (todavía no hay spread que revisar).");
 }

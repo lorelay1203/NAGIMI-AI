@@ -14,6 +14,7 @@ import { useCallback, useEffect, useState } from "react";
 import { cabeEnCuenta, cuandoVence, lineasTicket, ticketComoTexto, REGLA_RIESGO_PCT } from "@/lib/ticketTexto";
 import { fraseBarridas, type Barridas } from "@/lib/barridas";
 import type { ResultadoReglas } from "@/lib/reglasOro";
+import ReglasOroBox from "./ReglasOroBox";
 
 interface Ticket {
   strike: number; type: "call" | "put"; expiration: string | null; symbol: string | null;
@@ -41,32 +42,6 @@ interface Resp {
   flujoFuente?: string | null; flujoVelocidad?: number | null;
   barridas?: Barridas | null;
   reglasOro?: ResultadoReglas | null;
-}
-
-const ICONO = { ok: "✅", ojo: "⚠️", no: "⛔", sin_dato: "▫️" } as const;
-
-/** Chequeo con las reglas de oro: una línea por regla. */
-function ReglasOroBox({ r }: { r: ResultadoReglas }) {
-  const [abierto, setAbierto] = useState(r.veredicto !== "verde");
-  return (
-    <div className={`tk-reglas tk-reglas-${r.veredicto}`}>
-      <button type="button" className="tk-reglas-head" onClick={() => setAbierto((x) => !x)}>
-        <span className="tk-reglas-sem">{r.veredicto === "verde" ? "🟢" : r.veredicto === "amarillo" ? "🟡" : "🔴"}</span>
-        <span><b>Reglas de oro</b> — {r.resumen}</span>
-        <span className="tk-reglas-flecha">{abierto ? "▲" : "▼"}</span>
-      </button>
-      {abierto && (
-        <ul className="tk-reglas-lista">
-          {r.reglas.map((x) => (
-            <li key={x.id} className={`tk-reglas-${x.estado}`}>
-              <span className="tk-reglas-ico">{ICONO[x.estado]}</span>
-              <span><b>{x.nombre}:</b> {x.texto}</span>
-            </li>
-          ))}
-        </ul>
-      )}
-    </div>
-  );
 }
 
 const d2 = (n: number) => `$${n.toFixed(2)}`;
