@@ -7,7 +7,7 @@ import { getTicketChain, type TicketChainSource } from "./ticketChain";
 import { buildCreditPlan, elegirSpot, type CreditPlan, type SpreadCandidate } from "./creditSpread0dte";
 import { nivelesConEspejo } from "./nivelesEspejoServidor";
 import type { InfoEspejo } from "./nivelesEspejo";
-import { minutosNY, revisarReglasPrima, type ResultadoReglas } from "./reglasOro";
+import { contraIman, minutosNY, revisarReglasPrima, type ResultadoReglas } from "./reglasOro";
 
 export interface PlanPrima extends CreditPlan {
   spotNiveles: number;
@@ -31,7 +31,7 @@ export interface PlanPrima extends CreditPlan {
 export async function armarPlanPrima(
   ticker: string,
   capital: number,
-  opts: { propios?: boolean; source?: TicketChainSource } = {},
+  opts: { propios?: boolean; source?: TicketChainSource; retornoMinPct?: number; max?: number } = {},
 ): Promise<PlanPrima> {
   const [{ levels, avisoEspejo }, chain] = await Promise.all([
     nivelesConEspejo(ticker, opts.propios ?? false),
@@ -50,9 +50,14 @@ export async function armarPlanPrima(
     putWall: levels.putWall,
     regimen: levels.regime,
     capital,
+    retornoMinPct: opts.retornoMinPct,
+    max: opts.max,
   });
 
-  const mejor = plan.candidatos.find((c) => c.cabe && !c.sospechoso) ?? null;
+  // Se propone el mejor que cabe, sin precio viejo y que NO vaya contra el
+  // imán; si todos van contra el imán, el mejor que quede (y la regla lo marca).
+  const limpios = plan.candidatos.filter((c) => c.cabe && !c.sospechoso);
+  const mejor = limpios.find((c) => !contraIman(c.lado, c.vender, precio.spot, levels.magnet)) ?? limpios[0] ?? null;
 
   // Antes de abrir (o ya cerrado) las opciones no tienen comprador: eso no es
   // "la prima se derritió", es que el mercado no está abierto. Se dice así.

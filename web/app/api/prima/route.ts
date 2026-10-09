@@ -18,12 +18,19 @@ export async function GET(request: Request) {
   const capital = Number(searchParams.get("capital") ?? "0");
   const source = (searchParams.get("source") ?? undefined) as TicketChainSource | undefined;
   const propios = searchParams.get("muros") === "propios";
+  // ?retornoMin=5&max=20 → ver más candidatos (diagnóstico / días de prima flaca).
+  const rMin = Number(searchParams.get("retornoMin"));
+  const max = Number(searchParams.get("max"));
 
   if (!ticker) return Response.json({ error: "Falta el ticker." }, { status: 400 });
   if (!(capital > 0)) return Response.json({ error: "Falta el capital disponible." }, { status: 400 });
 
   try {
-    return Response.json(await armarPlanPrima(ticker, capital, { propios, source }));
+    return Response.json(await armarPlanPrima(ticker, capital, {
+      propios, source,
+      retornoMinPct: rMin > 0 ? rMin : undefined,
+      max: max > 0 ? Math.min(max, 60) : undefined,
+    }));
   } catch (e) {
     const msg = e instanceof Error && e.message.startsWith("No se pudo") ? e.message : "No se pudo armar el plan de prima.";
     return Response.json({ error: msg }, { status: 502 });

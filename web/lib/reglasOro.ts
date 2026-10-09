@@ -207,6 +207,18 @@ function reglasDelDia(e: EntradaDia, venceHoy: boolean): ReglaOro[] {
   return reglas;
 }
 
+/**
+ * ¿El spread vendido está en el CAMINO del imán? En día de rango el imán jala
+ * el precio: vender calls por debajo de un imán que está arriba (o puts por
+ * encima de un imán que está abajo) es ponerse delante de ese jalón.
+ */
+export function contraIman(lado: "call" | "put", vender: number, spot: number, magnet: number | null): boolean {
+  if (magnet == null || !(spot > 0)) return false;
+  return lado === "call"
+    ? magnet > spot && vender <= magnet
+    : magnet < spot && vender >= magnet;
+}
+
 /** Semáforo: un "no" pone rojo; tres o más "ojo", amarillo. */
 function semaforo(reglas: ReglaOro[], textoVerde: string): ResultadoReglas {
   const nos = reglas.filter((r) => r.estado === "no");
@@ -335,6 +347,9 @@ export function revisarReglasPrima(e: EntradaPrima): ResultadoReglas {
     reglas.push(sp.trasElMuro
       ? { id: "spread", nombre: "Dónde vendes", estado: "ok", texto: `Vendes ${lado} en ${fmt(sp.vender)}, más allá del muro: el precio tendría que romperlo para hacerte daño.` }
       : { id: "spread", nombre: "Dónde vendes", estado: "no", texto: `Vendes ${lado} en ${fmt(sp.vender)}, DENTRO del rango: es apostar a que el precio no llegue a donde suele ir.` });
+    if (contraIman(sp.lado, sp.vender, e.spot, e.magnet)) {
+      reglas.push({ id: "spread", nombre: "Contra el imán", estado: "no", texto: `El imán (${fmt(e.magnet as number)}) jala el precio hacia tu strike ${fmt(sp.vender)}: vender ahí es ponerte delante del jalón. Vende del otro lado.` });
+    }
     if (sp.esperanza != null && sp.esperanza < 0) {
       reglas.push({ id: "spread", nombre: "A la larga", estado: "ojo", texto: `Gana muchas veces (≈${Math.round(sp.popPct ?? 0)}%) pero a la larga pierde: cuando falla, quita más de lo que suma.` });
     }

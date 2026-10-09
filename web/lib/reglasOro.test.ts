@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { cambiosDeSigno, minutosNY, revisarReglasOro, revisarReglasPrima, salidaAntes, type EntradaReglas } from "./reglasOro";
+import { cambiosDeSigno, contraIman, minutosNY, revisarReglasOro, revisarReglasPrima, salidaAntes, type EntradaReglas } from "./reglasOro";
 
 // 11:30 AM en Nueva York (horario de verano, UTC−4).
 const MEDIODIA = new Date("2026-10-08T15:30:00Z");
@@ -134,5 +134,24 @@ describe("reglas de oro para vender prima", () => {
   it("después de las 3 PM la prima ya se derritió", () => {
     const r = revisarReglasPrima({ ...dia, regimen: "positive", ivAtm: 0.2, spread, ahora: new Date("2026-10-08T19:20:00Z") });
     expect(r.reglas.find((x) => x.id === "tarde")?.estado).toBe("ojo");
+  });
+});
+
+describe("vender contra el imán", () => {
+  it("calls debajo de un imán que está arriba → contra el imán", () => {
+    expect(contraIman("call", 7820, 7799, 7825)).toBe(true);
+    expect(contraIman("call", 7830, 7799, 7825)).toBe(false);
+    expect(contraIman("put", 7780, 7799, 7825)).toBe(false);
+    expect(contraIman("put", 7790, 7799, 7770)).toBe(true);
+  });
+
+  it("la regla lo marca en rojo", () => {
+    const r = revisarReglasPrima({
+      ticker: "SPX", spot: 7799, fuenteGex: "marketsnack", netGex: 8e9, gammaFlip: 7771, magnet: 7825,
+      callWall: 7800, putWall: 7800, bars: [], ahora: MEDIODIA, regimen: "positive", ivAtm: 0.2,
+      spread: { lado: "call", vender: 7820, comprar: 7825, popPct: 85, esperanza: -5, trasElMuro: true },
+    });
+    expect(r.veredicto).toBe("rojo");
+    expect(r.resumen).toContain("contra el imán");
   });
 });
