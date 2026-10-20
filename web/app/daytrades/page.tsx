@@ -15,6 +15,7 @@ import MarketSnackGexCard from "../components/MarketSnackGexCard";
 import GexLadderCard from "../components/GexLadderCard";
 import TicketCard from "../components/TicketCard";
 import CopiarTradingView from "../components/CopiarTradingView";
+import AvisosCelular from "../components/AvisosCelular";
 import NextStepsCard from "../components/NextStepsCard";
 import { buildSessionNextSteps } from "@/lib/nextSteps";
 import ChartZoom from "../components/ChartZoom";
@@ -236,6 +237,7 @@ export default function DayTradesPage() {
 
           {/* Los muros y el flow de hoy, para el script de TradingView */}
           <CopiarTradingView ticker={ticker} />
+          <AvisosCelular />
 
           {/* 4 tarjetas score */}
           <div style={grid4}>
