@@ -14,6 +14,7 @@ import type { GexHeatmap } from "@/lib/gexHeatmap";
 import MarketSnackGexCard from "../components/MarketSnackGexCard";
 import GexLadderCard from "../components/GexLadderCard";
 import TicketCard from "../components/TicketCard";
+import CopiarTradingView from "../components/CopiarTradingView";
 import NextStepsCard from "../components/NextStepsCard";
 import { buildSessionNextSteps } from "@/lib/nextSteps";
 import ChartZoom from "../components/ChartZoom";
@@ -232,6 +233,9 @@ export default function DayTradesPage() {
 
           {/* Ticket: la idea traducida a un contrato concreto */}
           <TicketCard ticker={ticker} />
+
+          {/* Los muros y el flow de hoy, para el script de TradingView */}
+          <CopiarTradingView ticker={ticker} />
 
           {/* 4 tarjetas score */}
           <div style={grid4}>

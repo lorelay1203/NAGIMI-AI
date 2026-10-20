@@ -1,0 +1,757 @@
+//@version=6
+// ============================================================================
+// NAGIMI FLOW PRO v1 — TradingView (Pine Script v6)
+//
+// Junta en un solo indicador:
+//   1. FLOW + GEX de Nagimi  (manda: decide hacia dónde se permite operar)
+//      → se pega la "Línea de Nagimi" (botón "Copiar para TradingView" en Nagimi)
+//   2. NIVELES DEL DÍA       (día y semana anteriores, premarket, apertura, HOD/LOD)
+//   3. ZONAS DE OFERTA/DEMANDA (base + impulso, frescas / mitigadas, varias a la vez)
+//   4. GATILLOS              · Continuación (DayTradePro) confirmada por el Hybrid
+//                            · Rebote en zona con vela de rechazo (zonas + MM Algo + Hybrid)
+//   5. SEGUIMIENTO           Stop / TP1 / TP2 / salida / cierre del día + resultados
+//
+// Úsalo en gráficas INTRADÍA de 1 a 15 minutos. Horarios en hora de Nueva York.
+// Material de estudio, no consejo financiero.
+// ============================================================================
+indicator("Nagimi Flow Pro v1", shorttitle = "NagimiFlow", overlay = true, max_boxes_count = 150, max_lines_count = 60, max_labels_count = 300)
+
+// ───────────────────────── 1. NAGIMI: GEX Y FLOW ─────────────────────────
+grpN = "1 · Nagimi (GEX y flow)"
+lineaNagimi    = input.text_area("", "Línea de Nagimi (pega aquí)", tooltip = "En Nagimi → Ticket del día → 'Copiar para TradingView'. Vuelve a pegarla si los muros se mueven.", group = grpN)
+useGexFilter   = input.bool(true, "Filtrar entradas con el GEX y el flow", group = grpN)
+flipBufATR     = input.float(0.5, "No operar a menos de ATR × del flip", minval = 0.0, step = 0.1, group = grpN)
+minRoomR       = input.float(1.0, "Espacio mínimo hasta el muro/imán (en riesgos)", minval = 0.0, step = 0.1, group = grpN)
+fbMinLong      = input.int(45, "Flow mínimo a favor (%) para entrar", minval = 0, maxval = 100, group = grpN)
+snapTargets    = input.bool(true, "Meta: salir un poco antes del muro / imán", group = grpN)
+showGexLevels  = input.bool(true, "Dibujar muros, imán y flip", group = grpN)
+showGexProfile = input.bool(true, "Dibujar perfil de GEX (barras a la derecha)", group = grpN)
+profileWidth   = input.int(25, "Ancho del perfil (velas)", minval = 5, maxval = 100, group = grpN)
+
+// ───────────────────────── BÁSICOS (DayTradePro) ─────────────────────────
+grpB = "2 · Básicos"
+fastEMA      = input.int(9,  "EMA rápida",       minval = 1, group = grpB)
+slowEMA      = input.int(21, "EMA lenta",        minval = 1, group = grpB)
+trendEMA     = input.int(50, "EMA de tendencia", minval = 1, group = grpB)
+atrLength    = input.int(14, "ATR - largo",      minval = 1, group = grpB)
+atrStopMult  = input.float(1.0, "Stop = ATR ×",  minval = 0.1, step = 0.1, group = grpB)
+atrTP1Mult   = input.float(1.5, "TP1 = ATR ×",   minval = 0.1, step = 0.1, group = grpB)
+atrTP2Mult   = input.float(2.0, "TP2 = ATR ×",   minval = 0.1, step = 0.1, group = grpB)
+volLength    = input.int(20, "Volumen - promedio de", minval = 1, group = grpB)
+volFactor    = input.float(1.2, "Volumen fuerte × (apertura / general)", minval = 0.0, step = 0.05, group = grpB)
+volFactorMid = input.float(1.3, "Volumen fuerte × (10:30 AM – 3:00 PM)", minval = 0.0, step = 0.05, group = grpB)
+bodyFactor   = input.float(0.50, "Cuerpo mínimo de la vela (fracción del rango)", minval = 0.0, maxval = 1.0, step = 0.05, group = grpB)
+
+grpF = "3 · Filtros PRO"
+sessionStart          = input.int(935,  "Inicio (HHMM hora NY)", minval = 0, maxval = 2359, group = grpF)
+sessionEnd            = input.int(1550, "Fin (HHMM hora NY)",    minval = 0, maxval = 2359, group = grpF)
+minRangeATRMult       = input.float(0.5,  "Rango mínimo de la vela = ATR ×",  minval = 0.0, step = 0.05, group = grpF)
+slopeBars             = input.int(3,      "Pendiente - velas atrás",           minval = 1, group = grpF)
+slopeAtrMult          = input.float(0.20, "Pendiente mínima = ATR ×",          minval = 0.0, step = 0.05, group = grpF)
+vwapAtrMult           = input.float(0.10, "Distancia mínima al VWAP = ATR ×",  minval = 0.0, step = 0.05, group = grpF)
+consolidationBars     = input.int(12,     "Consolidación - velas",             minval = 2, group = grpF)
+consolidationRangeATR = input.float(0.8,  "Consolidación si el rango < ATR ×", minval = 0.0, step = 0.05, group = grpF)
+
+// ───────────────────────── HYBRID ─────────────────────────
+grpH = "4 · Hybrid (confirmación)"
+rsiLength    = input.int(7, "RSI - largo", minval = 2, group = grpH)
+contLevel    = input.float(0.35, "Continuación: Hybrid mayor que", minval = 0.0, step = 0.05, group = grpH)
+extremeES    = input.float(2.20, "Extremo (precio > 1000, SPX/ES)", minval = 0.1, step = 0.1, group = grpH)
+extremeSPY   = input.float(2.00, "Extremo (acciones / ETFs)",       minval = 0.1, step = 0.1, group = grpH)
+bounceHybrid = input.float(0.50, "Rebote: Hybrid menor que −",      minval = 0.0, step = 0.05, group = grpH)
+
+// ───────────────────────── ZONAS ─────────────────────────
+grpZ = "5 · Zonas de oferta y demanda"
+showZones       = input.bool(true, "Mostrar zonas", group = grpZ)
+maxZones        = input.int(3, "Zonas por lado (máximo)", minval = 1, maxval = 10, group = grpZ)
+zoneLookback    = input.int(50, "Promedio de rango/volumen (velas)", minval = 5, group = grpZ)
+impulseFactor   = input.float(1.8, "Impulso: rango × promedio", minval = 1.0, step = 0.1, group = grpZ)
+baseMaxBars     = input.int(6, "Base: máximo de velas", minval = 2, maxval = 6, group = grpZ)
+minZoneATR      = input.float(0.35, "Zona: tamaño mínimo = ATR ×", minval = 0.0, step = 0.05, group = grpZ)
+breakMethod     = input.string("Cierre", "Zona rota por", options = ["Cierre", "Mecha"], group = grpZ)
+breakBufferATR  = input.float(0.02, "Colchón para romper = ATR ×", minval = 0.0, step = 0.01, group = grpZ)
+wickRatio       = input.float(1.25, "Vela de rechazo: mecha > cuerpo ×", minval = 0.1, step = 0.05, group = grpZ)
+maxBounceRetest = input.int(2, "Rebote solo hasta el retest número", minval = 1, maxval = 10, group = grpZ)
+
+// ───────────────────────── PRESIÓN ─────────────────────────
+grpP = "6 · Presión compradora / vendedora (estimada)"
+useDelta  = input.bool(true, "Exigir presión a favor", group = grpP)
+deltaBars = input.int(5, "Presión: últimas velas", minval = 1, group = grpP)
+
+// ───────────────────────── NIVELES ─────────────────────────
+grpL = "7 · Niveles del día"
+showPrevDay   = input.bool(true, "Día anterior: máximo / mínimo / cierre", group = grpL)
+showPrevWeek  = input.bool(true, "Semana anterior: máximo / mínimo",       group = grpL)
+showPremarket = input.bool(true, "Premarket: máximo / mínimo (activa el horario extendido)", group = grpL)
+showDayOHL    = input.bool(true, "Hoy: apertura, máximo y mínimo",         group = grpL)
+
+// ───────────────────────── SEGUIMIENTO ─────────────────────────
+grpS = "8 · Seguimiento de la operación"
+useRuleExit      = input.bool(true,  "Continuación: salir con la regla (EMA 9 / VWAP / vela contraria)", group = grpS)
+moveToBE         = input.bool(true,  "Al tocar TP1, subir el stop a la entrada", group = grpS)
+closeAtEnd       = input.bool(true,  "Cerrar la operación a la hora de Fin", group = grpS)
+showFiltered     = input.bool(true,  "Marcar señales que el flow/GEX bloqueó (puntos grises)", group = grpS)
+showSignalLabels = input.bool(false, "Etiqueta con Stop / TP en cada entrada", group = grpS)
+showTable        = input.bool(true,  "Mostrar cuadro", group = grpS)
+
+// ============================================================================
+// LECTURA DE LA LÍNEA DE NAGIMI (una sola vez, en la primera vela)
+// Formato: NAGIMI v1|t=SPY|d=2026-10-20|cw=..|pw=..|mag=..|flip=..|reg=+|fb=58|g=770:-1.2,775:3.4
+// ============================================================================
+var float  gCW     = na
+var float  gPW     = na
+var float  gMag    = na
+var float  gFlip   = na
+var float  gFB     = na
+var int    gReg    = 0
+var string gTicker = ""
+var string gFecha  = ""
+var array<float> gStrikes = array.new<float>()
+var array<float> gVals    = array.new<float>()
+
+if barstate.isfirst and str.length(str.trim(lineaNagimi)) > 0
+    array<string> partes = str.split(str.trim(lineaNagimi), "|")
+    for parte in partes
+        array<string> kv = str.split(parte, "=")
+        if kv.size() == 2
+            string k = str.lower(str.trim(kv.get(0)))
+            string v = str.trim(kv.get(1))
+            if k == "t"
+                gTicker := str.upper(v)
+            else if k == "d"
+                gFecha := v
+            else if k == "cw"
+                gCW := str.tonumber(v)
+            else if k == "pw"
+                gPW := str.tonumber(v)
+            else if k == "mag"
+                gMag := str.tonumber(v)
+            else if k == "flip"
+                gFlip := str.tonumber(v)
+            else if k == "fb"
+                gFB := str.tonumber(v)
+            else if k == "reg"
+                gReg := v == "+" ? 1 : v == "-" ? -1 : 0
+            else if k == "g"
+                array<string> pares = str.split(v, ",")
+                for par in pares
+                    array<string> sv = str.split(par, ":")
+                    if sv.size() == 2
+                        float sk = str.tonumber(sv.get(0))
+                        float vv = str.tonumber(sv.get(1))
+                        if not na(sk) and not na(vv)
+                            gStrikes.push(sk)
+                            gVals.push(vv)
+
+string fechaBar  = str.format_time(time, "yyyy-MM-dd", "America/New_York")
+bool   hayLinea  = gTicker != ""
+bool   tickerOk  = gTicker == syminfo.ticker
+// El GEX solo vale para el día de la línea y para su ticker.
+bool   gexActivo = hayLinea and tickerOk and fechaBar == gFecha
+
+// ============================================================================
+// HORA DE NUEVA YORK
+// ============================================================================
+hhmmToMin(int hhmm) =>
+    math.floor(hhmm / 100) * 60 + hhmm % 100
+
+int  barMin        = hour(time, "America/New_York") * 60 + minute(time, "America/New_York")
+int  startMin      = hhmmToMin(sessionStart)
+int  endMin        = hhmmToMin(sessionEnd)
+bool isMidDay      = barMin >= 630 and barMin <= 900
+bool inSessionBase = barMin >= startMin and barMin <= endMin
+bool isLunch       = barMin >= 690 and barMin <= 810
+bool inSession     = inSessionBase and not isLunch
+int  barLenMin     = math.round(timeframe.in_seconds() / 60)
+bool endOfDay      = barMin + barLenMin > endMin
+bool nuevoDia      = fechaBar != fechaBar[1]
+
+// ============================================================================
+// INDICADORES BASE
+// ============================================================================
+float emaFast   = ta.ema(close, fastEMA)
+float emaSlow   = ta.ema(close, slowEMA)
+float emaTrend  = ta.ema(close, trendEMA)
+float vwapValue = ta.vwap(hlc3)
+float atrVal    = ta.sma(ta.tr(true), atrLength)
+float volAvg    = ta.sma(volume, volLength)
+
+float body      = math.abs(close - open)
+float rangeBar  = high - low
+float upperWick = high - math.max(open, close)
+float lowerWick = math.min(open, close) - low
+float bodyPct   = rangeBar > 0 ? body / rangeBar : 0.0
+
+bool volStrong = isMidDay ? volume > volAvg * volFactorMid : volume > volAvg * volFactor
+bool bullBody  = close > open and (close - open) > bodyFactor * rangeBar
+bool bearBody  = close < open and (open - close) > bodyFactor * rangeBar
+bool bigRange  = rangeBar > minRangeATRMult * atrVal
+
+float fastSlope = emaFast - emaFast[slopeBars]
+float slowSlope = emaSlow - emaSlow[slopeBars]
+bool  slopeOK   = math.abs(fastSlope) > slopeAtrMult * atrVal and math.abs(slowSlope) > slopeAtrMult * atrVal
+bool  farFromVWAP = math.abs(close - vwapValue) > vwapAtrMult * atrVal
+
+float swingRange      = ta.highest(high, consolidationBars) - ta.lowest(low, consolidationBars)
+bool  noConsolidation = not (swingRange < consolidationRangeATR * atrVal)
+
+bool upTrend   = close > vwapValue and emaFast > emaSlow and close > emaTrend
+bool downTrend = close < vwapValue and emaFast < emaSlow and close < emaTrend
+
+// ============================================================================
+// HYBRID (del script Mytchia Hybrid Flow Pro, como confirmación)
+// ============================================================================
+float rsiV         = ta.rsi(close, rsiLength)
+float zRsi         = (rsiV - 50) / 10
+float distFast     = atrVal > 0 ? (close - emaFast) / atrVal : 0.0
+float distSlow     = atrVal > 0 ? (close - emaSlow) / atrVal : 0.0
+float velocity     = atrVal > 0 ? (close - close[1]) / atrVal : 0.0
+float trendBias    = upTrend ? 0.60 : downTrend ? -0.60 : 0.0
+float hybrid       = 0.50 * zRsi + 0.30 * distFast + 0.15 * velocity + 0.10 * distSlow + trendBias
+float hybridSlope  = hybrid - hybrid[1]
+float extremeLevel = close > 1000 ? extremeES : extremeSPY
+
+// ============================================================================
+// PRESIÓN COMPRADORA / VENDEDORA (estimada con dónde cierra cada vela)
+// Con plan Essential no hay footprint real; esto es una aproximación.
+// ============================================================================
+float dEst    = rangeBar > 0 ? volume * ((close - low) - (high - close)) / rangeBar : 0.0
+float presion = math.sum(dEst, deltaBars)
+
+// ============================================================================
+// NIVELES DEL DÍA
+// ============================================================================
+float pdh = request.security(syminfo.tickerid, "1D", high[1],  lookahead = barmerge.lookahead_on)
+float pdl = request.security(syminfo.tickerid, "1D", low[1],   lookahead = barmerge.lookahead_on)
+float pdc = request.security(syminfo.tickerid, "1D", close[1], lookahead = barmerge.lookahead_on)
+float pwh = request.security(syminfo.tickerid, "1W", high[1],  lookahead = barmerge.lookahead_on)
+float pwl = request.security(syminfo.tickerid, "1W", low[1],   lookahead = barmerge.lookahead_on)
+
+var float pmH   = na
+var float pmL   = na
+var float dOpen = na
+var float hod   = na
+var float lod   = na
+if nuevoDia
+    pmH   := na
+    pmL   := na
+    dOpen := na
+    hod   := na
+    lod   := na
+float hodPrev = hod
+float lodPrev = lod
+if session.ispremarket
+    pmH := na(pmH) ? high : math.max(pmH, high)
+    pmL := na(pmL) ? low  : math.min(pmL, low)
+if session.ismarket
+    if na(dOpen)
+        dOpen := open
+    hod := na(hod) ? high : math.max(hod, high)
+    lod := na(lod) ? low  : math.min(lod, low)
+// Arreglado: "nuevo máximo del día" = el máximo de esta vela supera el de antes.
+bool nuevoHOD = session.ismarket and not na(hodPrev) and high > hodPrev
+bool nuevoLOD = session.ismarket and not na(lodPrev) and low < lodPrev
+
+// Cruces (se calculan en todas las velas, como pide TradingView)
+bool cruzaPDH = ta.crossover(close, pdh)
+bool cruzaPDL = ta.crossunder(close, pdl)
+bool cruzaPMH = ta.crossover(close, pmH)
+bool cruzaPML = ta.crossunder(close, pmL)
+
+// ============================================================================
+// ZONAS DE OFERTA Y DEMANDA (base + impulso; varias a la vez)
+// ============================================================================
+type Zona
+    float top
+    float bot
+    int   nacio
+    int   retests     = 0
+    bool  tocadaAntes = false
+    float calidad     = 0.0
+    box   caja
+
+var array<Zona> demandas = array.new<Zona>()
+var array<Zona> ofertas  = array.new<Zona>()
+
+color colDemFresca = color.new(#006400, 70)
+color colDemMitig  = color.new(color.green, 85)
+color colOfeFresca = color.new(color.fuchsia, 70)
+color colOfeMitig  = color.new(#FF69B4, 85)
+
+float avgRange = ta.sma(rangeBar, zoneLookback)
+float avgVolZ  = ta.sma(volume, zoneLookback)
+bool  impulsoAlcista = close > open and rangeBar > avgRange * impulseFactor and rangeBar > atrVal * impulseFactor * 0.70
+bool  impulsoBajista = close < open and rangeBar > avgRange * impulseFactor and rangeBar > atrVal * impulseFactor * 0.70
+
+bool s1 = rangeBar[1] < atrVal[1] * 0.90
+bool s2 = rangeBar[2] < atrVal[2] * 0.90
+bool s3 = rangeBar[3] < atrVal[3] * 0.90
+bool s4 = rangeBar[4] < atrVal[4] * 0.90
+bool s5 = rangeBar[5] < atrVal[5] * 0.90
+bool s6 = rangeBar[6] < atrVal[6] * 0.90
+
+float hh2 = ta.highest(high[1], 2)
+float hh3 = ta.highest(high[1], 3)
+float hh4 = ta.highest(high[1], 4)
+float hh5 = ta.highest(high[1], 5)
+float hh6 = ta.highest(high[1], 6)
+float ll2 = ta.lowest(low[1], 2)
+float ll3 = ta.lowest(low[1], 3)
+float ll4 = ta.lowest(low[1], 4)
+float ll5 = ta.lowest(low[1], 5)
+float ll6 = ta.lowest(low[1], 6)
+
+bool b6 = baseMaxBars >= 6 and s6 and s5 and s4 and s3 and s2 and s1 and (hh6 - ll6) < atrVal * 2.60
+bool b5 = baseMaxBars >= 5 and s5 and s4 and s3 and s2 and s1 and (hh5 - ll5) < atrVal * 2.30
+bool b4 = baseMaxBars >= 4 and s4 and s3 and s2 and s1 and (hh4 - ll4) < atrVal * 2.00
+bool b3 = baseMaxBars >= 3 and s3 and s2 and s1 and (hh3 - ll3) < atrVal * 1.70
+bool b2 = baseMaxBars >= 2 and s2 and s1 and (hh2 - ll2) < atrVal * 1.40
+
+int   baseN  = b6 ? 6 : b5 ? 5 : b4 ? 4 : b3 ? 3 : b2 ? 2 : 0
+float baseHi = b6 ? hh6 : b5 ? hh5 : b4 ? hh4 : b3 ? hh3 : b2 ? hh2 : na
+float baseLo = b6 ? ll6 : b5 ? ll5 : b4 ? ll4 : b3 ? ll3 : b2 ? ll2 : na
+bool  baseOK = baseN > 0 and (baseHi - baseLo) >= atrVal * minZoneATR
+float calidadZona = avgRange > 0 and avgVolZ > 0 ? float(math.round(((rangeBar / avgRange) * 45 + (volume / avgVolZ) * 25 + bodyPct * 30) * 10)) : 0.0
+
+// --- Actualizar las zonas que ya existen (retests y roturas) ---
+bool  tocaDemanda = false
+float rebotePiso  = na
+bool  tocaOferta  = false
+float reboteTecho = na
+
+int nD = demandas.size()
+if nD > 0
+    for i = nD - 1 to 0
+        Zona z = demandas.get(i)
+        bool rota = breakMethod == "Cierre" ? close < z.bot - breakBufferATR * atrVal : low < z.bot - breakBufferATR * atrVal
+        if rota
+            box.delete(z.caja)
+            demandas.remove(i)
+        else
+            bool toca = low <= z.top and high >= z.bot
+            if toca and not z.tocadaAntes
+                z.retests := z.retests + 1
+            if toca and z.retests <= maxBounceRetest
+                tocaDemanda := true
+                rebotePiso  := na(rebotePiso) ? z.bot : math.max(rebotePiso, z.bot)
+            z.tocadaAntes := toca
+            box.set_bgcolor(z.caja, showZones ? (z.retests == 0 ? colDemFresca : colDemMitig) : na)
+            box.set_border_color(z.caja, showZones ? color.new(color.green, 40) : na)
+            box.set_text(z.caja, showZones ? "Demanda · R" + str.tostring(z.retests) + " · Q" + str.tostring(z.calidad, "#") : "")
+
+int nO = ofertas.size()
+if nO > 0
+    for i = nO - 1 to 0
+        Zona z = ofertas.get(i)
+        bool rota = breakMethod == "Cierre" ? close > z.top + breakBufferATR * atrVal : high > z.top + breakBufferATR * atrVal
+        if rota
+            box.delete(z.caja)
+            ofertas.remove(i)
+        else
+            bool toca = high >= z.bot and low <= z.top
+            if toca and not z.tocadaAntes
+                z.retests := z.retests + 1
+            if toca and z.retests <= maxBounceRetest
+                tocaOferta  := true
+                reboteTecho := na(reboteTecho) ? z.top : math.min(reboteTecho, z.top)
+            z.tocadaAntes := toca
+            box.set_bgcolor(z.caja, showZones ? (z.retests == 0 ? colOfeFresca : colOfeMitig) : na)
+            box.set_border_color(z.caja, showZones ? color.new(color.fuchsia, 40) : na)
+            box.set_text(z.caja, showZones ? "Oferta · R" + str.tostring(z.retests) + " · Q" + str.tostring(z.calidad, "#") : "")
+
+// --- Zonas nuevas ---
+if baseOK and impulsoAlcista
+    box bx = box.new(bar_index - baseN, baseHi, bar_index, baseLo, border_color = showZones ? color.new(color.green, 40) : na, bgcolor = showZones ? colDemFresca : na, extend = extend.right, text = showZones ? "Demanda · R0" : "", text_size = size.tiny, text_color = color.white, text_halign = text.align_right)
+    demandas.push(Zona.new(baseHi, baseLo, bar_index, 0, false, calidadZona, bx))
+    if demandas.size() > maxZones
+        Zona vieja = demandas.shift()
+        box.delete(vieja.caja)
+if baseOK and impulsoBajista
+    box bx = box.new(bar_index - baseN, baseHi, bar_index, baseLo, border_color = showZones ? color.new(color.fuchsia, 40) : na, bgcolor = showZones ? colOfeFresca : na, extend = extend.right, text = showZones ? "Oferta · R0" : "", text_size = size.tiny, text_color = color.white, text_halign = text.align_right)
+    ofertas.push(Zona.new(baseHi, baseLo, bar_index, 0, false, calidadZona, bx))
+    if ofertas.size() > maxZones
+        Zona vieja = ofertas.shift()
+        box.delete(vieja.caja)
+
+// ============================================================================
+// GATILLOS
+// ============================================================================
+// A) Continuación: la señal del DayTradePro, con el Hybrid a favor y sin agotarse.
+bool dtpLong  = upTrend   and bullBody and volStrong and inSession and bigRange and slopeOK and farFromVWAP and noConsolidation
+bool dtpShort = downTrend and bearBody and volStrong and inSession and bigRange and slopeOK and farFromVWAP and noConsolidation
+bool contLong  = dtpLong  and hybrid >  contLevel and hybrid <  extremeLevel and (not useDelta or presion > 0)
+bool contShort = dtpShort and hybrid < -contLevel and hybrid > -extremeLevel and (not useDelta or presion < 0)
+
+// B) Rebote: el precio toca una zona (fresca o con pocos retests), deja una vela
+//    de rechazo (mecha larga) y el Hybrid viene de abajo / de arriba.
+bool buyReject  = close > open and lowerWick > body * wickRatio
+bool sellReject = close < open and upperWick > body * wickRatio
+bool bounceLong  = inSession and tocaDemanda and buyReject  and hybrid <= -bounceHybrid and close > rebotePiso  and (not useDelta or dEst > 0)
+bool bounceShort = inSession and tocaOferta  and sellReject and hybrid >=  bounceHybrid and close < reboteTecho and (not useDelta or dEst < 0)
+
+bool quiereLong  = contLong  or bounceLong
+bool quiereShort = contShort or bounceShort
+
+// ============================================================================
+// FILTRO DE GEX Y FLOW (las reglas de oro)
+// ============================================================================
+float stopDist = atrStopMult * atrVal
+
+// Obstáculo más cercano en la dirección de la operación (muro o imán).
+float obsLong = na
+float obsShort = na
+if gexActivo
+    if not na(gCW) and gCW > close
+        obsLong := gCW
+    if not na(gMag) and gMag > close
+        obsLong := na(obsLong) ? gMag : math.min(obsLong, gMag)
+    if not na(gPW) and gPW < close
+        obsShort := gPW
+    if not na(gMag) and gMag < close
+        obsShort := na(obsShort) ? gMag : math.max(obsShort, gMag)
+
+bool cercaFlip = gexActivo and not na(gFlip) and math.abs(close - gFlip) < flipBufATR * atrVal
+
+bool   longGex   = true
+string porqueL   = ""
+bool   shortGex  = true
+string porqueS   = ""
+if useGexFilter and gexActivo
+    if cercaFlip
+        longGex := false
+        porqueL := "pegado al flip"
+    else if gReg == 1 and not na(gMag) and gMag <= close
+        longGex := false
+        porqueL := "día de rango y el imán está abajo"
+    else if gReg == 1 and not na(gCW) and close > gCW
+        longGex := false
+        porqueL := "pasó el call wall en día de rango (suele regresar)"
+    else if gReg == -1 and not na(gFlip) and close < gFlip
+        longGex := false
+        porqueL := "debajo del flip en día de empujón"
+    else if not na(obsLong) and (obsLong - close) < minRoomR * stopDist
+        longGex := false
+        porqueL := "poco espacio hasta " + str.tostring(obsLong, format.mintick)
+    else if not na(gFB) and gFB < fbMinLong
+        longGex := false
+        porqueL := "el flow va " + str.tostring(100 - gFB, "#") + "% a la baja"
+
+    if cercaFlip
+        shortGex := false
+        porqueS  := "pegado al flip"
+    else if gReg == 1 and not na(gMag) and gMag >= close
+        shortGex := false
+        porqueS  := "día de rango y el imán está arriba"
+    else if gReg == 1 and not na(gPW) and close < gPW
+        shortGex := false
+        porqueS  := "rompió el put wall en día de rango (suele regresar)"
+    else if gReg == -1 and not na(gFlip) and close > gFlip
+        shortGex := false
+        porqueS  := "encima del flip en día de empujón"
+    else if not na(obsShort) and (close - obsShort) < minRoomR * stopDist
+        shortGex := false
+        porqueS  := "poco espacio hasta " + str.tostring(obsShort, format.mintick)
+    else if not na(gFB) and (100 - gFB) < fbMinLong
+        shortGex := false
+        porqueS  := "el flow va " + str.tostring(gFB, "#") + "% al alza"
+
+// ============================================================================
+// SEGUIMIENTO DE LA OPERACIÓN
+// Entrada al cierre de la vela de la señal. Desde la siguiente se revisa:
+// Stop → TP2 → TP1 → regla de salida (solo continuación) → fin del día.
+// Si en la misma vela se tocan stop y meta, cuenta el STOP (lo peor).
+// ============================================================================
+var int   pos      = 0      // 1 long, -1 short
+var int   tipoOp   = 0      // 1 continuación, 2 rebote
+var float entryPx  = na
+var float initStop = na
+var float stopPx   = na
+var float tp1Px    = na
+var float tp2Px    = na
+var bool  tp1Hit   = false
+var int   trades   = 0
+var int   wins     = 0
+var int   losses   = 0
+var float sumR     = 0.0
+
+bool  exitStop = false
+bool  exitTP2  = false
+bool  exitRule = false
+bool  exitEOD  = false
+bool  hitTP1   = false
+float exitPx   = na
+
+if pos == 1
+    if low <= stopPx
+        exitStop := true
+        exitPx   := math.min(open, stopPx)
+    else if high >= tp2Px
+        exitTP2 := true
+        exitPx  := math.max(open, tp2Px)
+    else
+        if not tp1Hit and high >= tp1Px
+            tp1Hit := true
+            hitTP1 := true
+            if moveToBE
+                stopPx := entryPx
+        if useRuleExit and tipoOp == 1 and (close < emaFast or close < vwapValue or bearBody)
+            exitRule := true
+            exitPx   := close
+        else if closeAtEnd and endOfDay
+            exitEOD := true
+            exitPx  := close
+else if pos == -1
+    if high >= stopPx
+        exitStop := true
+        exitPx   := math.max(open, stopPx)
+    else if low <= tp2Px
+        exitTP2 := true
+        exitPx  := math.min(open, tp2Px)
+    else
+        if not tp1Hit and low <= tp1Px
+            tp1Hit := true
+            hitTP1 := true
+            if moveToBE
+                stopPx := entryPx
+        if useRuleExit and tipoOp == 1 and (close > emaFast or close > vwapValue or bullBody)
+            exitRule := true
+            exitPx   := close
+        else if closeAtEnd and endOfDay
+            exitEOD := true
+            exitPx  := close
+
+int  closedDir = pos
+bool exited    = exitStop or exitTP2 or exitRule or exitEOD
+if exited
+    float riskPts = math.abs(entryPx - initStop)
+    float pnlPts  = closedDir == 1 ? exitPx - entryPx : entryPx - exitPx
+    trades += 1
+    if pnlPts > 0
+        wins += 1
+    else if pnlPts < 0
+        losses += 1
+    if riskPts > 0
+        sumR += pnlPts / riskPts
+    pos      := 0
+    tipoOp   := 0
+    entryPx  := na
+    initStop := na
+    stopPx   := na
+    tp1Px    := na
+    tp2Px    := na
+    tp1Hit   := false
+
+bool enterLong  = pos == 0 and quiereLong and longGex
+bool enterShort = pos == 0 and not enterLong and quiereShort and shortGex
+bool filtradaL  = pos == 0 and quiereLong and not longGex
+bool filtradaS  = pos == 0 and quiereShort and not shortGex
+
+if enterLong
+    pos      := 1
+    tipoOp   := contLong ? 1 : 2
+    entryPx  := close
+    // Rebote: stop debajo de la zona (máximo 1.5 ATR). Continuación: ATR.
+    initStop := tipoOp == 2 ? math.max(rebotePiso - 0.1 * atrVal, close - 1.5 * atrVal) : close - stopDist
+    stopPx   := initStop
+    tp1Px    := close + atrTP1Mult * atrVal
+    tp2Px    := close + atrTP2Mult * atrVal
+    tp1Hit   := false
+    if snapTargets and not na(obsLong)
+        float metaMuro = obsLong - close * 0.0006
+        if metaMuro > close and metaMuro < tp2Px
+            tp2Px := metaMuro
+            tp1Px := math.min(tp1Px, close + (tp2Px - close) * 0.6)
+else if enterShort
+    pos      := -1
+    tipoOp   := contShort ? 1 : 2
+    entryPx  := close
+    initStop := tipoOp == 2 ? math.min(reboteTecho + 0.1 * atrVal, close + 1.5 * atrVal) : close + stopDist
+    stopPx   := initStop
+    tp1Px    := close - atrTP1Mult * atrVal
+    tp2Px    := close - atrTP2Mult * atrVal
+    tp1Hit   := false
+    if snapTargets and not na(obsShort)
+        float metaMuro = obsShort + close * 0.0006
+        if metaMuro < close and metaMuro > tp2Px
+            tp2Px := metaMuro
+            tp1Px := math.max(tp1Px, close - (close - tp2Px) * 0.6)
+
+// ============================================================================
+// DIBUJOS
+// ============================================================================
+plot(emaFast,   "EMA rápida",    color.aqua,    2)
+plot(emaSlow,   "EMA lenta",     color.fuchsia, 2)
+plot(emaTrend,  "EMA tendencia", color.yellow,  1)
+plot(vwapValue, "VWAP",          color.white,   2)
+
+plot(showPrevDay  ? pdh : na, "PDH", color.orange,          2, plot.style_linebr, linestyle = plot.linestyle_dashed)
+plot(showPrevDay  ? pdl : na, "PDL", color.orange,          2, plot.style_linebr, linestyle = plot.linestyle_dashed)
+plot(showPrevDay  ? pdc : na, "PDC", color.silver,          1, plot.style_linebr, linestyle = plot.linestyle_dashed)
+plot(showPrevWeek ? pwh : na, "PWH", color.new(#006400, 0), 1, plot.style_linebr, linestyle = plot.linestyle_dotted)
+plot(showPrevWeek ? pwl : na, "PWL", color.new(#8B0000, 0), 1, plot.style_linebr, linestyle = plot.linestyle_dotted)
+plot(showPremarket and session.ismarket ? pmH : na, "PMH (máx. premarket)", color.new(#66FFFF, 0), 1, plot.style_linebr, linestyle = plot.linestyle_dashed)
+plot(showPremarket and session.ismarket ? pmL : na, "PML (mín. premarket)", color.new(#66FFFF, 0), 1, plot.style_linebr, linestyle = plot.linestyle_dashed)
+plot(showDayOHL and session.ismarket ? dOpen : na, "Apertura", color.gray,             1, plot.style_linebr, linestyle = plot.linestyle_dotted)
+plot(showDayOHL and session.ismarket ? hod   : na, "HOD",      color.new(#0080FF, 0), 1, plot.style_linebr)
+plot(showDayOHL and session.ismarket ? lod   : na, "LOD",      color.new(#0080FF, 0), 1, plot.style_linebr)
+
+// Operación abierta
+plot(pos != 0 ? entryPx : na, "Entrada", color.gray,  1, plot.style_linebr)
+plot(pos != 0 ? stopPx  : na, "Stop",    color.red,   2, plot.style_linebr)
+plot(pos != 0 ? tp1Px   : na, "TP1",     color.lime,  1, plot.style_linebr, linestyle = plot.linestyle_dashed)
+plot(pos != 0 ? tp2Px   : na, "TP2",     color.green, 2, plot.style_linebr)
+
+// Entradas
+plotshape(enterLong  and tipoOp == 1, title = "LONG continuación",  style = shape.arrowup,     location = location.belowbar, color = color.green, size = size.normal, text = "LONG",       textcolor = color.green)
+plotshape(enterLong  and tipoOp == 2, title = "LONG rebote en zona", style = shape.labelup,    location = location.belowbar, color = color.green, size = size.small,  text = "Rebote ▲",   textcolor = color.white)
+plotshape(enterShort and tipoOp == 1, title = "SHORT continuación", style = shape.arrowdown,   location = location.abovebar, color = color.red,   size = size.normal, text = "SHORT",      textcolor = color.red)
+plotshape(enterShort and tipoOp == 2, title = "SHORT rebote en zona", style = shape.labeldown, location = location.abovebar, color = color.red,   size = size.small,  text = "Rebote ▼",   textcolor = color.white)
+plotshape(showFiltered and filtradaL, title = "LONG bloqueado por GEX/flow",  style = shape.circle, location = location.belowbar, color = color.new(color.gray, 20), size = size.tiny)
+plotshape(showFiltered and filtradaS, title = "SHORT bloqueado por GEX/flow", style = shape.circle, location = location.abovebar, color = color.new(color.gray, 20), size = size.tiny)
+
+// TP1 y salidas (las de un LONG arriba de la vela, las de un SHORT abajo)
+plotshape(hitTP1 and closedDir == 1,    title = "TP1 (long)",    style = shape.triangledown, location = location.abovebar, color = color.lime,   size = size.tiny,  text = "TP1",    textcolor = color.lime)
+plotshape(hitTP1 and closedDir == -1,   title = "TP1 (short)",   style = shape.triangleup,   location = location.belowbar, color = color.lime,   size = size.tiny,  text = "TP1",    textcolor = color.lime)
+plotshape(exitStop and closedDir == 1,  title = "Stop (long)",   style = shape.xcross,  location = location.abovebar, color = color.red,    size = size.small, text = "Stop",   textcolor = color.red)
+plotshape(exitStop and closedDir == -1, title = "Stop (short)",  style = shape.xcross,  location = location.belowbar, color = color.red,    size = size.small, text = "Stop",   textcolor = color.red)
+plotshape(exitTP2 and closedDir == 1,   title = "TP2 (long)",    style = shape.diamond, location = location.abovebar, color = color.green,  size = size.small, text = "TP2",    textcolor = color.green)
+plotshape(exitTP2 and closedDir == -1,  title = "TP2 (short)",   style = shape.diamond, location = location.belowbar, color = color.green,  size = size.small, text = "TP2",    textcolor = color.green)
+plotshape(exitRule and closedDir == 1,  title = "Salida por regla (long)",  style = shape.square, location = location.abovebar, color = color.yellow, size = size.tiny, text = "Salida", textcolor = color.yellow)
+plotshape(exitRule and closedDir == -1, title = "Salida por regla (short)", style = shape.square, location = location.belowbar, color = color.yellow, size = size.tiny, text = "Salida", textcolor = color.yellow)
+plotshape(exitEOD and closedDir == 1,   title = "Cierre del día (long)",  style = shape.circle, location = location.abovebar, color = color.gray, size = size.tiny, text = "Cierre", textcolor = color.gray)
+plotshape(exitEOD and closedDir == -1,  title = "Cierre del día (short)", style = shape.circle, location = location.belowbar, color = color.gray, size = size.tiny, text = "Cierre", textcolor = color.gray)
+
+barcolor(upTrend and noConsolidation ? color.new(#006400, 0) : downTrend and noConsolidation ? color.new(#8B0000, 0) : color.new(#555555, 0))
+
+if showSignalLabels and enterLong
+    label.new(bar_index, low, (tipoOp == 1 ? "LONG" : "REBOTE LONG") + "\nStop " + str.tostring(initStop, format.mintick) + "\nTP1 " + str.tostring(tp1Px, format.mintick) + "\nTP2 " + str.tostring(tp2Px, format.mintick), yloc = yloc.belowbar, style = label.style_label_up, color = color.green, textcolor = color.white, size = size.small)
+if showSignalLabels and enterShort
+    label.new(bar_index, high, (tipoOp == 1 ? "SHORT" : "REBOTE SHORT") + "\nStop " + str.tostring(initStop, format.mintick) + "\nTP1 " + str.tostring(tp1Px, format.mintick) + "\nTP2 " + str.tostring(tp2Px, format.mintick), yloc = yloc.abovebar, style = label.style_label_down, color = color.red, textcolor = color.white, size = size.small)
+
+// --- Muros, imán, flip y perfil de GEX (solo en la última vela; se redibujan) ---
+var array<line>  gLines  = array.new<line>()
+var array<label> gLabels = array.new<label>()
+var array<box>   gBoxes  = array.new<box>()
+var int sessStart = 0
+if nuevoDia
+    sessStart := bar_index
+
+dibujarNivel(array<line> ls, array<label> lbs, float precio, string txt, color c, string estilo, int desde) =>
+    if not na(precio)
+        ls.push(line.new(desde, precio, bar_index + 12, precio, color = c, width = 2, style = estilo))
+        lbs.push(label.new(bar_index + 12, precio, txt + " " + str.tostring(precio, format.mintick), style = label.style_label_left, color = color.new(c, 15), textcolor = color.white, size = size.small))
+
+if barstate.islast
+    for l in gLines
+        line.delete(l)
+    gLines.clear()
+    for lb in gLabels
+        label.delete(lb)
+    gLabels.clear()
+    for bx in gBoxes
+        box.delete(bx)
+    gBoxes.clear()
+
+    if gexActivo and showGexLevels
+        dibujarNivel(gLines, gLabels, gCW,   "Call wall", color.red,    line.style_solid,  sessStart)
+        dibujarNivel(gLines, gLabels, gPW,   "Put wall",  color.green,  line.style_solid,  sessStart)
+        dibujarNivel(gLines, gLabels, gMag,  "Imán",      color.yellow, line.style_solid,  sessStart)
+        dibujarNivel(gLines, gLabels, gFlip, "Flip",      color.white,  line.style_dashed, sessStart)
+
+    int nG = gStrikes.size()
+    if gexActivo and showGexProfile and nG > 0
+        float maxAbs = 0.0
+        for gv in gVals
+            maxAbs := math.max(maxAbs, math.abs(gv))
+        float paso = na
+        if nG > 1
+            for i = 1 to nG - 1
+                float d = gStrikes.get(i) - gStrikes.get(i - 1)
+                if d > 0
+                    paso := na(paso) ? d : math.min(paso, d)
+        float media = na(paso) ? close * 0.0005 : paso * 0.4
+        if maxAbs > 0
+            for i = 0 to nG - 1
+                float gv  = gVals.get(i)
+                float gk  = gStrikes.get(i)
+                int largo = math.max(1, math.round(math.abs(gv) / maxAbs * profileWidth))
+                int x0    = bar_index + 30
+                gBoxes.push(box.new(x0, gk + media, x0 + largo, gk - media, border_color = na, bgcolor = gv >= 0 ? color.new(color.green, 30) : color.new(color.red, 30)))
+
+// ============================================================================
+// CUADRO
+// ============================================================================
+var table info = table.new(position.top_right, 2, 9, bgcolor = color.new(color.black, 20), border_width = 1)
+if showTable and barstate.islast
+    string t0 = "Sin línea de Nagimi: pégala en Ajustes"
+    color  c0 = color.new(color.gray, 0)
+    if hayLinea and not tickerOk
+        t0 := "La línea es de " + gTicker + ", no de " + syminfo.ticker
+        c0 := color.new(color.orange, 0)
+    else if hayLinea and not gexActivo
+        t0 := "La línea es del " + gFecha + ": pega la de hoy"
+        c0 := color.new(color.orange, 0)
+    else if gexActivo
+        t0 := gTicker + " · " + (gReg == 1 ? "día de RANGO (va al imán)" : gReg == -1 ? "día de EMPUJÓN (sigue rupturas)" : "tipo de día ?")
+        c0 := gReg == 1 ? color.new(color.teal, 0) : color.new(color.maroon, 0)
+    table.cell(info, 0, 0, "Nagimi", text_color = color.white)
+    table.cell(info, 1, 0, t0, bgcolor = c0, text_color = color.white)
+
+    string t1 = gexActivo ? "CW " + str.tostring(gCW, format.mintick) + " | Imán " + str.tostring(gMag, format.mintick) + " | Flip " + str.tostring(gFlip, format.mintick) + " | PW " + str.tostring(gPW, format.mintick) : "—"
+    table.cell(info, 0, 1, "Muros", text_color = color.white)
+    table.cell(info, 1, 1, t1, text_color = color.white)
+
+    string t2 = gexActivo and not na(gFB) ? str.tostring(gFB, "#") + "% del dinero apuesta a que SUBE" : "—"
+    table.cell(info, 0, 2, "Flow", text_color = color.white)
+    table.cell(info, 1, 2, t2, text_color = color.white)
+
+    string t3 = not gexActivo ? "sin filtro (no hay muros de hoy)" : "LONG " + (longGex ? "✅" : "⛔ " + porqueL) + "  ·  SHORT " + (shortGex ? "✅" : "⛔ " + porqueS)
+    table.cell(info, 0, 3, "Ahora", text_color = color.white)
+    table.cell(info, 1, 3, t3, text_color = color.white)
+
+    string t4 = str.tostring(hybrid, "#.##") + (hybridSlope > 0 ? " ↑" : hybridSlope < 0 ? " ↓" : " →") + (hybrid >= extremeLevel ? "  (extremo arriba)" : hybrid <= -extremeLevel ? "  (extremo abajo)" : "")
+    table.cell(info, 0, 4, "Hybrid", text_color = color.white)
+    table.cell(info, 1, 4, t4, text_color = color.white)
+
+    table.cell(info, 0, 5, "Presión (est.)", text_color = color.white)
+    table.cell(info, 1, 5, presion > 0 ? "compradores" : presion < 0 ? "vendedores" : "pareja", text_color = presion > 0 ? color.lime : presion < 0 ? color.red : color.white)
+
+    string t6 = pos == 1 ? (tipoOp == 1 ? "LONG" : "REBOTE LONG") + " desde " + str.tostring(entryPx, format.mintick) : pos == -1 ? (tipoOp == 1 ? "SHORT" : "REBOTE SHORT") + " desde " + str.tostring(entryPx, format.mintick) : "Sin operación abierta"
+    table.cell(info, 0, 6, "Operación", text_color = color.white)
+    table.cell(info, 1, 6, t6, bgcolor = pos == 1 ? color.new(color.green, 0) : pos == -1 ? color.new(color.red, 0) : color.new(color.gray, 0), text_color = color.white)
+
+    string t7 = pos != 0 ? "Stop " + str.tostring(stopPx, format.mintick) + " | TP1 " + str.tostring(tp1Px, format.mintick) + (tp1Hit ? " ✓" : "") + " | TP2 " + str.tostring(tp2Px, format.mintick) : "—"
+    table.cell(info, 0, 7, "Niveles", text_color = color.white)
+    table.cell(info, 1, 7, t7, text_color = color.white)
+
+    string t8 = trades > 0 ? str.tostring(trades) + " ops · " + str.tostring(wins) + " ganadas / " + str.tostring(losses) + " perdidas · " + str.tostring(100.0 * wins / trades, "#") + "% · " + str.tostring(sumR, "#.##") + " R" : "todavía sin operaciones"
+    table.cell(info, 0, 8, "Resultados", text_color = color.white)
+    table.cell(info, 1, 8, t8, text_color = sumR >= 0 ? color.lime : color.red)
+
+// ============================================================================
+// ALERTAS
+// Para el celular: "Crear alerta" → este indicador → elige la condición.
+// Para Nagimi (webhook): "Crear alerta" → "Cualquier llamada a alert()".
+// En los dos casos: "Una vez por cierre de barra".
+// ============================================================================
+alertcondition(enterLong,  "Entrada LONG",       "Nagimi Flow: ENTRADA LONG en {{ticker}} a {{close}}")
+alertcondition(enterShort, "Entrada SHORT",      "Nagimi Flow: ENTRADA SHORT en {{ticker}} a {{close}}")
+alertcondition(hitTP1,     "TP1 tocado",         "Nagimi Flow: TP1 tocado en {{ticker}} ({{close}})")
+alertcondition(exitTP2,    "TP2 tocado",         "Nagimi Flow: TP2 tocado en {{ticker}} — salida ({{close}})")
+alertcondition(exitStop,   "Stop tocado",        "Nagimi Flow: STOP tocado en {{ticker}} — salida ({{close}})")
+alertcondition(exitRule,   "Salida por regla",   "Nagimi Flow: SALIDA por regla en {{ticker}} a {{close}}")
+alertcondition(exitEOD,    "Cierre del día",     "Nagimi Flow: CIERRE del día en {{ticker}} a {{close}}")
+alertcondition(cruzaPDH, "Cruzó arriba del máximo de ayer",  "Nagimi Flow: {{ticker}} cruzó ARRIBA del máximo de ayer ({{close}})")
+alertcondition(cruzaPDL, "Cruzó abajo del mínimo de ayer",   "Nagimi Flow: {{ticker}} cruzó ABAJO del mínimo de ayer ({{close}})")
+alertcondition(session.ismarket and cruzaPMH, "Cruzó arriba del máximo del premarket", "Nagimi Flow: {{ticker}} cruzó ARRIBA del máximo del premarket ({{close}})")
+alertcondition(session.ismarket and cruzaPML, "Cruzó abajo del mínimo del premarket",  "Nagimi Flow: {{ticker}} cruzó ABAJO del mínimo del premarket ({{close}})")
+alertcondition(nuevoHOD, "Nuevo máximo del día", "Nagimi Flow: {{ticker}} hizo NUEVO MÁXIMO del día ({{high}})")
+alertcondition(nuevoLOD, "Nuevo mínimo del día", "Nagimi Flow: {{ticker}} hizo NUEVO MÍNIMO del día ({{low}})")
+
+// Mensaje para Nagimi (webhook), en formato JSON.
+if enterLong or enterShort
+    alert('{"nagimi":1,"evento":"entrada","dir":"' + (enterLong ? "long" : "short") + '","tipo":"' + (tipoOp == 1 ? "continuacion" : "rebote") + '","ticker":"' + syminfo.ticker + '","precio":' + str.tostring(entryPx, format.mintick) + ',"stop":' + str.tostring(initStop, format.mintick) + ',"tp1":' + str.tostring(tp1Px, format.mintick) + ',"tp2":' + str.tostring(tp2Px, format.mintick) + ',"hybrid":' + str.tostring(hybrid, "#.##") + '}', alert.freq_once_per_bar_close)
+if exited
+    alert('{"nagimi":1,"evento":"salida","dir":"' + (closedDir == 1 ? "long" : "short") + '","motivo":"' + (exitStop ? "stop" : exitTP2 ? "tp2" : exitRule ? "regla" : "cierre") + '","ticker":"' + syminfo.ticker + '","precio":' + str.tostring(exitPx, format.mintick) + '}', alert.freq_once_per_bar_close)
+if hitTP1
+    alert('{"nagimi":1,"evento":"tp1","ticker":"' + syminfo.ticker + '","precio":' + str.tostring(close, format.mintick) + '}', alert.freq_once_per_bar_close)
